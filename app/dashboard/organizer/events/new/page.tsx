@@ -397,8 +397,8 @@ export default function NewEventPage() {
         custom_distances: formData.distanciasCustom,
         total_capacity: formData.lotes.reduce((total, lote) => {
           const qtd = lote.quantidadeTotal && lote.quantidadeTotal !== "" ? parseInt(lote.quantidadeTotal) : null
-          return qtd !== null ? total + qtd : null
-        }, 0 as number | null),
+          return qtd !== null ? total + qtd : total
+        }, 0) || undefined,
         lotes,
         settings: {
           payment_pix_enabled: formData.meiosPagamento.pix,
