@@ -8,6 +8,11 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "EveMaster - Plataforma de Ingressos para Eventos Esportivos",
   description: "Plataforma SaaS de venda de ingressos para corridas, maratonas, triatlon e ciclismo",
+  icons: {
+    icon: "/logo/faviconeve.png",
+    shortcut: "/logo/faviconeve.png",
+    apple: "/logo/faviconeve.png",
+  },
 }
 
 export default function RootLayout({
