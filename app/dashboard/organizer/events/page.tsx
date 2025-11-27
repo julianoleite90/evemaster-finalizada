@@ -133,6 +133,10 @@ export default function EventsPage() {
         // Converter para o formato esperado
         const eventosFormatados: Event[] = events.map((event: any) => {
           const stats = statsByEvent[event.id] || { inscritos: 0, receita: 0 }
+          // Se total_capacity for null, undefined, 0 ou inválido, considerar como ilimitado
+          const capacidade = event.total_capacity && event.total_capacity > 0 
+            ? event.total_capacity 
+            : null
           return {
             id: event.id,
             slug: event.slug,
@@ -142,7 +146,7 @@ export default function EventsPage() {
             location: event.location || event.address || "Local a definir",
             status: event.status as "draft" | "active" | "finished" | "cancelled",
             inscritos: stats.inscritos,
-            capacidade: event.total_capacity,
+            capacidade: capacidade,
             receita: stats.receita,
             imagem: event.banner_url,
           }
@@ -247,9 +251,13 @@ export default function EventsPage() {
             <Users className="h-4 w-4 flex-shrink-0 text-[#156634]" />
             <span className="font-semibold text-foreground">
               {event.inscritos.toLocaleString("pt-BR")}
-              {event.capacidade && (
+              {event.capacidade !== null && event.capacidade !== undefined ? (
                 <span className="text-muted-foreground font-normal">
                   {" / "}{event.capacidade.toLocaleString("pt-BR")} inscritos
+                </span>
+              ) : (
+                <span className="text-muted-foreground font-normal">
+                  {" inscritos (ilimitado)"}
                 </span>
               )}
             </span>
