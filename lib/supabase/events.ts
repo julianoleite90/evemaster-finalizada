@@ -37,7 +37,7 @@ export async function createEvent(eventData: {
     start_date: string
     start_time: string
     end_date: string
-    total_quantity: number
+    total_quantity: number | null
     tickets: Array<{
       category: string
       price: number
