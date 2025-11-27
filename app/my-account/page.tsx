@@ -27,13 +27,21 @@ export default function MyAccountPage() {
           return
         }
 
-        // Buscar inscrições de duas formas:
-        // 1. Diretamente vinculadas ao user_id (se houver)
-        // 2. Através dos atletas com o mesmo email
+        console.log("🔍 [MyAccount] Buscando inscrições para usuário:", {
+          userId: user.id,
+          email: user.email,
+        })
 
-        // Primeiro, buscar inscrições diretas (se a coluna user_id existir)
-        // Usar try/catch para não falhar se a coluna não existir ainda
+        // Buscar inscrições de múltiplas formas:
+        // 1. Diretamente vinculadas ao user_id
+        // 2. Através dos atletas com o mesmo email (case-insensitive)
+        // 3. Buscar todas as registrations e filtrar por email do atleta
+
         let directRegistrations: any[] = []
+        let athleteRegistrations: any[] = []
+        let allRegistrations: any[] = []
+
+        // 1. Buscar inscrições diretas por user_id
         try {
           const { data, error } = await supabase
             .from("registrations")
@@ -62,80 +70,148 @@ export default function MyAccountPage() {
             .order("created_at", { ascending: false })
           
           if (!error && data) {
-            directRegistrations = data
-          } else if (error && !error.message?.includes("column") && !error.message?.includes("user_id")) {
-            console.error("Erro ao buscar inscrições diretas:", error)
+            directRegistrations = data || []
+            console.log("✅ [MyAccount] Inscrições encontradas por user_id:", directRegistrations.length)
+          } else if (error) {
+            if (error.message?.includes("column") || error.message?.includes("user_id")) {
+              console.log("ℹ️ [MyAccount] Coluna user_id não existe ou não acessível")
+            } else {
+              console.error("❌ [MyAccount] Erro ao buscar inscrições por user_id:", error)
+            }
           }
-        } catch (err) {
-          // Ignorar erro se a coluna não existir
-          console.log("Coluna user_id pode não existir ainda, buscando apenas por email do atleta")
+        } catch (err: any) {
+          console.log("ℹ️ [MyAccount] Erro ao buscar por user_id:", err.message)
         }
 
-        // Depois, buscar através dos atletas com o mesmo email
-        const { data: athletes, error: athletesError } = await supabase
-          .from("athletes")
-          .select("id, registration_id, full_name, email, category")
-          .eq("email", user.email || "")
+        // 2. Buscar através dos atletas com o mesmo email (case-insensitive)
+        if (user.email) {
+          // Buscar atletas com email igual (case-insensitive)
+          const { data: athletes, error: athletesError } = await supabase
+            .from("athletes")
+            .select("id, registration_id, full_name, email, category")
+            .ilike("email", user.email) // Case-insensitive
 
-        if (athletesError) {
-          console.error("Erro ao buscar atletas:", athletesError)
-        }
+          if (athletesError) {
+            console.error("❌ [MyAccount] Erro ao buscar atletas:", athletesError)
+          } else {
+            console.log("✅ [MyAccount] Atletas encontrados:", athletes?.length || 0)
+          }
 
-        // Buscar registrations vinculadas aos atletas
-        let athleteRegistrations: any[] = []
-        if (athletes && athletes.length > 0) {
-          const registrationIds = athletes
-            .map(a => a.registration_id)
-            .filter(id => id !== null) as string[]
+          if (athletes && athletes.length > 0) {
+            const registrationIds = athletes
+              .map(a => a.registration_id)
+              .filter(id => id !== null) as string[]
 
-          if (registrationIds.length > 0) {
-            const { data: regs, error: regError } = await supabase
-              .from("registrations")
-              .select(`
-                *,
-                event:events(
-                  id,
-                  name,
-                  slug,
-                  event_date,
-                  start_time,
-                  location,
-                  address,
-                  banner_url,
-                  category
-                ),
-                ticket:tickets(
-                  id,
-                  category,
-                  price,
-                  is_free
-                ),
-                athletes(full_name, email, category)
-              `)
-              .in("id", registrationIds)
-              .order("created_at", { ascending: false })
+            console.log("🔍 [MyAccount] IDs de registrations dos atletas:", registrationIds.length)
 
-            if (!regError && regs) {
-              athleteRegistrations = regs
+            if (registrationIds.length > 0) {
+              const { data: regs, error: regError } = await supabase
+                .from("registrations")
+                .select(`
+                  *,
+                  event:events(
+                    id,
+                    name,
+                    slug,
+                    event_date,
+                    start_time,
+                    location,
+                    address,
+                    banner_url,
+                    category
+                  ),
+                  ticket:tickets(
+                    id,
+                    category,
+                    price,
+                    is_free
+                  ),
+                  athletes(full_name, email, category)
+                `)
+                .in("id", registrationIds)
+                .order("created_at", { ascending: false })
+
+              if (!regError && regs) {
+                athleteRegistrations = regs || []
+                console.log("✅ [MyAccount] Inscrições encontradas por email do atleta:", athleteRegistrations.length)
+              } else if (regError) {
+                console.error("❌ [MyAccount] Erro ao buscar registrations dos atletas:", regError)
+              }
             }
           }
         }
 
-        // Combinar e remover duplicatas
-        const allRegistrations = [
-          ...(directRegistrations || []),
+        // 3. Buscar todas as registrations e filtrar por email do atleta (fallback)
+        // Isso garante que mesmo se a busca anterior falhar, ainda encontraremos as inscrições
+        if (user.email && (directRegistrations.length === 0 && athleteRegistrations.length === 0)) {
+          console.log("🔍 [MyAccount] Tentando busca alternativa: todas as registrations com atletas")
+          
+          const { data: allRegs, error: allRegsError } = await supabase
+            .from("registrations")
+            .select(`
+              *,
+              event:events(
+                id,
+                name,
+                slug,
+                event_date,
+                start_time,
+                location,
+                address,
+                banner_url,
+                category
+              ),
+              ticket:tickets(
+                id,
+                category,
+                price,
+                is_free
+              ),
+              athletes(full_name, email, category)
+            `)
+            .order("created_at", { ascending: false })
+            .limit(100) // Limitar para performance
+
+          if (!allRegsError && allRegs) {
+            // Filtrar registrations onde algum atleta tem o mesmo email
+            const filtered = allRegs.filter((reg: any) => {
+              // Verificar se tem user_id correspondente
+              if (reg.user_id === user.id) return true
+              
+              // Verificar se algum atleta tem o mesmo email (case-insensitive)
+              if (reg.athletes && Array.isArray(reg.athletes)) {
+                return reg.athletes.some((athlete: any) => 
+                  athlete.email && athlete.email.toLowerCase() === user.email?.toLowerCase()
+                )
+              }
+              
+              return false
+            })
+            
+            allRegistrations = filtered
+            console.log("✅ [MyAccount] Inscrições encontradas na busca alternativa:", allRegistrations.length)
+          }
+        }
+
+        // Combinar todas as inscrições encontradas
+        const combined = [
+          ...directRegistrations,
           ...athleteRegistrations,
+          ...allRegistrations,
         ]
 
         // Remover duplicatas baseado no ID da registration
-        const uniqueRegistrations = allRegistrations.filter(
+        const uniqueRegistrations = combined.filter(
           (reg, index, self) =>
             index === self.findIndex((r) => r.id === reg.id)
         )
 
+        console.log("📊 [MyAccount] Total de inscrições únicas encontradas:", uniqueRegistrations.length)
+        console.log("📋 [MyAccount] IDs das inscrições:", uniqueRegistrations.map(r => r.id))
+
         setInscricoes(uniqueRegistrations)
       } catch (error) {
-        console.error("Erro ao buscar inscrições:", error)
+        console.error("❌ [MyAccount] Erro ao buscar inscrições:", error)
         toast.error("Erro ao carregar inscrições")
       } finally {
         setLoading(false)
@@ -281,13 +357,13 @@ export default function MyAccountPage() {
                           </div>
                         )}
 
-                        {inscricao.athlete && (
+                        {inscricao.athletes && Array.isArray(inscricao.athletes) && inscricao.athletes.length > 0 && (
                           <div className="flex items-start gap-3">
                             <div className="h-5 w-5 mt-0.5" />
                             <div>
                               <p className="text-sm text-gray-500">Participante</p>
                               <p className="font-medium">
-                                {inscricao.athlete.full_name || inscricao.athlete.email}
+                                {inscricao.athletes[0].full_name || inscricao.athletes[0].email}
                               </p>
                             </div>
                           </div>
