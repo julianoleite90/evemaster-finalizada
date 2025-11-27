@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import { Resend } from 'resend'
 
 export const runtime = 'nodejs'
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Buscar usuário primeiro na tabela users
-    const supabase = await import('@/lib/supabase/server').then(m => m.createClient())
+    const supabase = await createClient()
     
     const { data: userData } = await supabase
       .from('users')
