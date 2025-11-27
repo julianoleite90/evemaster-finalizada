@@ -3,113 +3,47 @@ import { NextResponse, type NextRequest } from "next/server"
 
 type CookieOptions = Parameters<NextResponse["cookies"]["set"]>[2]
 
-// Flag para desabilitar middleware temporariamente se necessário
-const MIDDLEWARE_ENABLED = process.env.MIDDLEWARE_ENABLED !== 'false'
-
 export async function middleware(request: NextRequest) {
-  // Se middleware estiver desabilitado, apenas passa a requisição
-  if (!MIDDLEWARE_ENABLED) {
-    return NextResponse.next({ request })
-  }
+  const response = NextResponse.next({ request })
 
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+    // Se não houver variáveis, apenas continua
     if (!supabaseUrl || !supabaseAnonKey) {
-      // Se não houver variáveis, apenas continua sem autenticação
-      return NextResponse.next({ request })
+      return response
     }
 
-    const supabaseResponse = NextResponse.next({
-      request,
-    })
-
-    let supabase
-    try {
-      supabase = createServerClient(
-        supabaseUrl,
-        supabaseAnonKey,
-        {
-          cookies: {
-            get(name: string) {
-              return request.cookies.get(name)?.value
-            },
-            set(name: string, value: string, options?: CookieOptions) {
-              try {
-                supabaseResponse.cookies.set(name, value, options)
-              } catch (error) {
-                // Ignora erros ao setar cookies
-              }
-            },
-            remove(name: string, options?: CookieOptions) {
-              try {
-                supabaseResponse.cookies.set(name, "", {
-                  ...options,
-                  maxAge: 0,
-                })
-              } catch (error) {
-                // Ignora erros ao remover cookies
-              }
-            },
+    // Criar cliente Supabase APENAS para gerenciar cookies
+    // Não fazemos chamadas HTTP aqui para evitar problemas no Edge Runtime
+    createServerClient(
+      supabaseUrl,
+      supabaseAnonKey,
+      {
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value
           },
-        }
-      )
-    } catch (error) {
-      // Se houver erro ao criar cliente, apenas continua
-      // Não loga em produção para evitar problemas
-      return NextResponse.next({ request })
-    }
-
-    // IMPORTANT: Avoid writing any logic between createServerClient and
-    // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-    // issues with users being randomly logged out.
-
-    let user = null
-    try {
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser()
-
-      if (authError) {
-        // Log apenas em desenvolvimento
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Error getting user in middleware:', authError)
-        }
-        // Continue sem usuário se houver erro
-      } else {
-        user = authUser
+          set(name: string, value: string, options?: CookieOptions) {
+            response.cookies.set(name, value, options)
+          },
+          remove(name: string, options?: CookieOptions) {
+            response.cookies.set(name, "", {
+              ...options,
+              maxAge: 0,
+            })
+          },
+        },
       }
-    } catch (error) {
-      // Se houver erro inesperado, apenas continua sem usuário
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Unexpected error in middleware getUser:', error)
-      }
-    }
+    )
 
-    // Verifica se precisa redirecionar para login
-    if (
-      !user &&
-      !request.nextUrl.pathname.startsWith('/login') &&
-      !request.nextUrl.pathname.startsWith('/register') &&
-      !request.nextUrl.pathname.startsWith('/') &&
-      request.nextUrl.pathname.startsWith('/dashboard')
-    ) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/login'
-      return NextResponse.redirect(url)
-    }
-
-    // IMPORTANT: You *must* return the supabaseResponse object as it is.
-    return supabaseResponse
+    // Apenas retorna a response com cookies gerenciados
+    // A verificação de autenticação será feita nas páginas
+    return response
   } catch (error) {
-    // Se houver qualquer erro no middleware, apenas continua a requisição
-    // Isso evita que erros quebrem toda a aplicação
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Middleware error:', error)
-    }
-    return NextResponse.next({ request })
+    // Qualquer erro: retorna response padrão
+    return response
   }
 }
 
