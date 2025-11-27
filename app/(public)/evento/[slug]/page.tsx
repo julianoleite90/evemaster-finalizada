@@ -941,13 +941,12 @@ export default function EventoLandingPage() {
                 </h3>
                 <Select value={language} onValueChange={(val: "pt" | "es" | "en") => setLanguage(val)}>
                   <SelectTrigger className="w-full max-w-[140px] md:w-[140px] bg-white border-gray-200 text-gray-600 text-xs h-8 md:h-9">
-                    <SelectValue>
-                      <span className="flex items-center gap-1.5 md:gap-2">
-                        <span className="text-sm">{language === "pt" ? "🇧🇷" : language === "es" ? "🇦🇷" : "🇺🇸"}</span>
-                        <span className="text-xs hidden sm:inline">{language === "pt" ? "Português" : language === "es" ? "Español" : "English"}</span>
-                        <span className="text-xs sm:hidden">{language === "pt" ? "PT" : language === "es" ? "ES" : "EN"}</span>
-                      </span>
-                    </SelectValue>
+                    <SelectValue placeholder="" className="hidden" />
+                    <span className="flex items-center gap-1.5 md:gap-2">
+                      <span className="text-sm">{language === "pt" ? "🇧🇷" : language === "es" ? "🇦🇷" : "🇺🇸"}</span>
+                      <span className="text-xs hidden sm:inline">{language === "pt" ? "Português" : language === "es" ? "Español" : "English"}</span>
+                      <span className="text-xs sm:hidden">{language === "pt" ? "PT" : language === "es" ? "ES" : "EN"}</span>
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pt">
