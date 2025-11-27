@@ -274,7 +274,7 @@ export async function getEventBySlug(slug: string) {
       // Buscar organizador separadamente para evitar problemas de JOIN
       if (event.organizer_id) {
         console.log("🔍 Buscando organizador separadamente...")
-        const { data: organizer } = await supabase
+        let { data: organizer } = await supabase
           .from("organizers")
           .select(`
             id, 
