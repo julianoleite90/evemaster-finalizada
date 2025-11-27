@@ -23,10 +23,22 @@ export function middleware(request: NextRequest) {
     )
   )
   
-  // Se não tem cookie de auth, redirecionar para login
+  // Se não tem cookie de auth, redirecionar para login específico do dashboard
   if (!hasAuthCookie) {
     const url = request.nextUrl.clone()
-    url.pathname = '/login'
+    
+    // Determinar página de login baseado na rota
+    if (pathname.startsWith('/dashboard/organizer')) {
+      url.pathname = '/login/organizer'
+    } else if (pathname.startsWith('/dashboard/affiliate')) {
+      url.pathname = '/login/affiliate'
+    } else if (pathname.startsWith('/dashboard/admin')) {
+      url.pathname = '/login/admin'
+    } else {
+      // Para /my-account ou outras rotas, usar login geral
+      url.pathname = '/login'
+    }
+    
     url.searchParams.set('from', pathname)
     return NextResponse.redirect(url)
   }
