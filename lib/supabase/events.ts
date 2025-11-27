@@ -346,7 +346,7 @@ export async function getEventBySlug(slug: string) {
                 ...organizer,
                 email: fabianoUser.email,
                 company_email: fabianoUser.email
-              }
+              } as any
             } else {
               console.log("⚠️ [DEBUG EMAIL] Não foi possível encontrar o email correto. Email não será exibido.")
               console.log("⚠️ [DEBUG EMAIL] Execute o script SQL 019_diagnose_fabiano_user.sql para encontrar o user_id correto.")
@@ -356,7 +356,7 @@ export async function getEventBySlug(slug: string) {
               ...organizer,
               email: user.email,
               company_email: user.email
-            }
+            } as any
             console.log("✅ [DEBUG EMAIL] Email adicionado ao organizador:", user.email)
           } else if (userError) {
             console.log("❌ [DEBUG EMAIL] Erro ao buscar usuário da tabela users:", userError.message)
