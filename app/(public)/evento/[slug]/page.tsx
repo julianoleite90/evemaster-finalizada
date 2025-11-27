@@ -368,35 +368,6 @@ export default function EventoLandingPage() {
             {/* Card Principal */}
             <Card>
               <CardContent className="p-6 md:p-8">
-                <div className="flex justify-end mb-4 md:-mt-2">
-                  <Select value={language} onValueChange={(val: "pt" | "es" | "en") => setLanguage(val)}>
-                    <SelectTrigger className="w-[100px] md:w-[140px] bg-white border-gray-200 text-gray-600 text-[9px] md:text-sm h-7 md:h-9 pl-2 pr-2">
-                      <SelectValue placeholder={translations[language].languageLabel}>
-                        <span className="flex items-center gap-1.5">
-                          <span>{language === "pt" ? "🇧🇷" : language === "es" ? "🇦🇷" : "🇺🇸"}</span>
-                          <span>{language === "pt" ? "Português" : language === "es" ? "Español" : "English"}</span>
-                        </span>
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pt" className="pl-2 [&>span:first-child]:hidden">
-                        <span className="flex items-center gap-2">
-                          <span>🇧🇷</span> <span>Português</span>
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="es" className="pl-2 [&>span:first-child]:hidden">
-                        <span className="flex items-center gap-2">
-                          <span>🇦🇷</span> <span>Español</span>
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="en" className="pl-2 [&>span:first-child]:hidden">
-                        <span className="flex items-center gap-2">
-                          <span>🇺🇸</span> <span>English</span>
-                        </span>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
                 <div className="mb-6">
                   <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
                     {eventData.name}
@@ -840,121 +811,155 @@ export default function EventoLandingPage() {
       </div>
 
       {/* Rodapé Profissional */}
-      <footer className="bg-gray-50 border-t border-gray-200 mt-16">
-        <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-12 pb-8">
+      <footer className="bg-gray-50/50 border-t border-gray-100 mt-16">
+        <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-10 pb-6">
           <div className="max-w-7xl mx-auto">
-            {/* Grid Principal - Proporcional */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 lg:gap-16 mb-8 text-center md:text-left">
+            {/* Grid Principal */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12 mb-8 text-center md:text-left">
               {/* Coluna 1: Logo e Descrição */}
-              <div className="space-y-4 flex flex-col items-center md:items-start">
+              <div className="space-y-3 flex flex-col items-center md:items-start">
                 <div>
-              <Image
-                src="/images/logo/logo.png"
-                alt="EveMaster"
+                  <Image
+                    src="/images/logo/logo.png"
+                    alt="EveMaster"
                     width={140}
                     height={40}
-                    className="h-9 w-auto opacity-90"
+                    className="h-8 w-auto opacity-80"
                   />
                 </div>
-                <p className="text-sm text-gray-600 leading-relaxed max-w-xs">
+                <p className="text-xs text-gray-500 leading-relaxed max-w-xs">
                   Ingressos para eventos esportivos. 
                   Corridas, maratonas, triatlon e ciclismo.
                 </p>
-            </div>
+              </div>
 
               {/* Coluna 2: Formas de Pagamento */}
-              <div className="space-y-4 flex flex-col items-center md:items-start">
-                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+              <div className="space-y-3 flex flex-col items-center md:items-start">
+                <h3 className="text-xs font-medium text-gray-600">
                   {translations[language].footerPayment}
                 </h3>
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5">
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
                   <Image
                     src="/images/ic-payment-visa.svg"
                     alt="Visa"
-                    width={45}
-                    height={28}
-                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                    width={40}
+                    height={25}
+                    className="h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
                   />
                   <Image
                     src="/images/ic-payment-master-card.svg"
                     alt="Mastercard"
-                    width={45}
-                    height={28}
-                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                    width={40}
+                    height={25}
+                    className="h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
                   />
                   <Image
                     src="/images/ic-payment-elo.svg"
                     alt="Elo"
-                    width={45}
-                    height={28}
-                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                    width={40}
+                    height={25}
+                    className="h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
                   />
                   <Image
                     src="/images/ic-payment-american-express.svg"
                     alt="American Express"
-                    width={45}
-                    height={28}
-                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                    width={40}
+                    height={25}
+                    className="h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
                   />
                   <Image
                     src="/images/ic-payment-hipercard.svg"
                     alt="Hipercard"
-                    width={45}
-                    height={28}
-                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                    width={40}
+                    height={25}
+                    className="h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
                   />
                   <Image
                     src="/images/ic-payment-pix.svg"
                     alt="Pix"
-                    width={45}
-                    height={28}
-                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                    width={40}
+                    height={25}
+                    className="h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
                   />
                   <Image
                     src="/images/ic-payment-boleto.svg"
                     alt="Boleto"
-                    width={45}
-                    height={28}
-                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                    width={40}
+                    height={25}
+                    className="h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
                   />
                 </div>
-                <p className="text-xs text-gray-600 mt-2">
-                  <span className="font-medium text-[#156634]">Parcelamento em até 12x</span> no cartão de crédito
+                <p className="text-xs text-gray-500 mt-1">
+                  <span className="text-[#156634]">Parcelamento em até 12x</span> no cartão de crédito
                 </p>
               </div>
 
               {/* Coluna 3: Links Legais */}
-              <div className="space-y-4 flex flex-col items-center md:items-start">
-                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+              <div className="space-y-3 flex flex-col items-center md:items-start">
+                <h3 className="text-xs font-medium text-gray-600">
                   Legal
                 </h3>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1.5">
                   <Link 
                     href="/termos-de-uso" 
-                    className="text-sm text-gray-600 hover:text-[#156634] transition-colors"
+                    className="text-xs text-gray-500 hover:text-[#156634] transition-colors"
                   >
-                {translations[language].footerTerms}
-              </Link>
+                    {translations[language].footerTerms}
+                  </Link>
                   <Link 
                     href="/politica-de-privacidade" 
-                    className="text-sm text-gray-600 hover:text-[#156634] transition-colors"
+                    className="text-xs text-gray-500 hover:text-[#156634] transition-colors"
                   >
-                {translations[language].footerPolicy}
-              </Link>
+                    {translations[language].footerPolicy}
+                  </Link>
                 </div>
+              </div>
+
+              {/* Coluna 4: Idioma */}
+              <div className="space-y-3 flex flex-col items-center md:items-start">
+                <h3 className="text-xs font-medium text-gray-600">
+                  Idioma
+                </h3>
+                <Select value={language} onValueChange={(val: "pt" | "es" | "en") => setLanguage(val)}>
+                  <SelectTrigger className="w-full md:w-[140px] bg-white border-gray-200 text-gray-600 text-xs h-9">
+                    <SelectValue>
+                      <span className="flex items-center gap-2">
+                        <span>{language === "pt" ? "🇧🇷" : language === "es" ? "🇦🇷" : "🇺🇸"}</span>
+                        <span className="text-xs">{language === "pt" ? "Português" : language === "es" ? "Español" : "English"}</span>
+                      </span>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pt">
+                      <span className="flex items-center gap-2">
+                        <span>🇧🇷</span> <span>Português</span>
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="es">
+                      <span className="flex items-center gap-2">
+                        <span>🇦🇷</span> <span>Español</span>
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="en">
+                      <span className="flex items-center gap-2">
+                        <span>🇺🇸</span> <span>English</span>
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
             {/* Separador */}
-            <Separator className="my-8" />
+            <Separator className="my-6 opacity-30" />
 
-            {/* Rodapé Inferior: CNPJ e Copyright - Centralizado */}
-            <div className="flex flex-col items-center gap-4 text-xs text-gray-500 text-center">
-              <div>
-                <p className="mb-1">
+            {/* Rodapé Inferior: CNPJ e Copyright */}
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-gray-400">
+              <div className="text-center md:text-left">
+                <p className="mb-0.5">
                   © {new Date().getFullYear()} EveMaster. Todos os direitos reservados.
                 </p>
-                <p className="font-medium">
+                <p className="text-gray-400">
                   Fulsale LTDA - CNPJ: 00.000.000/0001-00
                 </p>
               </div>
