@@ -1399,7 +1399,17 @@ export default function CheckoutPage() {
               {/* Coluna 1: Logo e Descrição */}
               <div className="col-span-2 md:col-span-1 space-y-3 flex flex-col items-center md:items-start">
                 <div>
-                  <h3 className="text-xs font-medium text-gray-600">EveMaster</h3>
+                  {/* Logo no mobile, texto no desktop */}
+                  <div className="md:hidden">
+                    <Image
+                      src="/images/logo/logo.png"
+                      alt="EveMaster"
+                      width={140}
+                      height={40}
+                      className="h-7 w-auto opacity-80"
+                    />
+                  </div>
+                  <h3 className="hidden md:block text-xs font-medium text-gray-600">EveMaster</h3>
                 </div>
                 <p className="text-xs text-gray-500 leading-relaxed max-w-xs text-center md:text-left">
                   Corrida, triatlon e ciclismo, e muito mais.
