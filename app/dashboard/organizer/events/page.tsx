@@ -97,45 +97,58 @@ export default function EventsPage() {
         console.log("Eventos encontrados:", events?.length || 0)
         console.log("Eventos:", events)
 
-        // Buscar estatísticas de cada evento
-        const eventosComEstatisticas = await Promise.all(
-          events.map(async (event: any) => {
-            // Contar inscrições
-            const { count: inscritosCount } = await supabase
-              .from("registrations")
-              .select("*", { count: "exact", head: true })
-              .eq("event_id", event.id)
+        // Buscar todas as inscrições e pagamentos de uma vez
+        const eventIds = events.map((e: any) => e.id)
+        
+        const { data: allRegistrations } = await supabase
+          .from("registrations")
+          .select("id, event_id")
+          .in("event_id", eventIds)
 
-            // Calcular receita (soma dos pagamentos confirmados)
-            const { data: payments } = await supabase
-              .from("payments")
-              .select("amount")
-              .eq("payment_status", "paid")
-              .in("registration_id", 
-                (await supabase
-                  .from("registrations")
-                  .select("id")
-                  .eq("event_id", event.id)
-                ).data?.map((r: any) => r.id) || []
-              )
+        const registrationIds = allRegistrations?.map((r: any) => r.id) || []
+        
+        const { data: allPayments } = await supabase
+          .from("payments")
+          .select("amount, registration_id")
+          .eq("payment_status", "paid")
+          .in("registration_id", registrationIds)
 
-            const receita = payments?.reduce((sum: number, p: any) => sum + (parseFloat(p.amount) || 0), 0) || 0
+        // Agrupar por evento
+        const statsByEvent: Record<string, { inscritos: number; receita: number }> = {}
+        
+        // Contar inscrições por evento
+        allRegistrations?.forEach((reg: any) => {
+          if (!statsByEvent[reg.event_id]) {
+            statsByEvent[reg.event_id] = { inscritos: 0, receita: 0 }
+          }
+          statsByEvent[reg.event_id].inscritos++
+        })
 
-            return {
-              id: event.id,
-              slug: event.slug,
-              name: event.name,
-              description: event.description || "",
-              date: event.event_date,
-              location: event.location || event.address || "Local a definir",
-              status: event.status as "draft" | "active" | "finished" | "cancelled",
-              inscritos: inscritosCount || 0,
-              capacidade: event.total_capacity,
-              receita: receita,
-              imagem: event.banner_url,
-            }
-          })
-        )
+        // Calcular receita por evento
+        allPayments?.forEach((payment: any) => {
+          const reg = allRegistrations?.find((r: any) => r.id === payment.registration_id)
+          if (reg && statsByEvent[reg.event_id]) {
+            statsByEvent[reg.event_id].receita += parseFloat(payment.amount) || 0
+          }
+        })
+
+        // Converter para o formato esperado
+        const eventosFormatados: Event[] = events.map((event: any) => {
+          const stats = statsByEvent[event.id] || { inscritos: 0, receita: 0 }
+          return {
+            id: event.id,
+            slug: event.slug,
+            name: event.name,
+            description: event.description || "",
+            date: event.event_date,
+            location: event.location || event.address || "Local a definir",
+            status: event.status as "draft" | "active" | "finished" | "cancelled",
+            inscritos: stats.inscritos,
+            capacidade: event.total_capacity,
+            receita: stats.receita,
+            imagem: event.banner_url,
+          }
+        })
 
         const eventosFormatados: Event[] = eventosComEstatisticas
 
