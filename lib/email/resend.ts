@@ -155,9 +155,13 @@ export function gerarTemplateEmail(dados: EmailInscricao): string {
                 <img src="https://evemaster.app/images/logo/logo.png" alt="Evemaster" height="50" style="background: white; padding: 10px; border-radius: 8px; display: inline-block;">
               </div>
               <!-- Check de Confirmação -->
-              <div style="background: rgba(255,255,255,0.2); border-radius: 50%; width: 80px; height: 80px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
-                <span style="font-size: 48px; color: #ffffff;">✓</span>
-              </div>
+              <table cellpadding="0" cellspacing="0" style="margin: 0 auto 20px;">
+                <tr>
+                  <td style="background: rgba(255,255,255,0.2); border-radius: 50%; width: 80px; height: 80px; text-align: center; vertical-align: middle;">
+                    <span style="font-size: 48px; color: #ffffff; line-height: 80px; display: inline-block;">✓</span>
+                  </td>
+                </tr>
+              </table>
               <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">
                 Inscrição Confirmada!
               </h1>

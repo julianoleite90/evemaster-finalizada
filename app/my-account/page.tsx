@@ -31,32 +31,45 @@ export default function MyAccountPage() {
         // 1. Diretamente vinculadas ao user_id (se houver)
         // 2. Através dos atletas com o mesmo email
 
-        // Primeiro, buscar inscrições diretas
-        const { data: directRegistrations, error: directError } = await supabase
-          .from("registrations")
-          .select(`
-            *,
-            event:events(
-              id,
-              name,
-              slug,
-              event_date,
-              start_time,
-              location,
-              address,
-              banner_url,
-              category
-            ),
-            ticket:tickets(
-              id,
-              category,
-              price,
-              is_free
-            ),
-            athletes(full_name, email, category)
-          `)
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
+        // Primeiro, buscar inscrições diretas (se a coluna user_id existir)
+        // Usar try/catch para não falhar se a coluna não existir ainda
+        let directRegistrations: any[] = []
+        try {
+          const { data, error } = await supabase
+            .from("registrations")
+            .select(`
+              *,
+              event:events(
+                id,
+                name,
+                slug,
+                event_date,
+                start_time,
+                location,
+                address,
+                banner_url,
+                category
+              ),
+              ticket:tickets(
+                id,
+                category,
+                price,
+                is_free
+              ),
+              athletes(full_name, email, category)
+            `)
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+          
+          if (!error && data) {
+            directRegistrations = data
+          } else if (error && !error.message?.includes("column") && !error.message?.includes("user_id")) {
+            console.error("Erro ao buscar inscrições diretas:", error)
+          }
+        } catch (err) {
+          // Ignorar erro se a coluna não existir
+          console.log("Coluna user_id pode não existir ainda, buscando apenas por email do atleta")
+        }
 
         // Depois, buscar através dos atletas com o mesmo email
         const { data: athletes, error: athletesError } = await supabase
