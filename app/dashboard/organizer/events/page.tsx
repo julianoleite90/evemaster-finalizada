@@ -97,20 +97,47 @@ export default function EventsPage() {
         console.log("Eventos encontrados:", events?.length || 0)
         console.log("Eventos:", events)
 
-        // Converter para o formato esperado
-        const eventosFormatados: Event[] = events.map((event: any) => ({
-          id: event.id,
-          slug: event.slug,
-          name: event.name,
-          description: event.description || "",
-          date: event.event_date,
-          location: event.location || event.address || "Local a definir",
-          status: event.status as "draft" | "active" | "finished" | "cancelled",
-          inscritos: 0, // TODO: contar inscrições
-          capacidade: event.total_capacity,
-          receita: 0, // TODO: calcular receita
-          imagem: event.banner_url,
-        }))
+        // Buscar estatísticas de cada evento
+        const eventosComEstatisticas = await Promise.all(
+          events.map(async (event: any) => {
+            // Contar inscrições
+            const { count: inscritosCount } = await supabase
+              .from("registrations")
+              .select("*", { count: "exact", head: true })
+              .eq("event_id", event.id)
+
+            // Calcular receita (soma dos pagamentos confirmados)
+            const { data: payments } = await supabase
+              .from("payments")
+              .select("amount")
+              .eq("payment_status", "paid")
+              .in("registration_id", 
+                (await supabase
+                  .from("registrations")
+                  .select("id")
+                  .eq("event_id", event.id)
+                ).data?.map((r: any) => r.id) || []
+              )
+
+            const receita = payments?.reduce((sum: number, p: any) => sum + (parseFloat(p.amount) || 0), 0) || 0
+
+            return {
+              id: event.id,
+              slug: event.slug,
+              name: event.name,
+              description: event.description || "",
+              date: event.event_date,
+              location: event.location || event.address || "Local a definir",
+              status: event.status as "draft" | "active" | "finished" | "cancelled",
+              inscritos: inscritosCount || 0,
+              capacidade: event.total_capacity,
+              receita: receita,
+              imagem: event.banner_url,
+            }
+          })
+        )
+
+        const eventosFormatados: Event[] = eventosComEstatisticas
 
         setEventos(eventosFormatados)
       } catch (error: any) {
@@ -199,53 +226,64 @@ export default function EventsPage() {
   }
 
   const EventCard = ({ event }: { event: Event }) => (
-    <Card className="hover:shadow-md transition-shadow flex flex-col h-full">
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <CardTitle className="text-xl">{event.name}</CardTitle>
+    <Card className="hover:shadow-lg transition-all duration-200 flex flex-col h-full border-2 hover:border-[#156634]/20">
+      <CardHeader className="pb-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              <CardTitle className="text-xl font-bold leading-tight pr-2">{event.name}</CardTitle>
               {getStatusBadge(event.status)}
             </div>
-            <CardDescription className="line-clamp-2">{stripHtml(event.description)}</CardDescription>
+            {event.description && (
+              <CardDescription className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                {stripHtml(event.description)}
+              </CardDescription>
+            )}
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex flex-col flex-1">
-        <div className="space-y-4 flex-1">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              <span>{formatDate(event.date)}</span>
-            </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <MapPin className="h-4 w-4" />
-              <span>{event.location}</span>
-            </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Users className="h-4 w-4" />
-              <span>
-                {event.inscritos.toLocaleString("pt-BR")}
-                {event.capacidade && ` / ${event.capacidade.toLocaleString("pt-BR")}`} inscritos
-              </span>
-            </div>
-            <div className="text-muted-foreground">
-              <span className="font-medium text-foreground">{formatCurrency(event.receita)}</span> em receita
-            </div>
+      <CardContent className="flex flex-col flex-1 pt-0">
+        <div className="space-y-3 flex-1 mb-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground py-1">
+            <Calendar className="h-4 w-4 flex-shrink-0 text-[#156634]" />
+            <span className="font-medium">{formatDate(event.date)}</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground py-1">
+            <MapPin className="h-4 w-4 flex-shrink-0 text-[#156634]" />
+            <span className="truncate">{event.location}</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm py-1">
+            <Users className="h-4 w-4 flex-shrink-0 text-[#156634]" />
+            <span className="font-semibold text-foreground">
+              {event.inscritos.toLocaleString("pt-BR")}
+              {event.capacidade && (
+                <span className="text-muted-foreground font-normal">
+                  {" / "}{event.capacidade.toLocaleString("pt-BR")} inscritos
+                </span>
+              )}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-sm py-1">
+            <span className="text-muted-foreground">Receita:</span>
+            <span className="font-semibold text-[#156634] text-base">
+              {formatCurrency(event.receita)}
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 pt-4 mt-auto border-t">
-          <Button variant="outline" size="sm" asChild className="flex-1">
-            <Link href={`/evento/${event.slug || event.id}`} target="_blank" className="flex items-center justify-center">
-              <Eye className="mr-2 h-4 w-4" />
-              Ver Página do Evento
+        <div className="flex items-center gap-2 pt-4 mt-auto border-t border-gray-200">
+          <Button variant="outline" size="sm" asChild className="flex-1 hover:bg-[#156634]/5 hover:border-[#156634]/30">
+            <Link href={`/evento/${event.slug || event.id}`} target="_blank" className="flex items-center justify-center gap-2">
+              <Eye className="h-4 w-4" />
+              <span className="hidden sm:inline">Ver Página</span>
+              <span className="sm:hidden">Ver</span>
             </Link>
           </Button>
-          <Button variant="outline" size="sm" asChild className="flex-1">
-            <Link href={`/dashboard/organizer/events/${event.id}/settings`} className="flex items-center justify-center">
-              <Settings className="mr-2 h-4 w-4" />
-              Configurações
+          <Button variant="outline" size="sm" asChild className="flex-1 hover:bg-[#156634]/5 hover:border-[#156634]/30">
+            <Link href={`/dashboard/organizer/events/${event.id}/settings`} className="flex items-center justify-center gap-2">
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Configurações</span>
+              <span className="sm:hidden">Config</span>
             </Link>
           </Button>
         </div>
