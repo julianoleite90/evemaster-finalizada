@@ -76,3 +76,4 @@ GRANT EXECUTE ON FUNCTION public.create_organizer_profile TO anon;
 
 
 
+

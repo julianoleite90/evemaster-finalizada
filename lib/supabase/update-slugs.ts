@@ -79,3 +79,4 @@ export async function updateAllEventSlugs() {
 if (typeof window !== 'undefined') {
   (window as any).updateEventSlugs = updateAllEventSlugs
 }
+

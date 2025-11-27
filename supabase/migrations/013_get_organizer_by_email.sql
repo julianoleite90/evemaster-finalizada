@@ -98,3 +98,4 @@ GRANT EXECUTE ON FUNCTION public.fix_organizer_user_id TO authenticated;
 
 
 
+

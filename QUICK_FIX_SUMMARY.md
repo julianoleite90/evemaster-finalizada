@@ -174,3 +174,4 @@ Se o problema persistir:
 **Status:** ✅ CORRIGIDO
 **Versão:** Next.js 14.2 + Supabase SSR 0.8
 
+

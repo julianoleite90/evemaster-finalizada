@@ -121,3 +121,4 @@ Participante acessa /my-account e vê suas inscrições
   - O sistema busca também por email nos `athletes`
   - Isso garante compatibilidade com dados existentes
 
+

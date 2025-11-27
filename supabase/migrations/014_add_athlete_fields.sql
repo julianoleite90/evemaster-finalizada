@@ -25,3 +25,4 @@ COMMENT ON COLUMN public.registrations.accepted_terms_at IS 'Data/hora do aceite
 
 
 
+

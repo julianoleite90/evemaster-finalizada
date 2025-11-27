@@ -14,3 +14,4 @@ CREATE INDEX IF NOT EXISTS idx_registrations_user_id ON public.registrations(use
 -- Comentário na coluna
 COMMENT ON COLUMN public.registrations.user_id IS 'ID do usuário que fez a inscrição (pode ser diferente de athlete_id/buyer_id em casos de inscrições feitas por terceiros)';
 
+

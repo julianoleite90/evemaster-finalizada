@@ -49,7 +49,7 @@ export async function getEventBySlug(slug: string) {
           tickets (*)
         ),
         event_settings (*),
-        organizer:organizers(id, company_name, full_name)
+        organizer:organizers(id, company_name, full_name, company_cnpj, company_phone, user_id)
       `)
       .eq("id", slug)
       .single()
@@ -79,9 +79,23 @@ export async function getEventBySlug(slug: string) {
       if (event.organizer_id) {
         const { data: organizer } = await supabase
           .from("organizers")
-          .select("id, company_name, full_name")
+          .select("id, company_name, full_name, company_cnpj, company_phone, user_id")
           .eq("id", event.organizer_id)
           .single()
+        
+        // Buscar email do usuário relacionado
+        if (organizer && organizer.user_id) {
+          const { data: user } = await supabase
+            .from("users")
+            .select("email")
+            .eq("id", organizer.user_id)
+            .single()
+          
+          if (user) {
+            organizer.email = user.email
+            organizer.company_email = user.email
+          }
+        }
         
         if (organizer) {
           event.organizer = organizer
@@ -150,4 +164,5 @@ export async function getOrganizerEvents(organizerId: string) {
   
   return events
 }
+
 

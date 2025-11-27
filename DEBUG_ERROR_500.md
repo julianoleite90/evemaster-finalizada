@@ -75,3 +75,4 @@ Se o erro persistir após essas correções:
 - `middleware.ts` - Tratamento de erros robusto, flag para desabilitar
 - `next.config.js` - Configurações adicionais para estabilidade
 
+

@@ -477,3 +477,4 @@ COMMENT ON TABLE public.withdrawal_requests IS 'Solicitações de saque dos afil
 
 
 
+

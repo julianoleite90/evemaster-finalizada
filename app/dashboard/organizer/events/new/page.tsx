@@ -17,7 +17,7 @@ import { ChevronLeft, ChevronRight, Upload, MapPin, Calendar, Clock, Trophy, Dol
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { createEvent } from "@/lib/supabase/events"
-import { uploadEventBanner, uploadEventGPX } from "@/lib/supabase/storage"
+import { uploadEventBanner, uploadEventGPX, uploadTicketGPX } from "@/lib/supabase/storage"
 import { createClient } from "@/lib/supabase/client"
 import Image from "next/image"
 
@@ -111,6 +111,11 @@ export default function NewEventPage() {
         itensKit: string[]
         tamanhosCamiseta: string[]
         quantidadeCamisetasPorTamanho: { [tamanho: string]: string }
+        gpxFile: File | null
+        gpxFileUrl: string | null
+        showRoute: boolean
+        showMap: boolean
+        showElevation: boolean
       }>
     }>,
     
@@ -326,7 +331,7 @@ export default function NewEventPage() {
           start_date: lote.dataInicio,
           start_time: lote.horaInicio,
           end_date: dataFim,
-          total_quantity: parseInt(lote.quantidadeTotal || "0"),
+          total_quantity: lote.quantidadeTotal && lote.quantidadeTotal !== "" ? parseInt(lote.quantidadeTotal) : null,
           tickets: lote.ingressos.map((ingresso) => {
             const shirtQuantities = Object.entries(ingresso.quantidadeCamisetasPorTamanho || {}).reduce<Record<string, number>>(
               (acc, [size, value]) => {
@@ -391,8 +396,9 @@ export default function NewEventPage() {
         distances: distanciasPadrao,
         custom_distances: formData.distanciasCustom,
         total_capacity: formData.lotes.reduce((total, lote) => {
-          return total + parseInt(lote.quantidadeTotal || "0")
-        }, 0),
+          const qtd = lote.quantidadeTotal && lote.quantidadeTotal !== "" ? parseInt(lote.quantidadeTotal) : null
+          return qtd !== null ? total + qtd : null
+        }, 0 as number | null),
         lotes,
         settings: {
           payment_pix_enabled: formData.meiosPagamento.pix,
@@ -454,6 +460,68 @@ export default function NewEventPage() {
         } catch (error) {
           console.error("❌ Erro ao fazer upload do GPX:", error)
           toast.error("Erro ao fazer upload do GPX")
+        }
+      }
+
+      // 8. Upload de GPX dos tickets e atualização
+      if (event.id) {
+        try {
+          // Buscar todos os batches e tickets criados para este evento
+          const { data: ticketBatches, error: batchesError } = await supabase
+            .from("ticket_batches")
+            .select(`
+              id,
+              name,
+              tickets(id, category)
+            `)
+            .eq("event_id", event.id)
+
+          if (!batchesError && ticketBatches) {
+            // Para cada lote e ingresso com GPX, fazer upload e atualizar
+            for (const lote of formData.lotes) {
+              for (const ingresso of lote.ingressos) {
+                if (ingresso.gpxFile) {
+                  // Encontrar o batch correspondente pelo nome
+                  const batch = ticketBatches.find((b: any) => b.name === lote.nome)
+                  if (batch && (batch as any).tickets) {
+                    const ticket = ((batch as any).tickets as any[]).find(
+                      (t: any) => t.category === ingresso.categoria
+                    )
+                    
+                    if (ticket) {
+                      try {
+                        console.log(`📤 Fazendo upload do GPX para ticket ${ticket.id} (${ingresso.categoria})...`)
+                        const gpxUrl = await uploadTicketGPX(ingresso.gpxFile, event.id, ticket.id)
+                        console.log(`✅ GPX URL para ticket ${ticket.id}:`, gpxUrl)
+                        
+                        // Atualizar ticket com GPX e opções
+                        const { error: ticketUpdateError } = await supabase
+                          .from("tickets")
+                          .update({
+                            gpx_file_url: gpxUrl,
+                            show_route: ingresso.showRoute || false,
+                            show_map: ingresso.showMap || false,
+                            show_elevation: ingresso.showElevation || false,
+                          })
+                          .eq("id", ticket.id)
+                        
+                        if (ticketUpdateError) {
+                          console.error(`❌ Erro ao atualizar ticket ${ticket.id}:`, ticketUpdateError)
+                        } else {
+                          console.log(`✅ Ticket ${ticket.id} atualizado com GPX e opções!`)
+                        }
+                      } catch (error) {
+                        console.error(`❌ Erro ao fazer upload do GPX do ticket ${ticket.id}:`, error)
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error("❌ Erro ao processar GPX dos tickets:", error)
+          // Não bloquear o sucesso do evento se houver erro nos GPX
         }
       }
 
@@ -576,6 +644,11 @@ export default function NewEventPage() {
         itensKit: [],
         tamanhosCamiseta: [],
         quantidadeCamisetasPorTamanho: {},
+        gpxFile: null,
+        gpxFileUrl: null,
+        showRoute: false,
+        showMap: false,
+        showElevation: false,
       })),
     }
     setFormData({
@@ -1328,11 +1401,11 @@ export default function NewEventPage() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor={`lote-${lote.id}-quantidade`}>Quantidade Total de Ingressos *</Label>
+                            <Label htmlFor={`lote-${lote.id}-quantidade`}>Quantidade Total de Ingressos</Label>
                             <Input
                               id={`lote-${lote.id}-quantidade`}
                               type="number"
-                              min="1"
+                              min="0"
                               step="1"
                               value={lote.quantidadeTotal}
                               onChange={(e) => {
@@ -1342,10 +1415,10 @@ export default function NewEventPage() {
                                   updateLote(lote.id, "quantidadeTotal", valor)
                                 }
                               }}
-                              placeholder="Ex: 100"
+                              placeholder="Deixe vazio para ilimitado"
                             />
                             <p className="text-xs text-muted-foreground">
-                              Total de ingressos do lote. Você pode editar a quantidade de cada categoria abaixo.
+                              Total de ingressos do lote. Deixe vazio para ilimitado. Você pode editar a quantidade de cada categoria abaixo.
                             </p>
                           </div>
                         </div>
@@ -1605,6 +1678,147 @@ export default function NewEventPage() {
                                           </div>
                                         )}
                                       </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Seção GPX e Opções de Exibição */}
+                                {!lote.salvo && (
+                                  <div className="pt-3 border-t space-y-4">
+                                    <div className="flex items-center space-x-2 mb-3">
+                                      <MapPin className="h-4 w-4 text-[#156634]" />
+                                      <Label className="text-sm font-medium">
+                                        Percurso GPX e Opções de Exibição
+                                      </Label>
+                                    </div>
+
+                                    {/* Upload de GPX */}
+                                    <div className="space-y-2">
+                                      <Label className="text-xs">Arquivo GPX do Percurso</Label>
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="file"
+                                          accept=".gpx"
+                                          onChange={(e) => {
+                                            const file = e.target.files?.[0] || null
+                                            updateIngresso(lote.id, ingresso.categoria, "gpxFile", file)
+                                          }}
+                                          className="hidden"
+                                          id={`gpx-${lote.id}-${ingresso.categoria}`}
+                                          disabled={lote.salvo}
+                                        />
+                                        <label
+                                          htmlFor={`gpx-${lote.id}-${ingresso.categoria}`}
+                                          className="flex-1"
+                                        >
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full"
+                                            disabled={lote.salvo}
+                                            asChild
+                                          >
+                                            <span>
+                                              <Upload className="mr-2 h-4 w-4" />
+                                              {ingresso.gpxFile
+                                                ? ingresso.gpxFile.name
+                                                : ingresso.gpxFileUrl
+                                                ? "GPX já carregado"
+                                                : "Upload GPX"}
+                                            </span>
+                                          </Button>
+                                        </label>
+                                        {ingresso.gpxFile && (
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => updateIngresso(lote.id, ingresso.categoria, "gpxFile", null)}
+                                          >
+                                            <Trash2 className="h-4 w-4 text-red-600" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <p className="text-xs text-muted-foreground">
+                                        Faça upload do arquivo GPX com o percurso para esta distância
+                                      </p>
+                                    </div>
+
+                                    {/* Opções de Exibição */}
+                                    {ingresso.gpxFile || ingresso.gpxFileUrl ? (
+                                      <div className="space-y-3 pl-2 border-l-2 border-[#156634]">
+                                        <Label className="text-xs font-medium">Opções de Exibição</Label>
+                                        <div className="space-y-2">
+                                          <div className="flex items-center space-x-2">
+                                            <Checkbox
+                                              id={`show-route-${lote.id}-${ingresso.categoria}`}
+                                              checked={ingresso.showRoute || false}
+                                              onCheckedChange={(checked) =>
+                                                updateIngresso(
+                                                  lote.id,
+                                                  ingresso.categoria,
+                                                  "showRoute",
+                                                  checked
+                                                )
+                                              }
+                                              disabled={lote.salvo}
+                                            />
+                                            <Label
+                                              htmlFor={`show-route-${lote.id}-${ingresso.categoria}`}
+                                              className="text-sm font-normal cursor-pointer"
+                                            >
+                                              Exibir percurso no mapa
+                                            </Label>
+                                          </div>
+                                          <div className="flex items-center space-x-2">
+                                            <Checkbox
+                                              id={`show-map-${lote.id}-${ingresso.categoria}`}
+                                              checked={ingresso.showMap || false}
+                                              onCheckedChange={(checked) =>
+                                                updateIngresso(
+                                                  lote.id,
+                                                  ingresso.categoria,
+                                                  "showMap",
+                                                  checked
+                                                )
+                                              }
+                                              disabled={lote.salvo}
+                                            />
+                                            <Label
+                                              htmlFor={`show-map-${lote.id}-${ingresso.categoria}`}
+                                              className="text-sm font-normal cursor-pointer"
+                                            >
+                                              Exibir mapa na página do evento
+                                            </Label>
+                                          </div>
+                                          <div className="flex items-center space-x-2">
+                                            <Checkbox
+                                              id={`show-elevation-${lote.id}-${ingresso.categoria}`}
+                                              checked={ingresso.showElevation || false}
+                                              onCheckedChange={(checked) =>
+                                                updateIngresso(
+                                                  lote.id,
+                                                  ingresso.categoria,
+                                                  "showElevation",
+                                                  checked
+                                                )
+                                              }
+                                              disabled={lote.salvo}
+                                            />
+                                            <Label
+                                              htmlFor={`show-elevation-${lote.id}-${ingresso.categoria}`}
+                                              className="text-sm font-normal cursor-pointer"
+                                            >
+                                              Exibir gráfico de altimetria
+                                            </Label>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-muted-foreground italic">
+                                        Faça upload de um arquivo GPX para habilitar as opções de exibição
+                                      </p>
                                     )}
                                   </div>
                                 )}

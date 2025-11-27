@@ -791,25 +791,29 @@ export default function CheckoutPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-[#156634] text-white py-3 px-4 md:py-4 md:px-6">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Image
-            src="/images/logo/logo.png"
-            alt="Logo EveMaster"
-            width={120}
-            height={32}
-            className="h-5 md:h-8 w-auto"
-            priority
-          />
-          <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-            <Shield className="h-4 w-4 md:h-5 md:w-5" />
-            <span>{t("pagamentoSeguro")}</span>
+      {/* Header Melhorado */}
+      <header className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <Link href="/">
+              <Image
+                src="/images/logo/logo.png"
+                alt="Logo EveMaster"
+                width={140}
+                height={40}
+                className="h-7 md:h-9 w-auto"
+                priority
+              />
+            </Link>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg border border-green-200">
+              <Shield className="h-4 w-4 text-[#156634]" />
+              <span className="text-xs md:text-sm font-medium text-[#156634]">{t("pagamentoSeguro")}</span>
+            </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 py-8 flex-1">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-8 md:py-12 flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Formulário */}
           <div className="lg:col-span-2">
@@ -1361,62 +1365,123 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* Rodapé */}
-      <footer className="bg-white border-t mt-auto">
-        <div className="max-w-6xl mx-auto px-4 py-12">
-          <div className="flex flex-col items-center gap-4">
-            <div className="opacity-20">
-              <Image
-                src="/images/logo/logo.png"
-                alt="EveMaster"
-                width={120}
-                height={35}
-                className="h-8 w-auto"
-              />
+      {/* Rodapé Profissional - Mesmo da página do evento */}
+      <footer className="bg-gray-50 border-t border-gray-200 mt-auto">
+        <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-12 pb-8">
+          <div className="max-w-7xl mx-auto">
+            {/* Grid Principal - Proporcional */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 lg:gap-16 mb-8 text-center md:text-left">
+              {/* Coluna 1: Logo e Descrição */}
+              <div className="space-y-4 flex flex-col items-center md:items-start">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">EVEMASTER</h3>
+                </div>
+                <p className="text-sm text-gray-600 leading-relaxed max-w-xs">
+                  Ingressos para eventos esportivos. 
+                  Corridas, maratonas, triatlon e ciclismo.
+                </p>
+              </div>
+
+              {/* Coluna 2: Formas de Pagamento */}
+              <div className="space-y-4 flex flex-col items-center md:items-start">
+                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                  {idioma === "es" ? "Medios de Pago Aceptados" : idioma === "en" ? "Accepted Payment Methods" : "Meios de Pagamento Aceitos"}
+                </h3>
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5">
+                  <Image
+                    src="/images/ic-payment-visa.svg"
+                    alt="Visa"
+                    width={45}
+                    height={28}
+                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                  />
+                  <Image
+                    src="/images/ic-payment-master-card.svg"
+                    alt="Mastercard"
+                    width={45}
+                    height={28}
+                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                  />
+                  <Image
+                    src="/images/ic-payment-elo.svg"
+                    alt="Elo"
+                    width={45}
+                    height={28}
+                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                  />
+                  <Image
+                    src="/images/ic-payment-american-express.svg"
+                    alt="American Express"
+                    width={45}
+                    height={28}
+                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                  />
+                  <Image
+                    src="/images/ic-payment-hipercard.svg"
+                    alt="Hipercard"
+                    width={45}
+                    height={28}
+                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                  />
+                  <Image
+                    src="/images/ic-payment-pix.svg"
+                    alt="Pix"
+                    width={45}
+                    height={28}
+                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                  />
+                  <Image
+                    src="/images/ic-payment-boleto.svg"
+                    alt="Boleto"
+                    width={45}
+                    height={28}
+                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                  />
+                </div>
+                <p className="text-xs text-gray-600 mt-2">
+                  <span className="font-medium text-[#156634]">
+                    {idioma === "es" ? "Hasta 12 cuotas" : idioma === "en" ? "Up to 12 installments" : "Parcelamento em até 12x"}
+                  </span>{" "}
+                  {idioma === "es" ? "en tarjeta de crédito" : idioma === "en" ? "on credit card" : "no cartão de crédito"}
+                </p>
+              </div>
+
+              {/* Coluna 3: Links Legais */}
+              <div className="space-y-4 flex flex-col items-center md:items-start">
+                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                  Legal
+                </h3>
+                <div className="flex flex-col gap-2">
+                  <Link 
+                    href="/termos-de-uso" 
+                    className="text-sm text-gray-600 hover:text-[#156634] transition-colors"
+                  >
+                    {idioma === "es" ? "Términos de Uso" : idioma === "en" ? "Terms of Use" : "Termos de Uso"}
+                  </Link>
+                  <Link 
+                    href="/politica-de-privacidade" 
+                    className="text-sm text-gray-600 hover:text-[#156634] transition-colors"
+                  >
+                    {idioma === "es" ? "Política de Privacidad" : idioma === "en" ? "Privacy Policy" : "Política de Privacidade"}
+                  </Link>
+                </div>
+              </div>
             </div>
 
-            {/* Seletor de Idioma */}
-            <Select value={idioma} onValueChange={setIdioma}>
-              <SelectTrigger className="w-[150px] bg-white border-gray-200 text-gray-600 text-sm h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pt">
-                  <span className="flex items-center gap-2">
-                    <span>🇧🇷</span>
-                    <span>Português</span>
-                  </span>
-                </SelectItem>
-                <SelectItem value="es">
-                  <span className="flex items-center gap-2">
-                    <span>🇦🇷</span>
-                    <span>Español</span>
-                  </span>
-                </SelectItem>
-                <SelectItem value="en">
-                  <span className="flex items-center gap-2">
-                    <span>🇺🇸</span>
-                    <span>English</span>
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Separador */}
+            <Separator className="my-8" />
 
-            {/* Links */}
-            <div className="flex items-center gap-3 text-sm">
-              <Link href="/termos-de-uso" className="text-muted-foreground hover:text-[#156634] transition-colors">
-                {idioma === "es" ? "Términos de Uso" : idioma === "en" ? "Terms of Use" : "Termos de Uso"}
-              </Link>
-              <span className="text-muted-foreground">|</span>
-              <Link href="/politica-de-privacidade" className="text-muted-foreground hover:text-[#156634] transition-colors">
-                {idioma === "es" ? "Política de Privacidad" : idioma === "en" ? "Privacy Policy" : "Política de Privacidade"}
-              </Link>
+            {/* Rodapé Inferior: CNPJ e Copyright - Centralizado */}
+            <div className="flex flex-col items-center gap-4 text-xs text-gray-500 text-center">
+              <div>
+                <p className="mb-1">
+                  © {new Date().getFullYear()} EveMaster. Todos os direitos reservados.
+                </p>
+                <p className="font-medium">
+                  Fulsale LTDA - CNPJ: 00.000.000/0001-00
+                </p>
+              </div>
             </div>
-
-            {/* Formas de Pagamento */}
-            <p className="text-sm text-muted-foreground text-center">
-              {footerPaymentText[idioma]}
-            </p>
           </div>
         </div>
       </footer>

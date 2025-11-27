@@ -34,3 +34,4 @@ GRANT EXECUTE ON FUNCTION public.create_affiliate_profile TO anon;
 
 
 
+

@@ -22,3 +22,4 @@ COMMENT ON COLUMN public.users.city IS 'Cidade';
 COMMENT ON COLUMN public.users.state IS 'Estado (UF)';
 COMMENT ON COLUMN public.users.zip_code IS 'CEP';
 
+

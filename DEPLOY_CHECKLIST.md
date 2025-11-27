@@ -373,3 +373,4 @@ Se o problema persistir, contacte:
 **Status:** ✅ PRONTO PARA DEPLOY
 **Versão:** Next.js 14.2 + Supabase SSR 0.8
 
+

@@ -4,3 +4,4 @@
 // Delegates to the main registration details page implementation.
 export { default } from "./page"
 
+

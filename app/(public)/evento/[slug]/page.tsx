@@ -3,7 +3,11 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { getEventBySlug } from "@/lib/supabase/events"
-import { Loader2, Calendar, MapPin, Clock, Users, Share2, Heart, Minus, Plus, Trophy, Package, Building2, Mail, Phone, Globe } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
+import { Loader2, Calendar, MapPin, Clock, Users, Share2, Heart, Minus, Plus, Trophy, Package, Building2, Mail, Phone, Globe, Route, Mountain, Activity } from "lucide-react"
+import dynamic from "next/dynamic"
+
+const GPXMapViewer = dynamic(() => import("@/components/event/GPXMapViewer"), { ssr: false })
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -27,13 +31,13 @@ export default function EventoLandingPage() {
     pt: {
       eventInfo: "Informações do Evento",
       description: "Sobre o Evento",
-      ticketsTitle: "Ingressos",
+      ticketsTitle: "Inscreva-se",
       changeBatch: "Alterar Lote",
       batchLabel: "Lote",
       quantity: "Quantidade",
       selectTickets: "Selecione os ingressos",
       continue: "Continuar",
-      termsPhrase: "Ao clicar em continuar você concorda com os",
+      termsPhrase: "Ambiente 100% seguro",
       terms: "termos de uso",
       organizer: "Organizador",
       email: "Email",
@@ -45,6 +49,7 @@ export default function EventoLandingPage() {
       horarioInicio: "Horário de Início",
       location: "Localização",
       available: "disponíveis",
+      unlimited: "Ilimitado",
       free: "Gratuito",
       serviceFee: "Taxa de serviço",
       totalLabel: "Total",
@@ -54,18 +59,18 @@ export default function EventoLandingPage() {
       languageLabel: "Idioma",
       footerTerms: "Termos de Uso",
       footerPolicy: "Política de Privacidade",
-      footerPayment: "Aceitamos todos os cartões, Pix e Boleto",
+      footerPayment: "Meios de Pagamento Aceitos",
     },
     es: {
       eventInfo: "Información del Evento",
       description: "Sobre el Evento",
-      ticketsTitle: "Entradas",
+      ticketsTitle: "Inscríbete",
       changeBatch: "Cambiar Lote",
       batchLabel: "Lote",
       quantity: "Cantidad",
       selectTickets: "Selecciona las entradas",
       continue: "Continuar",
-      termsPhrase: "Al continuar aceptas nuestros",
+      termsPhrase: "Ambiente 100% seguro",
       terms: "términos de uso",
       organizer: "Organizador",
       email: "Correo",
@@ -77,6 +82,7 @@ export default function EventoLandingPage() {
       horarioInicio: "Horario de Inicio",
       location: "Ubicación",
       available: "disponibles",
+      unlimited: "Ilimitado",
       free: "Gratuito",
       serviceFee: "Costo de servicio",
       totalLabel: "Total",
@@ -86,18 +92,18 @@ export default function EventoLandingPage() {
       languageLabel: "Idioma",
       footerTerms: "Términos de Uso",
       footerPolicy: "Política de Privacidad",
-      footerPayment: "Aceptamos todas las tarjetas, Pix y Boleto",
+      footerPayment: "Medios de Pago Aceptados",
     },
     en: {
       eventInfo: "Event Information",
       description: "About the Event",
-      ticketsTitle: "Tickets",
+      ticketsTitle: "Sign Up",
       changeBatch: "Change Batch",
       batchLabel: "Batch",
       quantity: "Quantity",
       selectTickets: "Select tickets",
       continue: "Continue",
-      termsPhrase: "By continuing you agree to our",
+      termsPhrase: "100% secure environment",
       terms: "terms of use",
       organizer: "Organizer",
       email: "Email",
@@ -109,6 +115,7 @@ export default function EventoLandingPage() {
       horarioInicio: "Start Time",
       location: "Location",
       available: "available",
+      unlimited: "Unlimited",
       free: "Free",
       serviceFee: "Service fee",
       totalLabel: "Total",
@@ -118,7 +125,7 @@ export default function EventoLandingPage() {
       languageLabel: "Language",
       footerTerms: "Terms of Use",
       footerPolicy: "Privacy Policy",
-      footerPayment: "We accept all credit cards, Pix and Boleto",
+      footerPayment: "Accepted Payment Methods",
     },
   }
 
@@ -158,7 +165,67 @@ export default function EventoLandingPage() {
           return
         }
         
-        setEventData(event)
+        // Garantir que o email esteja presente no organizador antes de setar o estado
+        if (event.organizer) {
+          console.log("🔍 Organizador recebido no componente:", {
+            company_name: event.organizer.company_name,
+            user_id: event.organizer.user_id,
+            company_email: event.organizer.company_email,
+            email: event.organizer.email
+          })
+          
+          // Se não tiver email, tentar buscar novamente APENAS da tabela users
+          if (!event.organizer.company_email && !event.organizer.email && event.organizer.user_id) {
+            console.log("⚠️ Organizador sem email, tentando buscar novamente do user_id:", event.organizer.user_id)
+            const supabase = createClient()
+            const { data: user, error: userError } = await supabase
+              .from("users")
+              .select("email")
+              .eq("id", event.organizer.user_id)
+              .single()
+            
+            console.log("📧 Resultado busca email no componente:", { user, error: userError?.message })
+            
+            // VALIDAÇÃO CRÍTICA: Não usar email errado
+            if (user && user.email === "julianodesouzaleite@gmail.com") {
+              console.log("❌ [CRÍTICO] Email errado encontrado! O user_id do organizador está apontando para o usuário errado.")
+              console.log("❌ [CRÍTICO] user_id do organizador:", event.organizer.user_id)
+              console.log("❌ [CRÍTICO] Email encontrado (ERRADO):", user.email)
+              console.log("❌ [CRÍTICO] Email esperado: fabianobraun@gmail.com")
+              console.log("❌ [CRÍTICO] NÃO vamos adicionar este email ao organizador")
+              // Não adicionar o email errado
+            } else if (user && user.email) {
+              event.organizer.email = user.email
+              event.organizer.company_email = user.email
+              console.log("✅ Email adicionado no componente:", user.email)
+            } else {
+              console.log("⚠️ Email não encontrado para user_id:", event.organizer.user_id, "Erro:", userError?.message)
+            }
+          }
+          
+          // Criar uma cópia do objeto para garantir reatividade
+          event.organizer = { ...event.organizer }
+          console.log("📋 Organizador após processamento:", {
+            company_email: event.organizer.company_email,
+            email: event.organizer.email
+          })
+        }
+        
+        setEventData({ ...event })
+        
+        // Debug: verificar dados do organizador
+        if (event.organizer) {
+          console.log("📋 Dados do organizador (no componente):", {
+            company_name: event.organizer.company_name,
+            full_name: event.organizer.full_name,
+            company_cnpj: event.organizer.company_cnpj,
+            company_email: event.organizer.company_email,
+            email: event.organizer.email,
+            company_phone: event.organizer.company_phone,
+            user_id: event.organizer.user_id,
+            organizer_completo: event.organizer
+          })
+        }
         
         // Selecionar primeiro lote ativo por padrão
         if (event.ticket_batches && event.ticket_batches.length > 0) {
@@ -264,7 +331,7 @@ export default function EventoLandingPage() {
             src={eventData.banner_url}
             alt={eventData.name}
             fill
-            className="object-cover"
+            className="object-cover object-[center_60%] md:object-center"
             priority
           />
         ) : (
@@ -277,30 +344,35 @@ export default function EventoLandingPage() {
       </div>
               
       {/* Conteúdo Principal */}
-      <div className="container mx-auto px-4 -mt-16 pb-16 relative z-10">
+      <div className="container mx-auto px-4 -mt-10 md:-mt-16 pb-16 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Coluna Esquerda - Informações do Evento */}
           <div className="lg:col-span-2 space-y-6">
             {/* Card Principal */}
             <Card>
               <CardContent className="p-6 md:p-8">
-                <div className="flex justify-end mb-4">
+                <div className="flex justify-end mb-4 md:-mt-2">
                   <Select value={language} onValueChange={(val: "pt" | "es" | "en") => setLanguage(val)}>
-                    <SelectTrigger className="w-[140px] bg-white border-gray-200 text-gray-600 text-sm h-9">
-                      <SelectValue placeholder={translations[language].languageLabel} />
+                    <SelectTrigger className="w-[100px] md:w-[140px] bg-white border-gray-200 text-gray-600 text-[9px] md:text-sm h-7 md:h-9 pl-2 pr-2">
+                      <SelectValue placeholder={translations[language].languageLabel}>
+                        <span className="flex items-center gap-1.5">
+                          <span>{language === "pt" ? "🇧🇷" : language === "es" ? "🇦🇷" : "🇺🇸"}</span>
+                          <span>{language === "pt" ? "Português" : language === "es" ? "Español" : "English"}</span>
+                        </span>
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pt">
+                      <SelectItem value="pt" className="pl-2 [&>span:first-child]:hidden">
                         <span className="flex items-center gap-2">
                           <span>🇧🇷</span> <span>Português</span>
                         </span>
                       </SelectItem>
-                      <SelectItem value="es">
+                      <SelectItem value="es" className="pl-2 [&>span:first-child]:hidden">
                         <span className="flex items-center gap-2">
                           <span>🇦🇷</span> <span>Español</span>
                         </span>
                       </SelectItem>
-                      <SelectItem value="en">
+                      <SelectItem value="en" className="pl-2 [&>span:first-child]:hidden">
                         <span className="flex items-center gap-2">
                           <span>🇺🇸</span> <span>English</span>
                         </span>
@@ -321,43 +393,43 @@ export default function EventoLandingPage() {
                 </div>
 
                 {/* Informações Principais - Layout Melhorado */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6 mb-6">
-                  <div className="flex items-center gap-3 md:gap-4 p-3 md:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 bg-[#156634] rounded-full flex items-center justify-center">
-                      <Calendar className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-6">
+                  <div className="flex items-start gap-2.5 md:gap-3 p-3 md:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
+                    <div className="flex-shrink-0 w-9 h-9 md:w-10 md:h-10 bg-[#156634] rounded-lg flex items-center justify-center shadow-sm">
+                      <Calendar className="h-4 w-4 md:h-5 md:w-5 text-white" />
                     </div>
-                    <div className="flex-1">
-                      <p className="text-[10px] md:text-xs text-muted-foreground uppercase font-medium mb-0.5 md:mb-1">{translations[language].dataEvento}</p>
-                      <p className="font-semibold text-sm md:text-base text-gray-900">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] md:text-xs text-gray-500 uppercase font-semibold mb-1 tracking-wide">{translations[language].dataEvento}</p>
+                      <p className="font-bold text-xs md:text-sm text-gray-900 leading-tight">
                         {eventData.event_date && formatEventDate(eventData.event_date, language)}
                       </p>
                     </div>
                   </div>
 
                   {eventData.start_time && (
-                    <div className="flex items-center gap-3 md:gap-4 p-3 md:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 bg-[#156634] rounded-full flex items-center justify-center">
-                        <Clock className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                    <div className="flex items-start gap-2.5 md:gap-3 p-3 md:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
+                      <div className="flex-shrink-0 w-9 h-9 md:w-10 md:h-10 bg-[#156634] rounded-lg flex items-center justify-center shadow-sm">
+                        <Clock className="h-4 w-4 md:h-5 md:w-5 text-white" />
                       </div>
-                      <div className="flex-1">
-                        <p className="text-[10px] md:text-xs text-muted-foreground uppercase font-medium mb-0.5 md:mb-1">{translations[language].horarioInicio}</p>
-                        <p className="font-semibold text-sm md:text-base text-gray-900">{eventData.start_time}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] md:text-xs text-gray-500 uppercase font-semibold mb-1 tracking-wide">{translations[language].horarioInicio}</p>
+                        <p className="font-bold text-xs md:text-sm text-gray-900 leading-tight">{eventData.start_time}</p>
                       </div>
                     </div>
                   )}
 
-                  <div className="flex items-center gap-3 md:gap-4 p-3 md:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors md:col-span-2">
-                    <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 bg-[#156634] rounded-full flex items-center justify-center">
-                      <MapPin className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                  <div className="flex items-start gap-2.5 md:gap-3 p-3 md:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors md:col-span-2 border border-gray-200">
+                    <div className="flex-shrink-0 w-9 h-9 md:w-10 md:h-10 bg-[#156634] rounded-lg flex items-center justify-center shadow-sm">
+                      <MapPin className="h-4 w-4 md:h-5 md:w-5 text-white" />
                     </div>
-                    <div className="flex-1">
-                      <p className="text-[10px] md:text-xs text-muted-foreground uppercase font-medium mb-0.5 md:mb-1">{translations[language].location}</p>
-                      <p className="font-semibold text-sm md:text-base text-gray-900">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] md:text-xs text-gray-500 uppercase font-semibold mb-1 tracking-wide">{translations[language].location}</p>
+                      <p className="font-bold text-xs md:text-sm text-gray-900 leading-snug mb-1">
                         {eventData.location}
                         {eventData.address && ` - ${eventData.address}`}
                       </p>
                       {eventData.city && eventData.state && (
-                        <p className="text-xs md:text-sm text-muted-foreground mt-1">
+                        <p className="text-[10px] md:text-xs text-gray-600 mt-0.5">
                           {eventData.city} - {eventData.state}
                         </p>
                       )}
@@ -365,18 +437,18 @@ export default function EventoLandingPage() {
                   </div>
                 </div>
               
-                <Separator className="my-6" />
+                <Separator className="my-8" />
 
                 {/* Descrição do Evento */}
-                <div>
-                  <h2 className="text-2xl font-bold mb-4">{translations[language].description}</h2>
+                <div className="space-y-4">
+                  <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">{translations[language].description}</h2>
                   {eventData.description ? (
                     <div 
-                      className="prose prose-gray max-w-none"
+                      className="prose prose-gray max-w-none prose-headings:text-gray-900 prose-headings:font-bold prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-strong:text-gray-900 prose-strong:font-semibold prose-ul:text-gray-700 prose-ul:mb-4 prose-ol:text-gray-700 prose-ol:mb-4 prose-li:mb-2 prose-a:text-[#156634] prose-a:font-semibold prose-a:no-underline hover:prose-a:underline prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg"
                       dangerouslySetInnerHTML={{ __html: eventData.description }}
                     />
                   ) : (
-                    <p className="text-muted-foreground">
+                    <p className="text-gray-600 text-base leading-relaxed">
                       {language === "es"
                         ? "Información detallada sobre el evento próximamente."
                         : language === "en"
@@ -388,29 +460,94 @@ export default function EventoLandingPage() {
               </CardContent>
             </Card>
 
-            {/* Card do Local do Evento */}
+            {/* Bloco: Mapas GPX (Percurso e Altimetria) - Apenas para ingressos selecionados */}
+            {(() => {
+              // Buscar ingressos selecionados que têm GPX e mapa habilitado
+              const selectedTicketsWithGPX: any[] = []
+              
+              if (selectedBatch && selectedTickets) {
+                Object.entries(selectedTickets).forEach(([ticketId, quantity]) => {
+                  if (quantity > 0) {
+                    const ticket = selectedBatch.tickets?.find((t: any) => t.id === ticketId)
+                    if (ticket && ticket.gpx_file_url && ticket.show_map) {
+                      selectedTicketsWithGPX.push(ticket)
+                    }
+                  }
+                })
+              }
+              
+              if (selectedTicketsWithGPX.length === 0) return null
+              
+              return (
+                <Card>
+                  <CardContent className="p-6 md:p-8">
+                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                      <Route className="h-6 w-6 text-[#156634]" />
+                      Percurso e Altimetria
+                    </h2>
+                    
+                    <div className="space-y-6">
+                      {selectedTicketsWithGPX.map((ticket: any, index: number) => (
+                        <div key={ticket.id || index} className="space-y-4">
+                          <div className="flex items-center gap-2 mb-4">
+                            <Trophy className="h-5 w-5 text-[#156634]" />
+                            <h3 className="text-xl font-semibold text-gray-900">
+                              {ticket.category}
+                            </h3>
+                          </div>
+                          
+                          {/* Mapa com Percurso e Altimetria Integrados */}
+                          {(ticket.show_route || ticket.show_elevation) && (
+                            <GPXMapViewer
+                              gpxUrl={ticket.gpx_file_url}
+                              category={ticket.category}
+                              showRoute={ticket.show_route}
+                              showElevation={ticket.show_elevation}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })()}
+
+            {/* Bloco: Local do Evento (sempre exibido por último, independente) */}
             <Card>
-              <CardContent className="p-6 md:p-8">
-                <h2 className="text-2xl font-bold mb-4">{translations[language].locationTitle}</h2>
+              <CardContent className="p-4 md:p-8">
+                <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 flex items-center gap-2">
+                  <MapPin className="h-5 w-5 md:h-6 md:w-6 text-[#156634]" />
+                  Local do Evento
+                </h2>
                 
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <MapPin className="h-5 w-5 text-[#156634] mt-0.5 flex-shrink-0" />
-                <div>
-                      <p className="font-medium text-gray-900">
-                        {eventData.location}
-                      </p>
+                <div className="space-y-3 md:space-y-4">
+                  {/* Informações do Local */}
+                  <div className="bg-gray-50 rounded-lg p-3 md:p-4 border border-gray-200">
+                    <div className="flex items-start gap-2 md:gap-3">
+                      <MapPin className="h-4 w-4 md:h-5 md:w-5 text-[#156634] mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 space-y-1.5 md:space-y-2">
+                        {eventData.city && eventData.state && (
+                          <p className="font-semibold text-gray-900 text-sm md:text-base">
+                            {eventData.city}, {eventData.state}
+                          </p>
+                        )}
                       {eventData.address && (
-                        <p className="text-sm text-muted-foreground mt-1">
+                          <p className="text-xs md:text-sm text-gray-700 leading-relaxed">
                           {eventData.address}
-                          {eventData.city && eventData.state && `, ${eventData.city} - ${eventData.state}`}
+                          </p>
+                        )}
+                        {eventData.location && (
+                          <p className="text-xs md:text-sm text-gray-600 leading-relaxed">
+                            {eventData.location}
                         </p>
                       )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Mapa do Google Maps */}
-                  <div className="w-full h-[400px] rounded-lg overflow-hidden border">
+                  {/* Mapa do Google Maps (sempre, sem GPX) */}
+                  <div className="w-full h-[250px] md:h-[400px] rounded-lg overflow-hidden border">
                     <iframe
                       src={`https://maps.google.com/maps?q=${encodeURIComponent(
                         `${eventData.location}${eventData.address ? ', ' + eventData.address : ''}${eventData.city && eventData.state ? ', ' + eventData.city + ' - ' + eventData.state : ''}`
@@ -432,15 +569,25 @@ export default function EventoLandingPage() {
           {/* Coluna Direita - Sidebar de Ingressos */}
           <div className="lg:col-span-1">
             <div className="sticky top-4">
-              <Card>
+              <Card className="border-2 border-[#156634]/20 shadow-lg bg-gradient-to-br from-white to-gray-50/50">
                 <CardContent className="p-6">
-                  <h2 className="text-xl font-bold mb-2">{translations[language].ticketsTitle}</h2>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-1 h-6 bg-[#156634] rounded-full"></div>
+                    <h2 className="text-2xl font-bold text-gray-900">{translations[language].ticketsTitle}</h2>
+                  </div>
                   
                   {selectedBatch && (
-                    <div className="mb-4">
-                      <p className="text-sm text-muted-foreground">
-                        <span className="font-medium">{translations[language].batchLabel}:</span> {selectedBatch.name}
+                    <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <p className="text-sm text-gray-700">
+                        <span className="font-semibold text-gray-900">{translations[language].batchLabel}:</span> {selectedBatch.name}
                       </p>
+                      {selectedBatch.tickets && (
+                        <p className="text-xs text-gray-600 mt-1.5">
+                          {selectedBatch.total_quantity === null || selectedBatch.total_quantity === undefined
+                            ? translations[language].unlimited || "Ilimitado"
+                            : `${selectedBatch.total_quantity} ${translations[language].available}`}
+                        </p>
+                      )}
                 </div>
               )}
               
@@ -471,20 +618,22 @@ export default function EventoLandingPage() {
                       {/* Lista de Ingressos */}
                       <div className="space-y-3 mb-6">
                         {selectedBatch.tickets.map((ticket: any) => (
-                          <div key={ticket.id} className="border rounded-lg p-3 hover:border-[#156634] transition-colors">
+                          <div key={ticket.id} className="border-2 border-gray-200 rounded-lg p-4 bg-white hover:border-[#156634] hover:shadow-md transition-all">
                             <div className="flex justify-between items-start mb-2">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
                                   <h3 className="font-semibold text-sm">{ticket.category}</h3>
                                   {ticket.has_kit && (
-                                    <Badge variant="outline" className="text-xs bg-green-50 border-green-300 text-green-700">
-                                      <Package className="h-3 w-3 mr-1" />
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-green-50 border-green-300 text-green-700">
+                                      <Package className="h-2.5 w-2.5 mr-0.5" />
                                       {translations[language].includeKit}
                                     </Badge>
                                   )}
                     </div>
                                 <p className="text-xs text-muted-foreground">
-                                  {ticket.quantity} {translations[language].available}
+                                  {ticket.quantity === null || ticket.quantity === undefined || ticket.quantity === 0
+                                    ? translations[language].unlimited
+                                    : `${ticket.quantity} ${translations[language].available}`}
                                 </p>
                 </div>
                               <div className="text-right">
@@ -566,7 +715,7 @@ export default function EventoLandingPage() {
 
                       {/* Botão de Compra */}
                       <Button
-                        className="w-full bg-[#156634] hover:bg-[#1a7a3e] text-white py-6 text-lg"
+                        className="w-full bg-[#156634] hover:bg-[#1a7a3e] text-white py-6 text-lg font-semibold shadow-md hover:shadow-lg transition-all"
                         onClick={handleCheckout}
                         disabled={getTotalTickets() === 0}
                       >
@@ -574,10 +723,7 @@ export default function EventoLandingPage() {
                       </Button>
 
                       <p className="text-xs text-center text-muted-foreground mt-4">
-                        {translations[language].termsPhrase}{' '}
-                        <Link href="/termos-de-uso" className="text-[#156634] hover:underline">
-                          {translations[language].terms}
-                        </Link>
+                        {translations[language].termsPhrase}
                       </p>
                     </>
                   ) : (
@@ -605,16 +751,26 @@ export default function EventoLandingPage() {
                           <p className="font-semibold text-sm text-gray-900">
                             {eventData.organizer.company_name || eventData.organizer.full_name}
                           </p>
-                          {eventData.organizer.company_cnpj && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              CNPJ: {eventData.organizer.company_cnpj}
-                            </p>
-                          )}
                         </div>
               </div>
               
+                      {/* CNPJ */}
+                      {(eventData.organizer.company_cnpj || eventData.organizer.cnpj) && (
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <Building2 className="h-5 w-5 text-[#156634]" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">CNPJ</p>
+                            <p className="text-sm text-gray-900 font-medium">
+                              {eventData.organizer.company_cnpj || eventData.organizer.cnpj}
+                            </p>
+                        </div>
+              </div>
+                      )}
+              
                       {/* Email */}
-                      {eventData.organizer.company_email && (
+                      {(eventData.organizer?.company_email || eventData.organizer?.email) && (
                         <div className="flex items-start gap-3">
                           <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
                             <Mail className="h-5 w-5 text-[#156634]" />
@@ -622,10 +778,10 @@ export default function EventoLandingPage() {
                           <div className="flex-1">
                             <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">{translations[language].email}</p>
                             <a 
-                              href={`mailto:${eventData.organizer.company_email}`}
+                              href={`mailto:${eventData.organizer.company_email || eventData.organizer.email}`}
                               className="text-sm text-[#156634] hover:underline break-all font-medium"
                             >
-                              {eventData.organizer.company_email}
+                              {eventData.organizer.company_email || eventData.organizer.email}
                             </a>
                           </div>
                 </div>
@@ -661,64 +817,125 @@ export default function EventoLandingPage() {
         </div>
       </div>
 
-      {/* Rodapé Simples e Centralizado */}
-      <footer className="bg-white border-t mt-16">
-        <div className="container mx-auto px-4 py-12">
-          <div className="flex flex-col items-center gap-4 max-w-3xl mx-auto">
-            {/* Logo com mais opacidade e menor */}
-            <div className="opacity-20">
+      {/* Rodapé Profissional */}
+      <footer className="bg-gray-50 border-t border-gray-200 mt-16">
+        <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-12 pb-8">
+          <div className="max-w-7xl mx-auto">
+            {/* Grid Principal - Proporcional */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 lg:gap-16 mb-8 text-center md:text-left">
+              {/* Coluna 1: Logo e Descrição */}
+              <div className="space-y-4 flex flex-col items-center md:items-start">
+                <div>
               <Image
                 src="/images/logo/logo.png"
                 alt="EveMaster"
-                width={120}
-                height={35}
-                className="h-8 w-auto"
-              />
+                    width={140}
+                    height={40}
+                    className="h-9 w-auto opacity-90"
+                  />
+                </div>
+                <p className="text-sm text-gray-600 leading-relaxed max-w-xs">
+                  Ingressos para eventos esportivos. 
+                  Corridas, maratonas, triatlon e ciclismo.
+                </p>
             </div>
 
-            {/* Select de Idioma */}
-            <Select value={language} onValueChange={(val: "pt" | "es" | "en") => setLanguage(val)}>
-              <SelectTrigger className="w-[150px] bg-white border-gray-200 text-gray-600 text-sm h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pt">
-                  <span className="flex items-center gap-2">
-                    <span>🇧🇷</span>
-                    <span>Português</span>
-                  </span>
-                </SelectItem>
-                <SelectItem value="es">
-                  <span className="flex items-center gap-2">
-                    <span>🇦🇷</span>
-                    <span>Español</span>
-                  </span>
-                </SelectItem>
-                <SelectItem value="en">
-                  <span className="flex items-center gap-2">
-                    <span>🇺🇸</span>
-                    <span>English</span>
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+              {/* Coluna 2: Formas de Pagamento */}
+              <div className="space-y-4 flex flex-col items-center md:items-start">
+                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                  {translations[language].footerPayment}
+                </h3>
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5">
+                  <Image
+                    src="/images/ic-payment-visa.svg"
+                    alt="Visa"
+                    width={45}
+                    height={28}
+                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                  />
+                  <Image
+                    src="/images/ic-payment-master-card.svg"
+                    alt="Mastercard"
+                    width={45}
+                    height={28}
+                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                  />
+                  <Image
+                    src="/images/ic-payment-elo.svg"
+                    alt="Elo"
+                    width={45}
+                    height={28}
+                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                  />
+                  <Image
+                    src="/images/ic-payment-american-express.svg"
+                    alt="American Express"
+                    width={45}
+                    height={28}
+                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                  />
+                  <Image
+                    src="/images/ic-payment-hipercard.svg"
+                    alt="Hipercard"
+                    width={45}
+                    height={28}
+                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                  />
+                  <Image
+                    src="/images/ic-payment-pix.svg"
+                    alt="Pix"
+                    width={45}
+                    height={28}
+                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                  />
+                  <Image
+                    src="/images/ic-payment-boleto.svg"
+                    alt="Boleto"
+                    width={45}
+                    height={28}
+                    className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity"
+                  />
+                </div>
+                <p className="text-xs text-gray-600 mt-2">
+                  <span className="font-medium text-[#156634]">Parcelamento em até 12x</span> no cartão de crédito
+                </p>
+              </div>
 
-            {/* Links com separador | */}
-            <div className="flex items-center gap-3 text-sm">
-              <Link href="/termos-de-uso" className="text-muted-foreground hover:text-[#156634] transition-colors">
+              {/* Coluna 3: Links Legais */}
+              <div className="space-y-4 flex flex-col items-center md:items-start">
+                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                  Legal
+                </h3>
+                <div className="flex flex-col gap-2">
+                  <Link 
+                    href="/termos-de-uso" 
+                    className="text-sm text-gray-600 hover:text-[#156634] transition-colors"
+                  >
                 {translations[language].footerTerms}
               </Link>
-              <span className="text-muted-foreground">|</span>
-              <Link href="/politica-de-privacidade" className="text-muted-foreground hover:text-[#156634] transition-colors">
+                  <Link 
+                    href="/politica-de-privacidade" 
+                    className="text-sm text-gray-600 hover:text-[#156634] transition-colors"
+                  >
                 {translations[language].footerPolicy}
               </Link>
+                </div>
+              </div>
             </div>
 
-            {/* Formas de Pagamento */}
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground">
-                {translations[language].footerPayment}
-              </p>
+            {/* Separador */}
+            <Separator className="my-8" />
+
+            {/* Rodapé Inferior: CNPJ e Copyright - Centralizado */}
+            <div className="flex flex-col items-center gap-4 text-xs text-gray-500 text-center">
+              <div>
+                <p className="mb-1">
+                  © {new Date().getFullYear()} EveMaster. Todos os direitos reservados.
+                </p>
+                <p className="font-medium">
+                  Fulsale LTDA - CNPJ: 00.000.000/0001-00
+                </p>
+              </div>
             </div>
           </div>
         </div>

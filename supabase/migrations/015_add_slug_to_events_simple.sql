@@ -446,3 +446,4 @@ CREATE TRIGGER trigger_auto_generate_event_slug
   EXECUTE FUNCTION auto_generate_event_slug();
 
 
+

@@ -84,3 +84,4 @@ Para verificar se está funcionando:
 2. Ou configure SMTP do Supabase para usar Resend
 3. Verifique se não está usando métodos que disparam emails do Supabase
 
+

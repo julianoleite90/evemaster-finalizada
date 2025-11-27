@@ -4,14 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar, MapPin, Users, Eye, Settings, Plus, Search, Loader2 } from "lucide-react"
+import { Calendar, MapPin, Users, Eye, Settings, Plus, Search } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { getOrganizerEvents } from "@/lib/supabase/events"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
-import { updateAllEventSlugs } from "@/lib/supabase/update-slugs"
 
 interface Event {
   id: string
@@ -31,7 +30,6 @@ export default function EventsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [eventos, setEventos] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
-  const [updatingSlugs, setUpdatingSlugs] = useState(false)
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -162,27 +160,6 @@ export default function EventsPage() {
     fetchEvents()
   }, [])
 
-  const handleUpdateSlugs = async () => {
-    try {
-      setUpdatingSlugs(true)
-      toast.info("Atualizando slugs dos eventos...")
-      
-      const result = await updateAllEventSlugs()
-      
-      if (result.success) {
-        toast.success(`Slugs atualizados! ${result.updated} eventos processados`)
-        // Recarregar eventos
-        window.location.reload()
-      } else {
-        toast.error("Erro ao atualizar slugs")
-      }
-    } catch (error) {
-      console.error("Erro:", error)
-      toast.error("Erro ao atualizar slugs")
-    } finally {
-      setUpdatingSlugs(false)
-    }
-  }
 
   const getStatusBadge = (status: Event["status"]) => {
     switch (status) {
@@ -315,19 +292,6 @@ export default function EventsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            onClick={handleUpdateSlugs}
-            disabled={updatingSlugs}
-            variant="outline"
-            className="flex items-center"
-          >
-            {updatingSlugs ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Settings className="mr-2 h-4 w-4" />
-            )}
-            Atualizar URLs
-          </Button>
           <Button asChild>
             <Link href="/dashboard/organizer/events/new" className="flex items-center">
               <Plus className="mr-2 h-4 w-4" />

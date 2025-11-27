@@ -70,3 +70,4 @@ GRANT EXECUTE ON FUNCTION public.insert_user_after_signup TO anon;
 
 
 
+
