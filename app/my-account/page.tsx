@@ -39,7 +39,8 @@ export default function MyAccountPage() {
         let directRegistrations: any[] = []
         let athleteRegistrations: any[] = []
 
-        // 1. Buscar inscrições por user_id, athlete_id ou buyer_id
+        // 1. Buscar inscrições por athlete_id ou buyer_id (RLS permite apenas esses)
+        // A política RLS permite ver registrations se athlete_id = auth.uid() OR buyer_id = auth.uid()
         try {
           const { data, error } = await supabase
             .from("registrations")
@@ -64,14 +65,23 @@ export default function MyAccountPage() {
               ),
               athletes(full_name, email, category)
             `)
-            .or(`user_id.eq.${user.id},athlete_id.eq.${user.id},buyer_id.eq.${user.id}`)
+            .or(`athlete_id.eq.${user.id},buyer_id.eq.${user.id}`)
             .order("created_at", { ascending: false })
           
           if (!error && data) {
             directRegistrations = data || []
-            console.log("✅ [MyAccount] Inscrições encontradas por user_id/athlete_id/buyer_id:", directRegistrations.length)
+            console.log("✅ [MyAccount] Inscrições encontradas por athlete_id/buyer_id:", directRegistrations.length)
+            console.log("📋 [MyAccount] Dados das inscrições:", directRegistrations.map(r => ({
+              id: r.id,
+              athlete_id: r.athlete_id,
+              buyer_id: r.buyer_id,
+              user_id: r.user_id,
+              event: r.event?.name,
+              ticket: r.ticket?.category
+            })))
           } else if (error) {
             console.error("❌ [MyAccount] Erro ao buscar inscrições:", error)
+            console.error("❌ [MyAccount] Detalhes do erro:", JSON.stringify(error, null, 2))
           }
         } catch (err: any) {
           console.error("❌ [MyAccount] Erro ao buscar inscrições:", err.message)

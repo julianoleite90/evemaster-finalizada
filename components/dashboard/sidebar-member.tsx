@@ -117,7 +117,9 @@ export function SidebarMember() {
         <div className="space-y-1">
           {memberNavItems.map((item) => {
             const Icon = item.icon
-            const isActive = pathname === item.href || pathname?.startsWith(item.href + "/")
+            // Apenas marcar como ativo se o pathname for exatamente igual ao href
+            // Isso evita que "Minhas Inscrições" fique verde quando estiver em "Meu Perfil"
+            const isActive = pathname === item.href
             
             return (
               <Link
