@@ -1,9 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
 
 export const config = {
-  // Declaração explícita do runtime para Vercel
-  runtime: 'edge',
   // Matcher otimizado - apenas rotas que realmente precisam de middleware
+  // Nota: Middleware automaticamente usa Edge Runtime no Next.js 14
   matcher: [
     '/dashboard/:path*',
     '/my-account/:path*',
