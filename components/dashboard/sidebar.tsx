@@ -9,9 +9,7 @@ import {
   Users,
   DollarSign,
   Settings,
-  Package,
   FileText,
-  QrCode,
   Link as LinkIcon,
 } from "lucide-react"
 
