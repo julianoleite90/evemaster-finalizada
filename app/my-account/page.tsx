@@ -100,45 +100,46 @@ export default function MyAccountPage() {
               console.log("✅ [MyAccount] Atletas encontrados:", athletes?.length || 0)
             }
 
-          if (athletes && athletes.length > 0) {
-            const registrationIds = athletes
-              .map(a => a.registration_id)
-              .filter(id => id !== null) as string[]
+            if (athletes && athletes.length > 0) {
+              const registrationIds = athletes
+                .map(a => a.registration_id)
+                .filter(id => id !== null) as string[]
 
-            console.log("🔍 [MyAccount] IDs de registrations dos atletas:", registrationIds.length)
+              console.log("🔍 [MyAccount] IDs de registrations dos atletas:", registrationIds.length)
 
-            if (registrationIds.length > 0) {
-              const { data: regs, error: regError } = await supabase
-                .from("registrations")
-                .select(`
-                  *,
-                  event:events(
-                    id,
-                    name,
-                    slug,
-                    event_date,
-                    start_time,
-                    location,
-                    address,
-                    banner_url,
-                    category
-                  ),
-                  ticket:tickets(
-                    id,
-                    category,
-                    price,
-                    is_free
-                  ),
-                  athletes(full_name, email, category)
-                `)
-                .in("id", registrationIds)
-                .order("created_at", { ascending: false })
+              if (registrationIds.length > 0) {
+                const { data: regs, error: regError } = await supabase
+                  .from("registrations")
+                  .select(`
+                    *,
+                    event:events(
+                      id,
+                      name,
+                      slug,
+                      event_date,
+                      start_time,
+                      location,
+                      address,
+                      banner_url,
+                      category
+                    ),
+                    ticket:tickets(
+                      id,
+                      category,
+                      price,
+                      is_free
+                    ),
+                    athletes(full_name, email, category)
+                  `)
+                  .in("id", registrationIds)
+                  .order("created_at", { ascending: false })
 
-              if (!regError && regs) {
-                athleteRegistrations = regs || []
-                console.log("✅ [MyAccount] Inscrições encontradas por email do atleta:", athleteRegistrations.length)
-              } else if (regError) {
-                console.error("❌ [MyAccount] Erro ao buscar registrations dos atletas:", regError)
+                if (!regError && regs) {
+                  athleteRegistrations = regs || []
+                  console.log("✅ [MyAccount] Inscrições encontradas por email do atleta:", athleteRegistrations.length)
+                } else if (regError) {
+                  console.error("❌ [MyAccount] Erro ao buscar registrations dos atletas:", regError)
+                }
               }
             }
           } catch (athleteErr: any) {
