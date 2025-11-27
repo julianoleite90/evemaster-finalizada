@@ -6,16 +6,20 @@ const resendApiKey = process.env.RESEND_API_KEY
 const resendFromEmail =
   process.env.RESEND_FROM_EMAIL || 'Evemaster <inscricoes@evemaster.com.br>'
 
-// Log para debug (apenas em desenvolvimento)
-if (process.env.NODE_ENV === 'development') {
-  console.log('🔧 [Resend] Configuração:', {
-    hasApiKey: !!resendApiKey,
-    apiKeyLength: resendApiKey?.length || 0,
-    fromEmail: resendFromEmail,
-  })
-}
+// Log SEMPRE (também em produção para debug)
+console.log('🔧 [Resend] Configuração ao iniciar:', {
+  hasApiKey: !!resendApiKey,
+  apiKeyPrefix: resendApiKey?.substring(0, 3) || 'N/A',
+  apiKeyLength: resendApiKey?.length || 0,
+  fromEmail: resendFromEmail,
+  nodeEnv: process.env.NODE_ENV,
+})
 
 const resendClient = resendApiKey ? new Resend(resendApiKey) : null
+
+if (!resendClient) {
+  console.error('❌ [Resend] Cliente não foi criado! Verifique RESEND_API_KEY')
+}
 
 export interface EmailInscricao {
   para: string
@@ -67,7 +71,7 @@ export async function enviarEmailConfirmacao(dados: EmailInscricao) {
       subject: `Confirmação da sua inscrição - ${dados.nomeEvento}`,
     })
 
-    const response = await resendClient.emails.send({
+    const emailPayload = {
       from: resendFromEmail,
       to: dados.para,
       subject: `Confirmação da sua inscrição - ${dados.nomeEvento}`,
@@ -78,14 +82,42 @@ export async function enviarEmailConfirmacao(dados: EmailInscricao) {
           content: pdfBuffer.toString('base64'),
         },
       ] : undefined,
+    }
+
+    console.log('📧 [Resend] Payload completo:', {
+      from: emailPayload.from,
+      to: emailPayload.to,
+      subject: emailPayload.subject,
+      hasAttachments: !!emailPayload.attachments && emailPayload.attachments.length > 0,
+    })
+
+    const response = await resendClient.emails.send(emailPayload)
+
+    console.log('📧 [Resend] Resposta do Resend:', {
+      hasError: !!response.error,
+      hasData: !!response.data,
+      error: response.error,
+      dataId: response.data?.id,
     })
 
     if (response.error) {
-      console.error('❌ [Resend] Erro ao enviar email:', response.error)
-      return { success: false, error: response.error }
+      console.error('❌ [Resend] Erro detalhado:', JSON.stringify(response.error, null, 2))
+      return { 
+        success: false, 
+        error: response.error,
+        errorMessage: typeof response.error === 'object' ? JSON.stringify(response.error) : String(response.error)
+      }
     }
 
-    console.log('✅ [Resend] Email enviado com sucesso! ID:', response.data?.id)
+    if (!response.data) {
+      console.error('❌ [Resend] Resposta sem data e sem error - resposta inesperada')
+      return { 
+        success: false, 
+        error: 'Resposta inesperada do Resend (sem data e sem error)'
+      }
+    }
+
+    console.log('✅ [Resend] Email enviado com sucesso! ID:', response.data.id)
     return { success: true, data: response.data }
   } catch (error: any) {
     console.error('❌ [Resend] Erro inesperado:', error)
