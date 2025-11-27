@@ -800,7 +800,7 @@ export default function NewEventPage() {
               // Ajusta para garantir que a soma seja exata
               const loteAjustado = updated.lotes.find(l => l.id === loteId)
               if (loteAjustado) {
-                const somaAjustada = loteAjustado.ingressos.reduce((sum, i) => sum + i.quantidade, 0)
+                const somaAjustada = loteAjustado.ingressos.reduce((sum, i) => sum + (i.quantidade || 0), 0)
                 const diferenca = quantidade - somaAjustada
                 
                 if (diferenca !== 0 && loteAjustado.ingressos.length > 0) {
@@ -811,7 +811,7 @@ export default function NewEventPage() {
                           ...l,
                           ingressos: l.ingressos.map((ingresso, index) => ({
                             ...ingresso,
-                            quantidade: ingresso.quantidade + (index < Math.abs(diferenca) ? (diferenca > 0 ? 1 : -1) : 0),
+                            quantidade: (ingresso.quantidade || 0) + (index < Math.abs(diferenca) ? (diferenca > 0 ? 1 : -1) : 0),
                           })),
                         }
                       : l
