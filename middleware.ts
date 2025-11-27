@@ -1,65 +1,62 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
-type CookieOptions = Parameters<NextResponse["cookies"]["set"]>[2]
-
 export async function middleware(request: NextRequest) {
-  // Sempre retorna uma resposta válida, mesmo em caso de erro
-  let response = NextResponse.next({ request })
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
 
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-    // Se não houver variáveis de ambiente, apenas continua
     if (!supabaseUrl || !supabaseAnonKey) {
       return response
     }
 
-    // Criar response antes de criar o cliente (importante para cookies)
-    response = NextResponse.next({ request })
-
-    // Criar cliente Supabase para gerenciar sessão e cookies
-    const supabase = createServerClient(
-      supabaseUrl,
-      supabaseAnonKey,
-      {
-        cookies: {
-          get(name: string) {
-            return request.cookies.get(name)?.value
-          },
-          set(name: string, value: string, options?: CookieOptions) {
-            // Atualizar cookies na response
-            response.cookies.set(name, value, options)
-          },
-          remove(name: string, options?: CookieOptions) {
-            // Remover cookies da response
-            response.cookies.set(name, "", {
-              ...options,
-              maxAge: 0,
-            })
-          },
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
         },
-      }
-    )
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options)
+          })
+        },
+      },
+    })
 
-    // IMPORTANTE: Chamar getUser() para atualizar tokens/cookies automaticamente
-    // Isso é necessário para renovar tokens expirados e manter a sessão ativa
-    // No Edge Runtime, essa chamada pode falhar, então sempre capturamos erros
-    // Se falhar, os cookies já foram configurados e a sessão será verificada nas páginas
+    // IMPORTANT: You *must* call getUser() immediately after createServerClient
+    // This refreshes the session and updates cookies
+    let user = null
     try {
-      await supabase.auth.getUser()
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser()
+      user = authUser
     } catch {
-      // Ignora erros silenciosamente - a aplicação continua funcionando
-      // A verificação de autenticação será feita nas páginas se necessário
+      // If getUser() fails, continue without user
+      // Session will be verified in pages if needed
     }
 
-    // IMPORTANTE: Sempre retornar a response que foi passada para o createServerClient
-    // Isso garante que os cookies sejam preservados corretamente
+    // Redirect to login if accessing protected route without auth
+    if (
+      !user &&
+      request.nextUrl.pathname.startsWith('/dashboard') &&
+      !request.nextUrl.pathname.startsWith('/login') &&
+      !request.nextUrl.pathname.startsWith('/register')
+    ) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      return NextResponse.redirect(url)
+    }
+
     return response
-  } catch (error) {
-    // Qualquer erro inesperado: retorna response padrão
-    // Isso garante que a aplicação nunca quebre por causa do middleware
+  } catch {
+    // Any error: return default response to prevent app crash
     return response
   }
 }
