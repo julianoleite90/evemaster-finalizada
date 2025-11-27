@@ -4,7 +4,7 @@ import { Resend } from 'resend'
 // Verificar variáveis de ambiente
 const resendApiKey = process.env.RESEND_API_KEY
 const resendFromEmail =
-  process.env.RESEND_FROM_EMAIL || 'Evemaster <inscricoes@evemaster.com.br>'
+  process.env.RESEND_FROM_EMAIL || 'Evemaster <inscricoes@evemaster.app>'
 
 // Log SEMPRE (também em produção para debug)
 console.log('🔧 [Resend] Configuração ao iniciar:', {
@@ -53,16 +53,10 @@ export async function enviarEmailConfirmacao(dados: EmailInscricao) {
     return { success: false, error: 'Cliente Resend não inicializado' }
   }
 
-  console.log('📧 [Resend] Gerando PDF...')
-  let pdfBuffer: Buffer
-  try {
-    pdfBuffer = await gerarPDFInscricao(dados)
-    console.log('✅ [Resend] PDF gerado com sucesso, tamanho:', pdfBuffer.length, 'bytes')
-  } catch (pdfError: any) {
-    console.error('❌ [Resend] Erro ao gerar PDF:', pdfError)
-    // Continua sem PDF se houver erro
-    pdfBuffer = Buffer.from('')
-  }
+  // PDF temporariamente desabilitado devido a problemas com fontes no serverless
+  // TODO: Implementar geração de PDF com biblioteca compatível com serverless
+  console.log('📧 [Resend] PDF desabilitado temporariamente (problema com fontes no serverless)')
+  const pdfBuffer = Buffer.from('')
 
   try {
     console.log('📧 [Resend] Enviando email via Resend API...', {
@@ -156,7 +150,7 @@ export function gerarTemplateEmail(dados: EmailInscricao): string {
           <!-- Header -->
           <tr>
             <td style="background: linear-gradient(135deg, #156634 0%, #1a7a3e 100%); padding: 30px; text-align: center;">
-              <img src="https://evemaster.com.br/images/logo/logo-white.png" alt="Evemaster" height="40" style="margin-bottom: 15px;">
+              <img src="https://evemaster.app/images/logo/logo-white.png" alt="Evemaster" height="40" style="margin-bottom: 15px;">
               <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">
                 Inscrição Confirmada! ✓
               </h1>
@@ -249,7 +243,7 @@ export function gerarTemplateEmail(dados: EmailInscricao): string {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="padding: 10px 0 30px;">
-                    <a href="https://evemaster.com.br/minha-conta" 
+                    <a href="https://evemaster.app/my-account" 
                        style="display: inline-block; background-color: #156634; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-size: 16px; font-weight: 600;">
                       Acessar Área de Membros
                     </a>
@@ -270,11 +264,11 @@ export function gerarTemplateEmail(dados: EmailInscricao): string {
                 © ${new Date().getFullYear()} Evemaster - Plataforma de Eventos Esportivos
               </p>
               <p style="margin: 0;">
-                <a href="https://evemaster.com.br/politica-de-privacidade" style="color: #666666; text-decoration: none; font-size: 12px; margin: 0 10px;">
+                <a href="https://evemaster.app/politica-de-privacidade" style="color: #666666; text-decoration: none; font-size: 12px; margin: 0 10px;">
                   Política de Privacidade
                 </a>
                 |
-                <a href="https://evemaster.com.br/termos-de-uso" style="color: #666666; text-decoration: none; font-size: 12px; margin: 0 10px;">
+                <a href="https://evemaster.app/termos-de-uso" style="color: #666666; text-decoration: none; font-size: 12px; margin: 0 10px;">
                   Termos de Uso
                 </a>
               </p>
@@ -290,11 +284,16 @@ export function gerarTemplateEmail(dados: EmailInscricao): string {
   `
 }
 
-// Função para gerar PDF da inscrição (placeholder)
+// Função para gerar PDF da inscrição
 export async function gerarPDFInscricao(dados: EmailInscricao): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ size: 'A4', margin: 50 })
+      // Usar fonte padrão que funciona no serverless
+      const doc = new PDFDocument({ 
+        size: 'A4', 
+        margin: 50,
+        // Não especificar fonte customizada para evitar problemas no serverless
+      })
       const chunks: Buffer[] = []
 
       doc.on('data', (chunk) => chunks.push(chunk as Buffer))
