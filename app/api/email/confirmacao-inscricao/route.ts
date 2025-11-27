@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { enviarEmailConfirmacao, EmailInscricao } from '@/lib/email/resend'
 
+export const runtime = 'nodejs'
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    const { inscricoes, evento } = body as {
+    const { inscricoes, evento, resumoFinanceiro } = body as {
       inscricoes: Array<{
         email: string
         nome: string
@@ -17,7 +19,14 @@ export async function POST(request: NextRequest) {
       evento: {
         nome: string
         data: string
+        hora?: string
         local: string
+        descricao?: string
+      }
+      resumoFinanceiro?: {
+        subtotal: number
+        taxa: number
+        total: number
       }
     }
 
@@ -37,11 +46,14 @@ export async function POST(request: NextRequest) {
         nomeParticipante: inscricao.nome,
         nomeEvento: evento.nome,
         dataEvento: evento.data,
+        horaEvento: evento.hora,
         localEvento: evento.local,
+        descricaoEvento: evento.descricao,
         categoria: inscricao.categoria,
         valor: inscricao.valor,
         gratuito: inscricao.gratuito,
         codigoInscricao: inscricao.codigoInscricao,
+        resumoFinanceiro,
       }
 
       const resultado = await enviarEmailConfirmacao(dadosEmail)

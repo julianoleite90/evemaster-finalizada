@@ -20,6 +20,8 @@ NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-anon-key-aqui
 SUPABASE_URL=https://seu-projeto.supabase.co          # usado em Server Components / Edge
 SUPABASE_ANON_KEY=sua-anon-key-aqui                   # usado em Server Components / Edge
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxx
+RESEND_FROM_EMAIL=Evemaster <inscricoes@seu-dominio.com>
 ```
 
 **IMPORTANTE:**
@@ -36,6 +38,12 @@ SUPABASE_ANON_KEY=sua-anon-key-aqui                   # usado em Server Componen
 4. Copie:
    - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
    - **anon public** key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+### 3.1. Onde encontrar as variáveis do Resend
+
+1. Acesse o [Resend Dashboard](https://resend.com)
+2. Vá em **API Keys** → gere uma chave (ex.: `re_xxx`)
+3. Copie o endereço de email verificado (ex.: `inscricoes@seu-dominio.com`) e use no `RESEND_FROM_EMAIL`
 
 ### 4. Verificar se Está Funcionando
 

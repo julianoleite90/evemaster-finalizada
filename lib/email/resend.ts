@@ -1,68 +1,79 @@
-// Configuração do Resend para envio de emails
-// Instale com: npm install resend
+import PDFDocument from 'pdfkit'
+import { Resend } from 'resend'
 
-// import { Resend } from 'resend'
+const resendApiKey = process.env.RESEND_API_KEY
+const resendFromEmail =
+  process.env.RESEND_FROM_EMAIL || 'Evemaster <inscricoes@evemaster.com.br>'
 
-// const resend = new Resend(process.env.RESEND_API_KEY)
+const resendClient = resendApiKey ? new Resend(resendApiKey) : null
 
 export interface EmailInscricao {
   para: string
   nomeParticipante: string
   nomeEvento: string
   dataEvento: string
+  horaEvento?: string
   localEvento: string
+  descricaoEvento?: string
   categoria: string
   valor: number
   gratuito: boolean
   codigoInscricao: string
+  resumoFinanceiro?: {
+    subtotal: number
+    taxa: number
+    total: number
+  }
 }
 
-// Função para enviar email de confirmação de inscrição
 export async function enviarEmailConfirmacao(dados: EmailInscricao) {
-  // TODO: Configurar Resend API Key em .env.local
-  // RESEND_API_KEY=re_xxxxxxxxxxxx
-  
-  const { para, nomeParticipante, nomeEvento, dataEvento, localEvento, categoria, valor, gratuito, codigoInscricao } = dados
+  if (!resendClient) {
+    console.error('Resend API key não configurada.')
+    return { success: false, error: 'RESEND_API_KEY não configurada' }
+  }
 
-  console.log('📧 Enviando email de confirmação para:', para)
-  console.log('Dados:', { nomeParticipante, nomeEvento, categoria })
+  const pdfBuffer = await gerarPDFInscricao(dados)
 
-  // Descomentar quando configurar o Resend:
-  /*
   try {
-    const { data, error } = await resend.emails.send({
-      from: 'Evemaster <inscricoes@evemaster.com.br>',
-      to: para,
-      subject: `Inscrição Confirmada - ${nomeEvento}`,
+    const response = await resendClient.emails.send({
+      from: resendFromEmail,
+      to: dados.para,
+      subject: `Confirmação da sua inscrição - ${dados.nomeEvento}`,
       html: gerarTemplateEmail(dados),
-      // attachments: [
-      //   {
-      //     filename: `inscricao-${codigoInscricao}.pdf`,
-      //     content: await gerarPDFInscricao(dados),
-      //   },
-      // ],
+      attachments: [
+        {
+          filename: `ingresso-${dados.codigoInscricao}.pdf`,
+          content: pdfBuffer.toString('base64'),
+        },
+      ],
     })
 
-    if (error) {
-      console.error('Erro ao enviar email:', error)
-      return { success: false, error }
+    if (response.error) {
+      console.error('Erro ao enviar email:', response.error)
+      return { success: false, error: response.error }
     }
 
-    console.log('Email enviado com sucesso:', data)
-    return { success: true, data }
-  } catch (error) {
-    console.error('Erro ao enviar email:', error)
+    console.log('Email enviado com sucesso:', response.data?.id)
+    return { success: true, data: response.data }
+  } catch (error: any) {
+    console.error('Erro inesperado no Resend:', error)
     return { success: false, error }
   }
-  */
-
-  // Simulação enquanto não configurar
-  return { success: true, simulated: true }
 }
 
-// Template HTML do email
 export function gerarTemplateEmail(dados: EmailInscricao): string {
-  const { nomeParticipante, nomeEvento, dataEvento, localEvento, categoria, valor, gratuito, codigoInscricao } = dados
+  const {
+    nomeParticipante,
+    nomeEvento,
+    dataEvento,
+    horaEvento,
+    localEvento,
+    descricaoEvento,
+    categoria,
+    valor,
+    gratuito,
+    codigoInscricao,
+  } = dados
 
   return `
 <!DOCTYPE html>
@@ -109,7 +120,7 @@ export function gerarTemplateEmail(dados: EmailInscricao): string {
                     <table cellpadding="0" cellspacing="0">
                       <tr>
                         <td style="padding: 5px 0; color: #666666; font-size: 14px;">
-                          📅 <strong>Data:</strong> ${dataEvento}
+                          📅 <strong>Data:</strong> ${dataEvento}${horaEvento ? ` às ${horaEvento}` : ''}
                         </td>
                       </tr>
                       <tr>
@@ -117,6 +128,15 @@ export function gerarTemplateEmail(dados: EmailInscricao): string {
                           📍 <strong>Local:</strong> ${localEvento}
                         </td>
                       </tr>
+                      ${
+                        descricaoEvento
+                          ? `<tr>
+                        <td style="padding: 5px 0; color: #666666; font-size: 14px;">
+                          📝 <strong>Descrição:</strong> ${descricaoEvento}
+                        </td>
+                      </tr>`
+                          : ''
+                      }
                       <tr>
                         <td style="padding: 5px 0; color: #666666; font-size: 14px;">
                           🏃 <strong>Categoria:</strong> ${categoria}
@@ -124,7 +144,9 @@ export function gerarTemplateEmail(dados: EmailInscricao): string {
                       </tr>
                       <tr>
                         <td style="padding: 5px 0; color: #666666; font-size: 14px;">
-                          💰 <strong>Valor:</strong> ${gratuito ? 'Gratuito' : `R$ ${valor.toFixed(2)}`}
+                          💰 <strong>Valor:</strong> ${
+                            gratuito ? 'Gratuito' : `R$ ${valor.toFixed(2)}`
+                          }
                         </td>
                       </tr>
                     </table>
@@ -206,9 +228,61 @@ export function gerarTemplateEmail(dados: EmailInscricao): string {
 
 // Função para gerar PDF da inscrição (placeholder)
 export async function gerarPDFInscricao(dados: EmailInscricao): Promise<Buffer> {
-  // TODO: Implementar geração de PDF com @react-pdf/renderer ou jspdf
-  // Por enquanto retorna um buffer vazio
-  return Buffer.from('')
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ size: 'A4', margin: 50 })
+      const chunks: Buffer[] = []
+
+      doc.on('data', (chunk) => chunks.push(chunk as Buffer))
+      doc.on('end', () => resolve(Buffer.concat(chunks)))
+      doc.on('error', (error) => reject(error))
+
+      doc
+        .fontSize(20)
+        .fillColor('#156634')
+        .text('Comprovante de Inscrição', { align: 'center' })
+      doc.moveDown()
+
+      doc
+        .fontSize(14)
+        .fillColor('#333333')
+        .text(`Evento: ${dados.nomeEvento}`)
+      doc.text(`Data: ${dados.dataEvento}${dados.horaEvento ? ` às ${dados.horaEvento}` : ''}`)
+      doc.text(`Local: ${dados.localEvento}`)
+      if (dados.descricaoEvento) {
+        doc.moveDown(0.5)
+        doc.fontSize(12).fillColor('#555555').text(dados.descricaoEvento)
+      }
+
+      doc.moveDown()
+      doc.fontSize(16).fillColor('#156634').text('Participante')
+      doc.fontSize(12).fillColor('#333333')
+      doc.text(`Nome: ${dados.nomeParticipante}`)
+      doc.text(`Categoria: ${dados.categoria}`)
+      doc.text(`Valor: ${dados.gratuito ? 'Gratuito' : `R$ ${dados.valor.toFixed(2)}`}`)
+      doc.text(`Código da inscrição: ${dados.codigoInscricao}`)
+
+      if (dados.resumoFinanceiro) {
+        doc.moveDown()
+        doc.fontSize(16).fillColor('#156634').text('Resumo financeiro')
+        doc.fontSize(12).fillColor('#333333')
+        doc.text(`Subtotal: R$ ${dados.resumoFinanceiro.subtotal.toFixed(2)}`)
+        if (!dados.gratuito) {
+          doc.text(`Taxa: R$ ${dados.resumoFinanceiro.taxa.toFixed(2)}`)
+        }
+        doc.text(`Total: R$ ${dados.resumoFinanceiro.total.toFixed(2)}`)
+      }
+
+      doc.moveDown()
+      doc.fontSize(12).fillColor('#156634').text('Apresente este comprovante no dia do evento.')
+      doc.fontSize(10).fillColor('#888888')
+      doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')}`, { align: 'right' })
+
+      doc.end()
+    } catch (error) {
+      reject(error)
+    }
+  })
 }
 
 

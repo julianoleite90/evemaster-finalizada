@@ -635,6 +635,14 @@ export default function CheckoutPage() {
       // Sinalizar que o evento foi atualizado para recarregar dados
       localStorage.setItem(`event_updated_${eventId}`, 'true')
 
+      const resumoFinanceiro = calcularTotal()
+      const dataEvento = eventData.event_date
+        ? new Date(eventData.event_date).toLocaleDateString('pt-BR')
+        : ''
+      const horaEvento = eventData.start_time
+        ? eventData.start_time.substring(0, 5)
+        : ''
+
       // Enviar emails de confirmação (em background)
       try {
         await fetch('/api/email/confirmacao-inscricao', {
@@ -651,8 +659,15 @@ export default function CheckoutPage() {
             })),
             evento: {
               nome: eventData.name,
-              data: eventData.event_date ? new Date(eventData.event_date).toLocaleDateString('pt-BR') : '',
+              data: dataEvento,
+              hora: horaEvento,
               local: eventData.location || eventData.address || '',
+              descricao: eventData.description || '',
+            },
+            resumoFinanceiro: {
+              subtotal: resumoFinanceiro.subtotal,
+              taxa: resumoFinanceiro.taxa,
+              total: resumoFinanceiro.total,
             },
           }),
         })
@@ -662,7 +677,7 @@ export default function CheckoutPage() {
       }
       
       // Redirecionar para página de obrigado
-      const { subtotal, taxa, total } = calcularTotal()
+      const { subtotal, taxa, total } = resumoFinanceiro
       const resumoParam = encodeURIComponent(JSON.stringify({
         evento: eventData.name,
         eventoData: eventData.event_date ? new Date(eventData.event_date).toLocaleDateString('pt-BR') : '',
