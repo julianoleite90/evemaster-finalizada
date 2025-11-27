@@ -63,32 +63,30 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Buscar usuário por email
-    const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers()
+    // Buscar usuário primeiro na tabela users
+    const supabase = await import('@/lib/supabase/server').then(m => m.createClient())
     
-    if (listError) {
-      console.error('❌ [API] Erro ao listar usuários:', listError)
-      return NextResponse.json(
-        { error: 'Erro ao buscar usuário', details: listError.message },
-        { status: 500 }
-      )
-    }
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('email', email)
+      .maybeSingle()
 
-    const user = users?.users.find(u => u.email === email)
-
-    if (!user) {
+    if (!userData) {
       return NextResponse.json(
         { error: 'Usuário não encontrado com este email' },
         { status: 404 }
       )
     }
 
+    const userId = userData.id
+
     // Gerar senha temporária
     const senhaTemporaria = gerarSenhaTemporaria()
 
     // Atualizar senha do usuário
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-      user.id,
+      userId,
       {
         password: senhaTemporaria,
       }
