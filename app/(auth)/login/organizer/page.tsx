@@ -14,9 +14,7 @@ export default function OrganizerLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [loadingMagicLink, setLoadingMagicLink] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [magicLinkSent, setMagicLinkSent] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -72,39 +70,6 @@ export default function OrganizerLoginPage() {
     }
   }
 
-  const handleMagicLink = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!email) {
-      toast.error("Digite seu email")
-      return
-    }
-
-    try {
-      setLoadingMagicLink(true)
-      const supabase = createClient()
-
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/dashboard/organizer`,
-        },
-      })
-
-      if (error) {
-        toast.error(error.message || "Erro ao enviar link de acesso")
-        return
-      }
-
-      setMagicLinkSent(true)
-      toast.success("Link de acesso enviado! Verifique seu email.")
-    } catch (error: any) {
-      console.error("Erro ao enviar magic link:", error)
-      toast.error("Erro ao enviar link de acesso. Tente novamente.")
-    } finally {
-      setLoadingMagicLink(false)
-    }
-  }
 
   return (
     <div className="min-h-screen flex">
@@ -132,34 +97,7 @@ export default function OrganizerLoginPage() {
             </p>
           </div>
 
-          {magicLinkSent ? (
-            <div className="space-y-4">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                <Mail className="h-12 w-12 text-green-600 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-green-900 mb-2">
-                  Link enviado com sucesso!
-                </h3>
-                <p className="text-sm text-green-700 mb-4">
-                  Enviamos um link de acesso para <strong>{email}</strong>
-                </p>
-                <p className="text-xs text-green-600">
-                  Clique no link no seu email para fazer login automaticamente.
-                </p>
-              </div>
-              <Button
-                onClick={() => {
-                  setMagicLinkSent(false)
-                  setEmail("")
-                }}
-                variant="outline"
-                className="w-full"
-              >
-                Enviar para outro email
-              </Button>
-            </div>
-          ) : (
-            <>
-              <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
                   <Label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                     Email
@@ -239,43 +177,6 @@ export default function OrganizerLoginPage() {
                   </Button>
                 </div>
               </form>
-
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">ou</span>
-                </div>
-              </div>
-
-              <form onSubmit={handleMagicLink} className="space-y-4">
-                <div>
-                  <Button
-                    type="submit"
-                    disabled={loadingMagicLink || !email}
-                    variant="outline"
-                    className="w-full h-12 text-base font-semibold border-2 border-[#156634] text-[#156634] hover:bg-[#156634] hover:text-white"
-                  >
-                    {loadingMagicLink ? (
-                      <>
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Enviando...
-                      </>
-                    ) : (
-                      <>
-                        <Mail className="mr-2 h-5 w-5" />
-                        Entrar sem senha
-                      </>
-                    )}
-                  </Button>
-                </div>
-                <p className="text-xs text-center text-gray-500">
-                  Digite seu email acima e clique em &quot;Entrar sem senha&quot; para receber um link de acesso por email
-                </p>
-              </form>
-            </>
-          )}
 
           <div className="mt-6 text-center text-sm text-gray-600">
             Não tem uma conta?{" "}

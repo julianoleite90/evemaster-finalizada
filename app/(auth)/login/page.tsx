@@ -76,25 +76,26 @@ export default function LoginPage() {
 
     try {
       setLoadingMagicLink(true)
-      const supabase = createClient()
 
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/my-account`,
-        },
+      // Chamar API para enviar senha temporária
+      const response = await fetch('/api/auth/enviar-senha-temporaria', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
       })
 
-      if (error) {
-        toast.error(error.message || "Erro ao enviar link de acesso")
+      const result = await response.json()
+
+      if (!response.ok) {
+        toast.error(result.error || "Erro ao enviar senha temporária")
         return
       }
 
       setMagicLinkSent(true)
-      toast.success("Link de acesso enviado! Verifique seu email.")
+      toast.success("Senha temporária enviada! Verifique seu email.")
     } catch (error: any) {
-      console.error("Erro ao enviar magic link:", error)
-      toast.error("Erro ao enviar link de acesso. Tente novamente.")
+      console.error("Erro ao enviar senha temporária:", error)
+      toast.error("Erro ao enviar senha temporária. Tente novamente.")
     } finally {
       setLoadingMagicLink(false)
     }
@@ -173,7 +174,7 @@ export default function LoginPage() {
                   Enviamos um link de acesso para <strong>{email}</strong>
                 </p>
                 <p className="text-xs text-green-600">
-                  Clique no link no seu email para fazer login automaticamente.
+                  Verifique seu email para receber sua senha temporária e fazer login.
                 </p>
               </div>
               <Button
@@ -304,7 +305,7 @@ export default function LoginPage() {
                   </Button>
                 </div>
                 <p className="text-xs text-center text-gray-500">
-                  Digite seu email acima e clique em &quot;Entrar sem senha&quot; para receber um link de acesso por email
+                  Digite seu email acima e clique em &quot;Entrar sem senha&quot; para receber uma senha temporária por email
                 </p>
               </form>
             </>
