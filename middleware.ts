@@ -49,7 +49,7 @@ export async function middleware(request: NextRequest) {
       )
     } catch (error) {
       // Se houver erro ao criar cliente, apenas continua
-      console.error('Error creating Supabase client in middleware:', error)
+      // Não loga em produção para evitar problemas
       return NextResponse.next({ request })
     }
 
