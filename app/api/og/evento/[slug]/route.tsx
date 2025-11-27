@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og'
-import { getEventBySlug } from '@/lib/supabase/events'
+import { getEventBySlug } from '@/lib/supabase/events-server'
 
 export const runtime = 'edge'
 

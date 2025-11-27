@@ -2,16 +2,10 @@ import { createClient as createBrowserClient } from "@/lib/supabase/client"
 import { generateSlug } from "@/lib/utils/slug"
 import type { PostgrestError } from "@supabase/supabase-js"
 
-// Helper para criar cliente apropriado baseado no ambiente
-async function getSupabaseClient() {
-  if (typeof window === 'undefined') {
-    // Servidor: importa dinamicamente para evitar bundle em client components
-    const { createClient: createServerClient } = await import("@/lib/supabase/server")
-    return await createServerClient()
-  } else {
-    // Browser: usa browser client
-    return createBrowserClient()
-  }
+// Helper para criar cliente - sempre usa browser client
+// Para server-side, use as funções de events-server.ts
+function getSupabaseClient() {
+  return createBrowserClient()
 }
 
 // Tipos temporários até os tipos do database serem gerados
