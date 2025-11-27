@@ -1,6 +1,18 @@
-import { createClient } from "@/lib/supabase/client"
+import { createClient as createBrowserClient } from "@/lib/supabase/client"
+import { createClient as createServerClient } from "@/lib/supabase/server"
 import { generateSlug } from "@/lib/utils/slug"
 import type { PostgrestError } from "@supabase/supabase-js"
+
+// Helper para criar cliente apropriado baseado no ambiente
+async function getSupabaseClient() {
+  if (typeof window === 'undefined') {
+    // Servidor: usa server client
+    return await createServerClient()
+  } else {
+    // Browser: usa browser client
+    return createBrowserClient()
+  }
+}
 
 // Tipos temporários até os tipos do database serem gerados
 type Event = any
@@ -51,7 +63,7 @@ export async function createEvent(eventData: {
     payment_assume_interest?: boolean
   }
 }) {
-  const supabase = createClient()
+  const supabase = await getSupabaseClient()
 
   // 1. Gerar slug único
   const baseSlug = generateSlug(eventData.name)
@@ -157,7 +169,7 @@ export async function createEvent(eventData: {
 
 // Buscar evento por ID
 export async function getEventById(eventId: string) {
-  const supabase = createClient()
+  const supabase = await getSupabaseClient()
 
   const { data: event, error } = await supabase
     .from("events")
@@ -177,7 +189,7 @@ export async function getEventById(eventId: string) {
 }
 
 export async function getEventBySlug(slug: string) {
-  const supabase = createClient()
+  const supabase = await getSupabaseClient()
   
   console.log("🔍 getEventBySlug chamado com:", slug)
   console.log("🔧 Versão atualizada dos logs")
@@ -369,7 +381,7 @@ export async function getEventBySlug(slug: string) {
 
 // Buscar eventos do organizador
 export async function getOrganizerEvents(organizerId: string) {
-  const supabase = createClient()
+  const supabase = await getSupabaseClient()
 
   const { data: events, error } = await supabase
     .from("events")
@@ -423,7 +435,7 @@ export async function getOrganizerEvents(organizerId: string) {
 
 // Atualizar evento
 export async function updateEvent(eventId: string, updates: Partial<Event>) {
-  const supabase = createClient()
+  const supabase = await getSupabaseClient()
 
   const { data, error } = await supabase
     .from("events")
