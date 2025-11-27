@@ -73,10 +73,26 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Verificar se houve algum erro
+    const sucessos = resultados.filter(r => r.success).length
+    const falhas = resultados.filter(r => !r.success).length
+
+    console.log('📧 [API] Resumo do envio:', {
+      total: resultados.length,
+      sucessos,
+      falhas,
+    })
+
+    if (falhas > 0) {
+      console.error('❌ [API] Alguns emails falharam:', resultados.filter(r => !r.success))
+    }
+
     return NextResponse.json({
-      success: true,
-      message: `${resultados.length} email(s) processado(s)`,
+      success: falhas === 0,
+      message: `${sucessos} email(s) enviado(s) com sucesso${falhas > 0 ? `, ${falhas} falharam` : ''}`,
       resultados,
+      sucessos,
+      falhas,
     })
 
   } catch (error: any) {

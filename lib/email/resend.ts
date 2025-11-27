@@ -1,9 +1,19 @@
 import PDFDocument from 'pdfkit'
 import { Resend } from 'resend'
 
+// Verificar variáveis de ambiente
 const resendApiKey = process.env.RESEND_API_KEY
 const resendFromEmail =
   process.env.RESEND_FROM_EMAIL || 'Evemaster <inscricoes@evemaster.com.br>'
+
+// Log para debug (apenas em desenvolvimento)
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔧 [Resend] Configuração:', {
+    hasApiKey: !!resendApiKey,
+    apiKeyLength: resendApiKey?.length || 0,
+    fromEmail: resendFromEmail,
+  })
+}
 
 const resendClient = resendApiKey ? new Resend(resendApiKey) : null
 
