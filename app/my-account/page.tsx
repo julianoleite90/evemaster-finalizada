@@ -27,35 +27,12 @@ export default function MyAccountPage() {
           return
         }
 
-        // Buscar inscrições do usuário através dos atletas
-        const { data: athletes, error: athletesError } = await supabase
-          .from("athletes")
-          .select("id, registration_id, full_name, email")
-          .eq("email", user.email)
+        // Buscar inscrições de duas formas:
+        // 1. Diretamente vinculadas ao user_id (se houver)
+        // 2. Através dos atletas com o mesmo email
 
-        if (athletesError) {
-          console.error("Erro ao buscar atletas:", athletesError)
-          return
-        }
-
-        if (!athletes || athletes.length === 0) {
-          setInscricoes([])
-          setLoading(false)
-          return
-        }
-
-        // Buscar registrations vinculadas aos atletas
-        const registrationIds = athletes
-          .map(a => a.registration_id)
-          .filter(id => id !== null)
-
-        if (registrationIds.length === 0) {
-          setInscricoes([])
-          setLoading(false)
-          return
-        }
-
-        const { data: registrations, error: regError } = await supabase
+        // Primeiro, buscar inscrições diretas
+        const { data: directRegistrations, error: directError } = await supabase
           .from("registrations")
           .select(`
             *,
@@ -75,27 +52,75 @@ export default function MyAccountPage() {
               category,
               price,
               is_free
-            )
+            ),
+            athletes(full_name, email, category)
           `)
-          .in("id", registrationIds)
+          .eq("user_id", user.id)
           .order("created_at", { ascending: false })
 
-        if (regError) {
-          console.error("Erro ao buscar inscrições:", regError)
-          toast.error("Erro ao carregar inscrições")
-          return
+        // Depois, buscar através dos atletas com o mesmo email
+        const { data: athletes, error: athletesError } = await supabase
+          .from("athletes")
+          .select("id, registration_id, full_name, email, category")
+          .eq("email", user.email || "")
+
+        if (athletesError) {
+          console.error("Erro ao buscar atletas:", athletesError)
         }
 
-        // Combinar dados de atletas com registrations
-        const inscricoesCompletas = (registrations || []).map(reg => {
-          const athlete = athletes.find(a => a.registration_id === reg.id)
-          return {
-            ...reg,
-            athlete,
-          }
-        })
+        // Buscar registrations vinculadas aos atletas
+        let athleteRegistrations: any[] = []
+        if (athletes && athletes.length > 0) {
+          const registrationIds = athletes
+            .map(a => a.registration_id)
+            .filter(id => id !== null) as string[]
 
-        setInscricoes(inscricoesCompletas)
+          if (registrationIds.length > 0) {
+            const { data: regs, error: regError } = await supabase
+              .from("registrations")
+              .select(`
+                *,
+                event:events(
+                  id,
+                  name,
+                  slug,
+                  event_date,
+                  start_time,
+                  location,
+                  address,
+                  banner_url,
+                  category
+                ),
+                ticket:tickets(
+                  id,
+                  category,
+                  price,
+                  is_free
+                ),
+                athletes(full_name, email, category)
+              `)
+              .in("id", registrationIds)
+              .order("created_at", { ascending: false })
+
+            if (!regError && regs) {
+              athleteRegistrations = regs
+            }
+          }
+        }
+
+        // Combinar e remover duplicatas
+        const allRegistrations = [
+          ...(directRegistrations || []),
+          ...athleteRegistrations,
+        ]
+
+        // Remover duplicatas baseado no ID da registration
+        const uniqueRegistrations = allRegistrations.filter(
+          (reg, index, self) =>
+            index === self.findIndex((r) => r.id === reg.id)
+        )
+
+        setInscricoes(uniqueRegistrations)
       } catch (error) {
         console.error("Erro ao buscar inscrições:", error)
         toast.error("Erro ao carregar inscrições")

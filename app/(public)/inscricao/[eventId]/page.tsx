@@ -510,15 +510,58 @@ export default function CheckoutPage() {
       console.log("Ingressos:", ingressosSelecionados)
       console.log("Event ID:", eventId)
 
+      // Primeiro, criar contas automaticamente para cada participante
+      const userIdsMap = new Map<string, string>() // email -> userId
+      
+      for (const participante of participantes) {
+        try {
+          const createAccountResponse = await fetch('/api/auth/criar-conta-automatica', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: participante.email,
+              nome: participante.nome,
+              telefone: participante.telefone,
+              cpf: participante.cpf,
+              endereco: participante.endereco,
+              numero: participante.numero,
+              complemento: participante.complemento,
+              bairro: participante.bairro,
+              cidade: participante.cidade,
+              estado: participante.estado,
+              cep: participante.cep,
+            }),
+          })
+
+          const accountResult = await createAccountResponse.json()
+          
+          if (accountResult.success && accountResult.userId) {
+            userIdsMap.set(participante.email, accountResult.userId)
+            console.log('✅ Conta criada/atualizada para:', participante.email, accountResult.userId)
+          } else if (accountResult.userId) {
+            // Mesmo se deu erro mas retornou userId (conta já existia)
+            userIdsMap.set(participante.email, accountResult.userId)
+            console.log('ℹ️ Conta já existia, usando userId:', participante.email, accountResult.userId)
+          } else {
+            console.log('ℹ️ Não foi possível obter userId para:', participante.email)
+            // Continuar sem user_id (será vinculado pelo email do atleta)
+          }
+        } catch (accountError) {
+          console.error('Erro ao criar conta para', participante.email, ':', accountError)
+          // Não bloquear o fluxo se falhar
+        }
+      }
+
       // Para cada participante, criar registro
       for (let i = 0; i < participantes.length; i++) {
         const p = participantes[i]
         const ingresso = ingressosSelecionados[i]
+        const userId = userIdsMap.get(p.email) || null
 
         // Gerar número de inscrição
         const registrationNumber = `EVE-${Date.now().toString(36).toUpperCase()}-${i + 1}`
 
-        console.log("Criando inscrição para:", p.nome)
+        console.log("Criando inscrição para:", p.nome, "userId:", userId)
 
         // Garantir disponibilidade do ticket antes de criar inscrição
         const { data: ticketData, error: ticketFetchError } = await supabase
@@ -538,7 +581,7 @@ export default function CheckoutPage() {
           throw new Error("Ticket esgotado")
         }
 
-        // 1. Criar inscrição primeiro (sem athlete_id/buyer_id - são para usuários logados)
+        // 1. Criar inscrição com user_id se disponível
         const now = new Date()
         const insertData = {
           event_id: eventId,
@@ -548,6 +591,7 @@ export default function CheckoutPage() {
           registration_time: now.toTimeString().split(' ')[0],
           status: isGratuito() ? "confirmed" : "pending",
           shirt_size: p.tamanhoCamiseta || null,
+          user_id: userId, // Vincular ao usuário se a conta foi criada
         }
         console.log("Dados insert registration:", insertData)
 
@@ -630,7 +674,7 @@ export default function CheckoutPage() {
       }
 
       console.log("=== INSCRIÇÃO CONCLUÍDA COM SUCESSO ===")
-      toast.success("Inscrição realizada com sucesso!")
+      toast.success("Inscrição realizada com sucesso! Contas criadas automaticamente.")
 
       // Sinalizar que o evento foi atualizado para recarregar dados
       localStorage.setItem(`event_updated_${eventId}`, 'true')
