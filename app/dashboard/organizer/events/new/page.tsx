@@ -333,11 +333,15 @@ export default function NewEventPage() {
           end_date: dataFim,
           total_quantity: lote.quantidadeTotal && lote.quantidadeTotal !== "" ? parseInt(lote.quantidadeTotal) : null,
           tickets: lote.ingressos.map((ingresso) => {
-            const shirtQuantities = Object.entries(ingresso.quantidadeCamisetasPorTamanho || {}).reduce<Record<string, number>>(
+            const shirtQuantities = Object.entries(ingresso.quantidadeCamisetasPorTamanho || {}).reduce<Record<string, number | null>>(
               (acc, [size, value]) => {
-                const parsed = parseInt(value || "0", 10)
-                if (!Number.isNaN(parsed)) {
-                  acc[size] = parsed
+                if (value === null || value === undefined || value === "") {
+                  acc[size] = null
+                } else {
+                  const parsed = parseInt(value as string, 10)
+                  if (!Number.isNaN(parsed)) {
+                    acc[size] = parsed
+                  }
                 }
                 return acc
               },
@@ -348,7 +352,9 @@ export default function NewEventPage() {
               category: ingresso.categoria,
               price: ingresso.gratuito ? 0 : parseFloat(ingresso.valor || "0"),
               is_free: ingresso.gratuito,
-              quantity: ingresso.quantidade && ingresso.quantidade !== "" ? parseInt(ingresso.quantidade) : null,
+              quantity: (ingresso.quantidade !== null && ingresso.quantidade !== undefined && ingresso.quantidade !== "" && String(ingresso.quantidade).trim() !== "") 
+                ? (typeof ingresso.quantidade === 'number' ? ingresso.quantidade : parseInt(String(ingresso.quantidade))) 
+                : null,
               has_kit: ingresso.possuiKit,
               kit_items: ingresso.itensKit || [],
               shirt_sizes: ingresso.tamanhosCamiseta || [],
@@ -1642,7 +1648,7 @@ export default function NewEventPage() {
                                                           type="number"
                                                           min="0"
                                                           step="1"
-                                                          value={(ingresso.quantidadeCamisetasPorTamanho || {})[tamanho] || ""}
+                                                          value={(ingresso.quantidadeCamisetasPorTamanho || {})[tamanho] ?? ""}
                                                           onChange={(e) => {
                                                             const valor = e.target.value
                                                             const quantidadesAtuais = ingresso.quantidadeCamisetasPorTamanho || {}
@@ -1652,11 +1658,11 @@ export default function NewEventPage() {
                                                               "quantidadeCamisetasPorTamanho",
                                                               {
                                                                 ...quantidadesAtuais,
-                                                                [tamanho]: valor === "" ? "" : valor,
+                                                                [tamanho]: valor === "" ? null : (valor ? valor : null),
                                                               }
                                                             )
                                                           }}
-                                                          placeholder="0"
+                                                          placeholder="Deixe vazio para ilimitado"
                                                           className="w-full"
                                                         />
                                                       </div>
