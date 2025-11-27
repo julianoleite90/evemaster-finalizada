@@ -86,10 +86,12 @@ export async function POST(request: NextRequest) {
     const senhaTemporaria = gerarSenhaTemporaria()
 
     // Atualizar senha do usuário
+    // IMPORTANTE: Não enviar email do Supabase - vamos enviar via Resend
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       userId,
       {
         password: senhaTemporaria,
+        // Não disparar email do Supabase
       }
     )
 
