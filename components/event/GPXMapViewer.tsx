@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { Route, Mountain, Activity } from "lucide-react"
 import dynamic from "next/dynamic"
 
-// Carregar ElevationChart dinamicamente para evitar problemas com Three.js
+// Carregar ElevationChart dinamicamente para evitar problemas de SSR
 const ElevationChart = dynamic(() => import("./ElevationChart"), {
   ssr: false,
 })
