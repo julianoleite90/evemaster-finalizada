@@ -705,10 +705,13 @@ export default function CheckoutPage() {
       {/* Header */}
       <header className="bg-[#156634] text-white py-3 px-4 md:py-4 md:px-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <img
+          <Image
             src="/images/logo/logo.png"
-            alt="Logo"
-            className="h-5 md:h-8"
+            alt="Logo EveMaster"
+            width={120}
+            height={32}
+            className="h-5 md:h-8 w-auto"
+            priority
           />
           <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
             <Shield className="h-4 w-4 md:h-5 md:w-5" />

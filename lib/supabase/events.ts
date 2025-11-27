@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client"
 import { generateSlug } from "@/lib/utils/slug"
+import type { PostgrestError } from "@supabase/supabase-js"
 
 // Tipos temporários até os tipos do database serem gerados
 type Event = any
@@ -184,8 +185,8 @@ export async function getEventBySlug(slug: string) {
   // Verificar se é um UUID primeiro
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   
-  let event = null
-  let error = null
+  let event: Event | null = null
+  let error: PostgrestError | null = null
   
   if (uuidRegex.test(slug)) {
     console.log("📋 Detectado UUID, buscando por ID...")
@@ -338,7 +339,7 @@ export async function getEventBySlug(slug: string) {
   console.log("- Organizador ID:", event.organizer_id)
   console.log("- Ticket Batches:", event.ticket_batches?.length || 0)
   if (event.ticket_batches && event.ticket_batches.length > 0) {
-    event.ticket_batches.forEach((batch, index) => {
+    event.ticket_batches.forEach((batch: TicketBatch, index: number) => {
       console.log(`- Lote ${index + 1}:`, {
         id: batch.id,
         name: batch.name,
@@ -351,7 +352,7 @@ export async function getEventBySlug(slug: string) {
       
       if (batch.tickets && batch.tickets.length > 0) {
         console.log(`  - Ingressos do lote ${batch.name}:`)
-        batch.tickets.forEach((ticket, ticketIndex) => {
+        batch.tickets.forEach((ticket: Ticket, ticketIndex: number) => {
           console.log(`    ${ticketIndex + 1}. ${ticket.name} - R$ ${ticket.price} (${ticket.category})`)
         })
       } else {

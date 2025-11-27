@@ -124,6 +124,9 @@ export default function RegistrationDetailsPage() {
           .eq("registration_id", registrationId)
           .single()
 
+        const eventInfo = Array.isArray(regData.events) ? regData.events[0] : regData.events
+        const ticketInfo = Array.isArray(regData.tickets) ? regData.tickets[0] : regData.tickets
+
         // Formatar dados para o componente
         const formattedData = {
           id: regData.id,
@@ -132,10 +135,10 @@ export default function RegistrationDetailsPage() {
           dataInscricao: regData.registration_date,
           horaInscricao: regData.registration_time,
           evento: {
-            nome: regData.events?.name || "N/A",
-            data: regData.events?.event_date || "",
-            local: regData.events?.location || "N/A",
-            categoria: regData.tickets?.category || "N/A",
+            nome: eventInfo?.name || "N/A",
+            data: eventInfo?.event_date || "",
+            local: eventInfo?.location || "N/A",
+            categoria: ticketInfo?.category || "N/A",
           },
           atleta: athleteData ? {
             nome: athleteData.full_name,
@@ -152,7 +155,7 @@ export default function RegistrationDetailsPage() {
               cep: athleteData.zip_code,
             },
             tamanhoCamiseta: regData.shirt_size,
-            possuiKit: regData.tickets?.has_kit || false,
+            possuiKit: ticketInfo?.has_kit || false,
             possuiSeguro: false,
           } : null,
           comprador: null,

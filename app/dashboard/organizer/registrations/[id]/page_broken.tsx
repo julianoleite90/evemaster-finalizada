@@ -37,7 +37,6 @@ import {
   Clock,
   XCircle,
   Cake,
-  Venus,
   Home,
   Hash,
   Tag,
@@ -953,7 +952,7 @@ export default function RegistrationDetailsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {registration.financeiro ? (
-                <>
+                <div className="space-y-6">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">Valor Base</span>
@@ -1005,7 +1004,8 @@ export default function RegistrationDetailsPage() {
                         </div>
                       </div>
                     </div>
-                </>
+                  </div>
+                </div>
               ) : (
                 <div className="text-center py-4 text-muted-foreground">
                   <p>Inscrição gratuita ou pagamento não processado</p>

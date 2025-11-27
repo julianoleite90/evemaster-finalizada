@@ -121,11 +121,6 @@ export default function EventoLandingPage() {
       footerPayment: "We accept all credit cards, Pix and Boleto",
     },
   }
-  const getPlainDescription = () => {
-    if (!eventData?.description) return "Evento esportivo da EveMaster"
-    return eventData.description.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim().slice(0, 150)
-  }
-
   useEffect(() => {
     const fetchEvent = async () => {
       if (!slug) return
@@ -162,7 +157,10 @@ export default function EventoLandingPage() {
     if (!eventData) return
 
     const title = `${eventData.name} | EveMaster Eventos Esportivos`
-    const description = getPlainDescription()
+    const rawDescription = eventData.description
+      ? eventData.description.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
+      : "Evento esportivo da EveMaster"
+    const description = rawDescription.slice(0, 150)
     const origin = typeof window !== "undefined" ? window.location.origin : ""
     const ogImage = eventData.banner_url || `${origin}/images/logo/logo.png`
     const currentUrl = typeof window !== "undefined" ? window.location.href : ""

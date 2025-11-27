@@ -32,6 +32,7 @@ import { createClient } from "@/lib/supabase/client"
 import { getEventById, updateEvent } from "@/lib/supabase/events"
 import { uploadEventBanner } from "@/lib/supabase/storage"
 import dynamic from "next/dynamic"
+import Image from "next/image"
 
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false })
 import "react-quill/dist/quill.snow.css"
@@ -485,10 +486,13 @@ export default function EventSettingsPage() {
             <CardContent className="space-y-4">
               {eventData.banner_url && (
                 <div className="relative w-full h-48 bg-gray-100 rounded-lg overflow-hidden">
-                  <img
+                  <Image
                     src={eventData.banner_url}
                     alt="Banner atual"
-                    className="w-full h-full object-cover"
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="object-cover"
+                    priority
                   />
                   <Badge className="absolute top-2 right-2 bg-green-600">
                     Banner atual

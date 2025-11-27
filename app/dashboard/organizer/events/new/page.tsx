@@ -19,6 +19,7 @@ import { toast } from "sonner"
 import { createEvent } from "@/lib/supabase/events"
 import { uploadEventBanner, uploadEventGPX } from "@/lib/supabase/storage"
 import { createClient } from "@/lib/supabase/client"
+import Image from "next/image"
 
 // Modalidades esportivas disponíveis
 const MODALIDADES_ESPORTIVAS = [
@@ -326,16 +327,29 @@ export default function NewEventPage() {
           start_time: lote.horaInicio,
           end_date: dataFim,
           total_quantity: parseInt(lote.quantidadeTotal || "0"),
-          tickets: lote.ingressos.map((ingresso) => ({
-            category: ingresso.categoria,
-            price: ingresso.gratuito ? 0 : parseFloat(ingresso.valor || "0"),
-            is_free: ingresso.gratuito,
-            quantity: ingresso.quantidade,
-            has_kit: ingresso.possuiKit,
-            kit_items: ingresso.itensKit || [],
-            shirt_sizes: ingresso.tamanhosCamiseta || [],
-            shirt_quantities: ingresso.quantidadeCamisetasPorTamanho || {},
-          })),
+          tickets: lote.ingressos.map((ingresso) => {
+            const shirtQuantities = Object.entries(ingresso.quantidadeCamisetasPorTamanho || {}).reduce<Record<string, number>>(
+              (acc, [size, value]) => {
+                const parsed = parseInt(value || "0", 10)
+                if (!Number.isNaN(parsed)) {
+                  acc[size] = parsed
+                }
+                return acc
+              },
+              {}
+            )
+
+            return {
+              category: ingresso.categoria,
+              price: ingresso.gratuito ? 0 : parseFloat(ingresso.valor || "0"),
+              is_free: ingresso.gratuito,
+              quantity: ingresso.quantidade,
+              has_kit: ingresso.possuiKit,
+              kit_items: ingresso.itensKit || [],
+              shirt_sizes: ingresso.tamanhosCamiseta || [],
+              shirt_quantities: shirtQuantities,
+            }
+          }),
         }
       })
 
@@ -1656,11 +1670,14 @@ export default function NewEventPage() {
                     <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
                       {/* Banner */}
                       {formData.bannerEvento ? (
-                        <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
-                          <img 
+                        <div className="relative w-full h-32 bg-gray-200 rounded-lg overflow-hidden">
+                          <Image 
                             src={URL.createObjectURL(formData.bannerEvento)} 
                             alt="Banner" 
-                            className="w-full h-full object-cover"
+                            fill
+                            sizes="(max-width: 768px) 100vw, 33vw"
+                            className="object-cover"
+                            unoptimized
                           />
                         </div>
                       ) : (
