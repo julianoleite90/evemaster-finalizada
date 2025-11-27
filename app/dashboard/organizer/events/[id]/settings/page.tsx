@@ -1364,7 +1364,7 @@ export default function EventSettingsPage() {
                   <Route className="h-8 w-8 text-gray-400" />
                   </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum lote cadastrado</h3>
-                <p className="text-sm text-gray-600">Configure os lotes primeiro na aba "Lotes & Ingressos"</p>
+                <p className="text-sm text-gray-600">Configure os lotes primeiro na aba &quot;Lotes &amp; Ingressos&quot;</p>
             </CardContent>
           </Card>
           ) : (
