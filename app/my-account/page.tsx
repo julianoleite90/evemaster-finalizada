@@ -33,15 +33,13 @@ export default function MyAccountPage() {
         })
 
         // Buscar inscrições de múltiplas formas:
-        // 1. Diretamente vinculadas ao user_id
+        // 1. Por user_id, athlete_id ou buyer_id (mais direto)
         // 2. Através dos atletas com o mesmo email (case-insensitive)
-        // 3. Buscar todas as registrations e filtrar por email do atleta
 
         let directRegistrations: any[] = []
         let athleteRegistrations: any[] = []
-        let allRegistrations: any[] = []
 
-        // 1. Buscar inscrições diretas por user_id
+        // 1. Buscar inscrições por user_id, athlete_id ou buyer_id
         try {
           const { data, error } = await supabase
             .from("registrations")
@@ -66,21 +64,17 @@ export default function MyAccountPage() {
               ),
               athletes(full_name, email, category)
             `)
-            .eq("user_id", user.id)
+            .or(`user_id.eq.${user.id},athlete_id.eq.${user.id},buyer_id.eq.${user.id}`)
             .order("created_at", { ascending: false })
           
           if (!error && data) {
             directRegistrations = data || []
-            console.log("✅ [MyAccount] Inscrições encontradas por user_id:", directRegistrations.length)
+            console.log("✅ [MyAccount] Inscrições encontradas por user_id/athlete_id/buyer_id:", directRegistrations.length)
           } else if (error) {
-            if (error.message?.includes("column") || error.message?.includes("user_id")) {
-              console.log("ℹ️ [MyAccount] Coluna user_id não existe ou não acessível")
-            } else {
-              console.error("❌ [MyAccount] Erro ao buscar inscrições por user_id:", error)
-            }
+            console.error("❌ [MyAccount] Erro ao buscar inscrições:", error)
           }
         } catch (err: any) {
-          console.log("ℹ️ [MyAccount] Erro ao buscar por user_id:", err.message)
+          console.error("❌ [MyAccount] Erro ao buscar inscrições:", err.message)
         }
 
         // 2. Buscar através dos atletas com o mesmo email (case-insensitive)
@@ -148,63 +142,10 @@ export default function MyAccountPage() {
           }
         }
 
-        // 3. Buscar todas as registrations e filtrar por email do atleta (fallback)
-        // Isso garante que mesmo se a busca anterior falhar, ainda encontraremos as inscrições
-        if (user.email && (directRegistrations.length === 0 && athleteRegistrations.length === 0)) {
-          console.log("🔍 [MyAccount] Tentando busca alternativa: todas as registrations com atletas")
-          
-          const { data: allRegs, error: allRegsError } = await supabase
-            .from("registrations")
-            .select(`
-              *,
-              event:events(
-                id,
-                name,
-                slug,
-                event_date,
-                start_time,
-                location,
-                address,
-                banner_url,
-                category
-              ),
-              ticket:tickets(
-                id,
-                category,
-                price,
-                is_free
-              ),
-              athletes(full_name, email, category)
-            `)
-            .order("created_at", { ascending: false })
-            .limit(100) // Limitar para performance
-
-          if (!allRegsError && allRegs) {
-            // Filtrar registrations onde algum atleta tem o mesmo email
-            const filtered = allRegs.filter((reg: any) => {
-              // Verificar se tem user_id correspondente
-              if (reg.user_id === user.id) return true
-              
-              // Verificar se algum atleta tem o mesmo email (case-insensitive)
-              if (reg.athletes && Array.isArray(reg.athletes)) {
-                return reg.athletes.some((athlete: any) => 
-                  athlete.email && athlete.email.toLowerCase() === user.email?.toLowerCase()
-                )
-              }
-              
-              return false
-            })
-            
-            allRegistrations = filtered
-            console.log("✅ [MyAccount] Inscrições encontradas na busca alternativa:", allRegistrations.length)
-          }
-        }
-
         // Combinar todas as inscrições encontradas
         const combined = [
           ...directRegistrations,
           ...athleteRegistrations,
-          ...allRegistrations,
         ]
 
         // Remover duplicatas baseado no ID da registration
@@ -244,6 +185,35 @@ export default function MyAccountPage() {
   const formatTime = (timeString: string) => {
     if (!timeString) return ""
     return timeString.substring(0, 5)
+  }
+
+  const handleDownloadPDF = async (inscricao: any) => {
+    try {
+      const response = await fetch('/api/ingresso/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registrationId: inscricao.id }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Erro ao gerar ingresso')
+      }
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `ingresso-${inscricao.registration_number || inscricao.id}.html`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      toast.success('Ingresso baixado com sucesso!')
+    } catch (error) {
+      console.error('Erro ao gerar ingresso:', error)
+      toast.error('Erro ao gerar ingresso')
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -386,9 +356,12 @@ export default function MyAccountPage() {
                             </Link>
                           </Button>
                         )}
-                        <Button variant="outline">
+                        <Button 
+                          variant="outline"
+                          onClick={() => handleDownloadPDF(inscricao)}
+                        >
                           <Download className="h-4 w-4 mr-2" />
-                          Baixar Comprovante
+                          Baixar Ingresso
                         </Button>
                       </div>
                     </CardContent>

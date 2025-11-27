@@ -585,7 +585,7 @@ export default function CheckoutPage() {
           throw new Error("Ticket esgotado")
         }
 
-        // 1. Criar inscrição com user_id se disponível
+        // 1. Criar inscrição com user_id, athlete_id e buyer_id
         const now = new Date()
         const insertData: any = {
           event_id: eventId,
@@ -597,9 +597,44 @@ export default function CheckoutPage() {
           shirt_size: p.tamanhoCamiseta || null,
         }
         
-        // Adicionar user_id apenas se disponível (coluna pode não existir em bancos antigos)
+        // Preencher athlete_id e buyer_id (obrigatórios) e user_id (opcional)
         if (userId) {
+          insertData.athlete_id = userId
+          insertData.buyer_id = userId
           insertData.user_id = userId
+        } else {
+          // Se não tiver userId, precisamos criar um usuário temporário ou usar um fallback
+          // Por enquanto, vamos buscar ou criar um usuário pelo email
+          const { data: existingUser } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', p.email)
+            .maybeSingle()
+          
+          if (existingUser) {
+            insertData.athlete_id = existingUser.id
+            insertData.buyer_id = existingUser.id
+          } else {
+            // Se não encontrar, criar um usuário básico
+            const { data: newUser, error: userError } = await supabase
+              .from('users')
+              .insert({
+                email: p.email,
+                full_name: p.nome,
+                role: 'ATLETA',
+              })
+              .select('id')
+              .single()
+            
+            if (newUser && !userError) {
+              insertData.athlete_id = newUser.id
+              insertData.buyer_id = newUser.id
+            } else {
+              console.error("Erro ao criar usuário para inscrição:", userError)
+              toast.error("Erro ao vincular usuário à inscrição")
+              throw new Error("Erro ao criar usuário")
+            }
+          }
         }
         console.log("Dados insert registration:", insertData)
 
