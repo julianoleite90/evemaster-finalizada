@@ -91,13 +91,16 @@ export async function getEventBySlug(slug: string) {
             .eq("id", organizer.user_id)
             .single()
           
-          if (user) {
-            organizer.email = user.email
-            organizer.company_email = user.email
+          if (user && organizer) {
+            event.organizer = {
+              ...organizer,
+              email: user.email,
+              company_email: user.email
+            }
+          } else if (organizer) {
+            event.organizer = organizer
           }
-        }
-        
-        if (organizer) {
+        } else if (organizer) {
           event.organizer = organizer
         }
       }
