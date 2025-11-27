@@ -56,7 +56,12 @@ export function Header() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuItem asChild>
-              <Link href="/dashboard/organizer/profile" className="flex items-center gap-2 cursor-pointer">
+              <Link 
+                href={typeof window !== 'undefined' && window.location.pathname.startsWith('/my-account') 
+                  ? '/my-account/profile' 
+                  : '/dashboard/organizer/profile'} 
+                className="flex items-center gap-2 cursor-pointer"
+              >
                 <User className="h-4 w-4" />
                 Meu Perfil
               </Link>
