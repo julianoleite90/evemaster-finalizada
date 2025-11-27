@@ -106,7 +106,7 @@ export default function NewEventPage() {
         categoria: string
         valor: string
         gratuito: boolean
-        quantidade: number
+        quantidade: number | null
         possuiKit: boolean
         itensKit: string[]
         tamanhosCamiseta: string[]
@@ -352,8 +352,8 @@ export default function NewEventPage() {
               category: ingresso.categoria,
               price: ingresso.gratuito ? 0 : parseFloat(ingresso.valor || "0"),
               is_free: ingresso.gratuito,
-              quantity: (ingresso.quantidade !== null && ingresso.quantidade !== undefined && ingresso.quantidade !== "" && String(ingresso.quantidade).trim() !== "") 
-                ? (typeof ingresso.quantidade === 'number' ? ingresso.quantidade : parseInt(String(ingresso.quantidade))) 
+              quantity: (ingresso.quantidade !== null && ingresso.quantidade !== undefined && ingresso.quantidade !== 0) 
+                ? ingresso.quantidade 
                 : null,
               has_kit: ingresso.possuiKit,
               kit_items: ingresso.itensKit || [],
