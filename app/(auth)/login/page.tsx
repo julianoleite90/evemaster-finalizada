@@ -52,81 +52,10 @@ export default function LoginPage() {
         // Aguardar para garantir que o middleware criou o registro em users
         await new Promise(resolve => setTimeout(resolve, 1500))
 
-        // Verificar metadados do auth primeiro (mais confiável que users table)
-        const userMetadata = data.user.user_metadata
-        const metadataRole = userMetadata?.role?.toUpperCase()
-        
-        console.log("=== DEBUG LOGIN ===")
-        console.log("User ID:", data.user.id)
-        console.log("User metadata:", userMetadata)
-        console.log("Metadata role:", metadataRole)
-
-        // Função para verificar perfis com retry
-        const checkProfiles = async (maxRetries = 3) => {
-          for (let i = 0; i < maxRetries; i++) {
-            const [organizerResult, affiliateResult, userResult] = await Promise.all([
-              supabase
-                .from("organizers")
-                .select("id")
-                .eq("user_id", data.user.id)
-                .maybeSingle(),
-              supabase
-                .from("affiliates")
-                .select("id")
-                .eq("user_id", data.user.id)
-                .maybeSingle(),
-              supabase
-                .from("users")
-                .select("role")
-                .eq("id", data.user.id)
-                .maybeSingle()
-            ])
-
-            const hasOrganizerProfile = organizerResult.data && !organizerResult.error
-            const hasAffiliateProfile = affiliateResult.data && !affiliateResult.error
-            const userRole = userResult.data?.role?.toUpperCase()
-
-            console.log(`Attempt ${i + 1}:`)
-            console.log("- Has organizer profile:", hasOrganizerProfile)
-            console.log("- Has affiliate profile:", hasAffiliateProfile)
-            console.log("- User role from DB:", userRole)
-
-            if (hasOrganizerProfile) {
-              return { type: "organizer", profile: true }
-            }
-
-            if (hasAffiliateProfile) {
-              return { type: "affiliate", profile: true }
-            }
-
-            // Se encontrou role mas não tem perfil, retornar o role
-            if (userRole && (userRole === "ORGANIZADOR" || userRole === "ORGANIZER")) {
-              return { type: "organizer", profile: false, role: userRole }
-            }
-
-            if (userRole && (userRole === "AFILIADO" || userRole === "AFFILIATE")) {
-              return { type: "affiliate", profile: false, role: userRole }
-            }
-
-            if (userRole === "ADMIN") {
-              return { type: "admin", profile: false, role: userRole }
-            }
-
-            // Se não encontrou nada e ainda tem tentativas, aguardar
-            if (i < maxRetries - 1) {
-              await new Promise(resolve => setTimeout(resolve, 1000))
-            }
-          }
-
-          return null
-        }
-
-        const profileCheck = await checkProfiles()
-
         toast.success("Login realizado com sucesso!")
 
-        // Para login geral, sempre redirecionar para área de membros
-        // Organizadores, afiliados e admins devem usar suas páginas específicas
+        // Login geral sempre redireciona para área de membros
+        // Organizadores, afiliados e admins devem usar suas páginas específicas de login
         window.location.href = "/my-account"
       }
     } catch (error: any) {
