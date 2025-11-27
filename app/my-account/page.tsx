@@ -86,16 +86,19 @@ export default function MyAccountPage() {
         // 2. Buscar através dos atletas com o mesmo email (case-insensitive)
         if (user.email) {
           // Buscar atletas com email igual (case-insensitive)
-          const { data: athletes, error: athletesError } = await supabase
-            .from("athletes")
-            .select("id, registration_id, full_name, email, category")
-            .ilike("email", user.email) // Case-insensitive
+          // Usar try/catch para não quebrar se houver erro de RLS ou permissão
+          try {
+            const { data: athletes, error: athletesError } = await supabase
+              .from("athletes")
+              .select("id, registration_id, full_name, email, category")
+              .ilike("email", user.email) // Case-insensitive
 
-          if (athletesError) {
-            console.error("❌ [MyAccount] Erro ao buscar atletas:", athletesError)
-          } else {
-            console.log("✅ [MyAccount] Atletas encontrados:", athletes?.length || 0)
-          }
+            if (athletesError) {
+              console.error("❌ [MyAccount] Erro ao buscar atletas:", athletesError)
+              // Não bloquear o fluxo, apenas logar o erro
+            } else {
+              console.log("✅ [MyAccount] Atletas encontrados:", athletes?.length || 0)
+            }
 
           if (athletes && athletes.length > 0) {
             const registrationIds = athletes
@@ -138,6 +141,9 @@ export default function MyAccountPage() {
                 console.error("❌ [MyAccount] Erro ao buscar registrations dos atletas:", regError)
               }
             }
+          } catch (athleteErr: any) {
+            console.error("❌ [MyAccount] Erro ao processar busca de atletas:", athleteErr)
+            // Continuar o fluxo mesmo com erro
           }
         }
 

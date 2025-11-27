@@ -17,6 +17,9 @@ export default function MyProfilePage() {
     email: "",
     phone: "",
     address: "",
+    address_number: "",
+    address_complement: "",
+    neighborhood: "",
     city: "",
     state: "",
     zip_code: "",
@@ -34,6 +37,8 @@ export default function MyProfilePage() {
           return
         }
 
+        console.log("🔍 [Profile] Buscando dados do usuário:", user.id)
+
         // Buscar dados do usuário
         const { data: userData, error } = await supabase
           .from("users")
@@ -41,30 +46,43 @@ export default function MyProfilePage() {
           .eq("id", user.id)
           .single()
 
+        console.log("📊 [Profile] Dados retornados do banco:", userData)
+        console.log("📊 [Profile] Erro (se houver):", error)
+
         if (error && error.code !== "PGRST116") {
-          console.error("Erro ao buscar dados:", error)
-          return
+          console.error("❌ [Profile] Erro ao buscar dados:", error)
+          // Mesmo com erro, tentar usar dados dos metadados
         }
 
         if (userData) {
+          console.log("✅ [Profile] Dados encontrados na tabela users")
           setUserData({
             full_name: userData.full_name || "",
             email: user.email || "",
             phone: userData.phone || "",
             address: userData.address || "",
+            address_number: userData.address_number || "",
+            address_complement: userData.address_complement || "",
+            neighborhood: userData.neighborhood || "",
             city: userData.city || "",
             state: userData.state || "",
             zip_code: userData.zip_code || "",
           })
         } else {
+          console.log("ℹ️ [Profile] Usuário não encontrado na tabela users, usando metadados")
+          // Tentar buscar dos metadados do auth
+          const metadata = user.user_metadata || {}
           setUserData({
-            full_name: user.user_metadata?.full_name || "",
+            full_name: metadata.full_name || "",
             email: user.email || "",
-            phone: "",
-            address: "",
-            city: "",
-            state: "",
-            zip_code: "",
+            phone: metadata.phone || "",
+            address: metadata.address || "",
+            address_number: metadata.address_number || "",
+            address_complement: metadata.address_complement || "",
+            neighborhood: metadata.neighborhood || "",
+            city: metadata.city || "",
+            state: metadata.state || "",
+            zip_code: metadata.zip_code || "",
           })
         }
       } catch (error) {
@@ -91,19 +109,40 @@ export default function MyProfilePage() {
         return
       }
 
+      console.log("💾 [Profile] Salvando dados:", {
+        id: user.id,
+        full_name: userData.full_name,
+        phone: userData.phone,
+        address: userData.address,
+        address_number: userData.address_number,
+        address_complement: userData.address_complement,
+        neighborhood: userData.neighborhood,
+        city: userData.city,
+        state: userData.state,
+        zip_code: userData.zip_code,
+      })
+
       // Atualizar dados na tabela users
       const { error } = await supabase
         .from("users")
         .upsert({
           id: user.id,
+          email: user.email,
           full_name: userData.full_name,
           phone: userData.phone,
           address: userData.address,
+          address_number: userData.address_number || null,
+          address_complement: userData.address_complement || null,
+          neighborhood: userData.neighborhood || null,
           city: userData.city,
           state: userData.state,
           zip_code: userData.zip_code,
           updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'id'
         })
+
+      console.log("💾 [Profile] Resultado do upsert:", error ? { error } : "sucesso")
 
       if (error) {
         console.error("Erro ao salvar:", error)
@@ -217,7 +256,45 @@ export default function MyProfilePage() {
                   onChange={(e) =>
                     setUserData({ ...userData, address: e.target.value })
                   }
-                  placeholder="Rua, número, complemento"
+                  placeholder="Rua, avenida, etc."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="address_number">Número</Label>
+                  <Input
+                    id="address_number"
+                    value={userData.address_number}
+                    onChange={(e) =>
+                      setUserData({ ...userData, address_number: e.target.value })
+                    }
+                    placeholder="123"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="address_complement">Complemento</Label>
+                  <Input
+                    id="address_complement"
+                    value={userData.address_complement}
+                    onChange={(e) =>
+                      setUserData({ ...userData, address_complement: e.target.value })
+                    }
+                    placeholder="Apto, bloco, etc."
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="neighborhood">Bairro</Label>
+                <Input
+                  id="neighborhood"
+                  value={userData.neighborhood}
+                  onChange={(e) =>
+                    setUserData({ ...userData, neighborhood: e.target.value })
+                  }
+                  placeholder="Nome do bairro"
                 />
               </div>
 
