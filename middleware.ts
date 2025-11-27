@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { updateSession } from '@/lib/supabase/middleware'
 
-export function middleware(request: NextRequest) {
-  // Middleware mínimo - apenas passa a requisição adiante
-  return NextResponse.next()
+export async function middleware(request: NextRequest) {
+  try {
+    return await updateSession(request)
+  } catch (error) {
+    // Se houver erro no middleware, loga e continua
+    console.error('Middleware error:', error)
+    return NextResponse.next()
+  }
 }
 
 export const config = {

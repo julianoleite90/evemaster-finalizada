@@ -4,13 +4,21 @@ import { NextResponse, type NextRequest } from "next/server"
 type CookieOptions = Parameters<NextResponse["cookies"]["set"]>[2]
 
 export async function updateSession(request: NextRequest) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('Missing Supabase environment variables in middleware')
+    return NextResponse.next({ request })
+  }
+
   const supabaseResponse = NextResponse.next({
     request,
   })
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         get(name: string) {
@@ -33,9 +41,23 @@ export async function updateSession(request: NextRequest) {
   // supabase.auth.getUser(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const {
+      data: { user: authUser },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError) {
+      console.error('Error getting user in middleware:', authError)
+      // Continue sem usuário se houver erro
+    } else {
+      user = authUser
+    }
+  } catch (error) {
+    console.error('Unexpected error in middleware getUser:', error)
+    // Continue sem usuário se houver erro inesperado
+  }
 
   // Se o usuário está autenticado, garantir que existe em public.users
   // Isso cria o registro automaticamente no primeiro login
