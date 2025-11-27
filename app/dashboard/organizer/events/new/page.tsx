@@ -333,11 +333,9 @@ export default function NewEventPage() {
           end_date: dataFim,
           total_quantity: lote.quantidadeTotal && lote.quantidadeTotal !== "" ? parseInt(lote.quantidadeTotal) : null,
           tickets: lote.ingressos.map((ingresso) => {
-            const shirtQuantities = Object.entries(ingresso.quantidadeCamisetasPorTamanho || {}).reduce<Record<string, number | null>>(
+            const shirtQuantities = Object.entries(ingresso.quantidadeCamisetasPorTamanho || {}).reduce<Record<string, number>>(
               (acc, [size, value]) => {
-                if (value === null || value === undefined || value === "") {
-                  acc[size] = null
-                } else {
+                if (value !== null && value !== undefined && value !== "") {
                   const parsed = parseInt(value as string, 10)
                   if (!Number.isNaN(parsed)) {
                     acc[size] = parsed
