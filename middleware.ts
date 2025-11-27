@@ -22,6 +22,7 @@ export function middleware(request: NextRequest) {
   
   // Se não tem cookie de auth, redirecionar para login
   if (!hasAuthCookie) {
+    console.log('[middleware] Nenhum cookie sb-* encontrado. Cookies recebidos:', cookies.map(c => c.name))
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('from', pathname)
