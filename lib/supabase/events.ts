@@ -342,15 +342,21 @@ export async function getEventBySlug(slug: string) {
             
             if (fabianoUser && fabianoUser.email && fabianoUser.email !== "julianodesouzaleite@gmail.com") {
               console.log("✅ [DEBUG EMAIL] Email correto encontrado pelo nome:", fabianoUser.email)
-              organizer.email = fabianoUser.email
-              organizer.company_email = fabianoUser.email
+              organizer = {
+                ...organizer,
+                email: fabianoUser.email,
+                company_email: fabianoUser.email
+              }
             } else {
               console.log("⚠️ [DEBUG EMAIL] Não foi possível encontrar o email correto. Email não será exibido.")
               console.log("⚠️ [DEBUG EMAIL] Execute o script SQL 019_diagnose_fabiano_user.sql para encontrar o user_id correto.")
             }
           } else if (user && user.email) {
-            organizer.email = user.email
-            organizer.company_email = user.email
+            organizer = {
+              ...organizer,
+              email: user.email,
+              company_email: user.email
+            }
             console.log("✅ [DEBUG EMAIL] Email adicionado ao organizador:", user.email)
           } else if (userError) {
             console.log("❌ [DEBUG EMAIL] Erro ao buscar usuário da tabela users:", userError.message)
