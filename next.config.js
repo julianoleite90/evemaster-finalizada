@@ -18,6 +18,14 @@ const nextConfig = {
       },
     ],
   },
+  // Garantir que erros não quebrem o build
+  onDemandEntries: {
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 2,
+  },
+  // Configurações para melhorar a estabilidade
+  reactStrictMode: true,
+  swcMinify: true,
 }
 
 module.exports = nextConfig

@@ -3,7 +3,15 @@ import { NextResponse, type NextRequest } from "next/server"
 
 type CookieOptions = Parameters<NextResponse["cookies"]["set"]>[2]
 
+// Flag para desabilitar middleware temporariamente se necessário
+const MIDDLEWARE_ENABLED = process.env.MIDDLEWARE_ENABLED !== 'false'
+
 export async function middleware(request: NextRequest) {
+  // Se middleware estiver desabilitado, apenas passa a requisição
+  if (!MIDDLEWARE_ENABLED) {
+    return NextResponse.next({ request })
+  }
+
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
