@@ -18,6 +18,8 @@ Adicione as seguintes variáveis para **TODOS os ambientes** (Production, Previe
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-anon-key-aqui
+SUPABASE_URL=https://seu-projeto.supabase.co          # usado em Server Components / Edge
+SUPABASE_ANON_KEY=sua-anon-key-aqui                   # usado em Server Components / Edge
 ```
 
 **IMPORTANTE:**

@@ -5,12 +5,14 @@ type CookieStore = Awaited<ReturnType<typeof cookies>>
 type CookieOptions = Parameters<CookieStore["set"]>[2]
 
 export async function createClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const supabaseUrl =
+    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey =
+    process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error(
-      'Missing Supabase environment variables. Please check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.'
+      'Missing Supabase environment variables. Please set SUPABASE_URL/SUPABASE_ANON_KEY (or the NEXT_PUBLIC_ equivalents).'
     )
   }
 
