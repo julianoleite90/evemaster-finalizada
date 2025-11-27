@@ -72,22 +72,27 @@ export async function POST(request: NextRequest) {
       // Usuário já existe, atualizar dados se necessário
       console.log('📧 [API] Usuário já existe:', email)
       
-      // Atualizar dados do usuário
+      // Atualizar dados do usuário (usar upsert para garantir que sempre salve)
       await supabase
         .from('users')
-        .update({
+        .upsert({
+          id: userData.id,
+          email: email,
           full_name: nome,
-          phone: telefone?.replace(/\D/g, ''),
+          phone: telefone?.replace(/\D/g, '') || null,
           cpf: cpf?.replace(/\D/g, '') || null,
-          address: endereco,
-          address_number: numero,
-          address_complement: complemento,
-          neighborhood: bairro,
-          city: cidade,
-          state: estado,
+          role: 'ATLETA',
+          address: endereco || null,
+          address_number: numero || null,
+          address_complement: complemento || null,
+          neighborhood: bairro || null,
+          city: cidade || null,
+          state: estado || null,
           zip_code: cep?.replace(/\D/g, '') || null,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'id'
         })
-        .eq('id', userData.id)
 
       // Se tiver admin, atualizar metadados também
       if (supabaseAdmin) {
@@ -199,27 +204,34 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Criar registro em public.users
+    // Criar ou atualizar registro em public.users (usar upsert para garantir que sempre salve)
     const { error: userError } = await supabase
       .from('users')
-      .insert({
+      .upsert({
         id: newUser.id,
         email,
         full_name: nome,
-        phone: telefone?.replace(/\D/g, ''),
+        phone: telefone?.replace(/\D/g, '') || null,
         cpf: cpf?.replace(/\D/g, '') || null,
         role: 'ATLETA',
-        address: endereco,
-        address_number: numero,
-        address_complement: complemento,
-        neighborhood: bairro,
-        city: cidade,
-        state: estado,
+        address: endereco || null,
+        address_number: numero || null,
+        address_complement: complemento || null,
+        neighborhood: bairro || null,
+        city: cidade || null,
+        state: estado || null,
         zip_code: cep?.replace(/\D/g, '') || null,
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'id'
       })
 
-    if (userError && !userError.message?.includes('duplicate')) {
-      console.error('❌ [API] Erro ao criar registro em users:', userError)
+    if (userError) {
+      console.error('❌ [API] Erro ao criar/atualizar registro em users:', userError)
+      // Não retornar erro aqui, pois o usuário já foi criado no auth
+      // Os dados podem ser salvos depois no perfil
+    } else {
+      console.log('✅ [API] Dados salvos na tabela users para:', email)
     }
 
     console.log('✅ [API] Conta criada automaticamente para:', email)
