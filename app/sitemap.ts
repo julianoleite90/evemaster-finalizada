@@ -42,6 +42,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let eventUrls: MetadataRoute.Sitemap = []
   
   try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.warn('[sitemap] Supabase env vars not set. Skipping dynamic URLs.')
+      return [...staticUrls]
+    }
+
     const supabase = await createServerClient()
     const { data: events } = await supabase
       .from('events')
