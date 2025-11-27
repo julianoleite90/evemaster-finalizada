@@ -373,9 +373,9 @@ export async function getEventBySlug(slug: string) {
           console.log("📋 Dados completos do organizador:", {
             company_name: organizer.company_name,
             company_cnpj: organizer.company_cnpj,
-            company_email: organizer.company_email,
+            company_email: (organizer as any).company_email,
             company_phone: organizer.company_phone,
-            email: organizer.email
+            email: (organizer as any).email
           })
         } else {
           console.log("⚠️ Organizador não encontrado para organizer_id:", event.organizer_id)
