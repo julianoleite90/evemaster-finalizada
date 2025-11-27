@@ -153,11 +153,15 @@ export default function GPXMapViewer({ gpxUrl, category, showRoute = true, showE
     const map = mapInstanceRef.current
 
     // Limpar layers anteriores (exceto tile layer)
-    map.eachLayer((layer) => {
-      if (layer instanceof L.Polyline || layer instanceof L.Marker) {
-        map.removeLayer(layer)
-      }
-    })
+    if (map) {
+      map.eachLayer((layer) => {
+        if (layer instanceof L.Polyline || layer instanceof L.Marker) {
+          map.removeLayer(layer)
+        }
+      })
+    }
+
+    if (!map) return
 
     // Criar polyline com os pontos do GPX
     const latlngs = gpxData.points.map(p => [p.lat, p.lon] as [number, number])
