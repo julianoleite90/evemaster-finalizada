@@ -403,7 +403,7 @@ export async function getEventBySlug(slug: string) {
             if (targetOrg) {
               console.log("✅ Organizador encontrado por busca alternativa, buscando dados completos...")
               // Buscar dados completos do organizador
-              const { data: fullOrganizer } = await supabase
+              let { data: fullOrganizer } = await supabase
                 .from("organizers")
                 .select("id, company_name, full_name, company_cnpj, company_phone, user_id")
                 .eq("id", targetOrg.id)
@@ -422,8 +422,11 @@ export async function getEventBySlug(slug: string) {
                   console.log("📧 Resultado busca email (alternativa):", { user, error: userError?.message })
                   
                   if (user && user.email) {
-                    fullOrganizer.email = user.email
-                    fullOrganizer.company_email = user.email
+                    fullOrganizer = {
+                      ...fullOrganizer,
+                      email: user.email,
+                      company_email: user.email
+                    } as any
                     console.log("✅ Email adicionado ao organizador (alternativa):", user.email)
                   } else {
                     // Tentar buscar do auth.users se não encontrar em public.users
