@@ -22,6 +22,7 @@ SUPABASE_URL=https://seu-projeto.supabase.co          # usado em Server Componen
 SUPABASE_ANON_KEY=sua-anon-key-aqui                   # usado em Server Components / Edge
 RESEND_API_KEY=re_xxxxxxxxxxxxxxxx
 RESEND_FROM_EMAIL=Evemaster <inscricoes@seu-dominio.com>
+NEXT_PUBLIC_SITE_URL=https://seu-dominio.vercel.app        # usado em metadados/SEO
 ```
 
 **IMPORTANTE:**
