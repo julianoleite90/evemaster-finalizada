@@ -375,7 +375,7 @@ export default function LoginPage() {
                   </Button>
                 </div>
                 <p className="text-xs text-center text-gray-500">
-                  Digite seu email acima e clique em "Entrar sem senha" para receber um link de acesso por email
+                  Digite seu email acima e clique em &quot;Entrar sem senha&quot; para receber um link de acesso por email
                 </p>
               </form>
             </>

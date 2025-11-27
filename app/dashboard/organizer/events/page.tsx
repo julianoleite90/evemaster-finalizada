@@ -150,8 +150,6 @@ export default function EventsPage() {
           }
         })
 
-        const eventosFormatados: Event[] = eventosComEstatisticas
-
         setEventos(eventosFormatados)
       } catch (error: any) {
         console.error("Erro ao buscar eventos:", error)
