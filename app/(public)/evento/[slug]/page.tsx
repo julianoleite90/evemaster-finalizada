@@ -8,6 +8,7 @@ import { Loader2, Calendar, MapPin, Clock, Users, Share2, Heart, Minus, Plus, Tr
 import dynamic from "next/dynamic"
 
 const GPXMapViewer = dynamic(() => import("@/components/event/GPXMapViewer"), { ssr: false })
+import EventPixels from "@/components/analytics/EventPixels"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -339,8 +340,27 @@ export default function EventoLandingPage() {
     )
   }
 
+  // Extrair dados dos pixels do event_settings
+  const eventSettings = eventData.event_settings?.[0] || {}
+  const googleAnalyticsId = eventSettings.analytics_google_analytics_enabled 
+    ? eventSettings.analytics_google_analytics_id 
+    : null
+  const googleTagManagerId = eventSettings.analytics_gtm_enabled 
+    ? eventSettings.analytics_gtm_container_id 
+    : null
+  const facebookPixelId = eventSettings.analytics_facebook_pixel_enabled 
+    ? eventSettings.analytics_facebook_pixel_id 
+    : null
+
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Pixels de Rastreamento */}
+      <EventPixels
+        googleAnalyticsId={googleAnalyticsId}
+        googleTagManagerId={googleTagManagerId}
+        facebookPixelId={facebookPixelId}
+      />
+      
       {/* Banner */}
       <div className="relative w-full h-[380px] md:h-[550px] bg-gradient-to-r from-[#156634] to-[#1a7a3e]">
         {eventData.banner_url ? (
@@ -812,29 +832,28 @@ export default function EventoLandingPage() {
 
       {/* Rodapé Profissional */}
       <footer className="bg-gray-50/50 border-t border-gray-100 mt-16">
-        <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-10 pb-6">
+        <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-8 md:pt-10 pb-6">
           <div className="max-w-7xl mx-auto">
-            {/* Grid Principal */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12 mb-8 text-center md:text-left">
+            {/* Grid Principal - 2 colunas no mobile, 4 no desktop */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 lg:gap-12 mb-6 md:mb-8">
               {/* Coluna 1: Logo e Descrição */}
-              <div className="space-y-3 flex flex-col items-center md:items-start">
+              <div className="col-span-2 md:col-span-1 space-y-3 flex flex-col items-center md:items-start">
                 <div>
                   <Image
                     src="/images/logo/logo.png"
                     alt="EveMaster"
                     width={140}
                     height={40}
-                    className="h-8 w-auto opacity-80"
+                    className="h-7 md:h-8 w-auto opacity-80"
                   />
                 </div>
-                <p className="text-xs text-gray-500 leading-relaxed max-w-xs">
-                  Ingressos para eventos esportivos. 
-                  Corridas, maratonas, triatlon e ciclismo.
+                <p className="text-xs text-gray-500 leading-relaxed max-w-xs text-center md:text-left">
+                  Corrida, triatlon e ciclismo, e muito mais.
                 </p>
               </div>
 
               {/* Coluna 2: Formas de Pagamento */}
-              <div className="space-y-3 flex flex-col items-center md:items-start">
+              <div className="col-span-2 md:col-span-1 space-y-3 flex flex-col items-center md:items-start">
                 <h3 className="text-xs font-medium text-gray-600">
                   {translations[language].footerPayment}
                 </h3>
@@ -844,71 +863,71 @@ export default function EventoLandingPage() {
                     alt="Visa"
                     width={40}
                     height={25}
-                    className="h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
+                    className="h-5 md:h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
                   />
                   <Image
                     src="/images/ic-payment-master-card.svg"
                     alt="Mastercard"
                     width={40}
                     height={25}
-                    className="h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
+                    className="h-5 md:h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
                   />
                   <Image
                     src="/images/ic-payment-elo.svg"
                     alt="Elo"
                     width={40}
                     height={25}
-                    className="h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
+                    className="h-5 md:h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
                   />
                   <Image
                     src="/images/ic-payment-american-express.svg"
                     alt="American Express"
                     width={40}
                     height={25}
-                    className="h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
+                    className="h-5 md:h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
                   />
                   <Image
                     src="/images/ic-payment-hipercard.svg"
                     alt="Hipercard"
                     width={40}
                     height={25}
-                    className="h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
+                    className="h-5 md:h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
                   />
                   <Image
                     src="/images/ic-payment-pix.svg"
                     alt="Pix"
                     width={40}
                     height={25}
-                    className="h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
+                    className="h-5 md:h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
                   />
                   <Image
                     src="/images/ic-payment-boleto.svg"
                     alt="Boleto"
                     width={40}
                     height={25}
-                    className="h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
+                    className="h-5 md:h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  <span className="text-[#156634]">Parcelamento em até 12x</span> no cartão de crédito
+                <p className="text-xs text-gray-500 mt-1 text-center md:text-left">
+                  <span className="text-[#156634]">Parcelamento em até 12x</span> no cartão
                 </p>
               </div>
 
               {/* Coluna 3: Links Legais */}
-              <div className="space-y-3 flex flex-col items-center md:items-start">
+              <div className="col-span-1 md:col-span-1 space-y-3 flex flex-col items-center md:items-start">
                 <h3 className="text-xs font-medium text-gray-600">
                   Legal
                 </h3>
                 <div className="flex flex-col gap-1.5">
                   <Link 
                     href="/termos-de-uso" 
-                    className="text-xs text-gray-500 hover:text-[#156634] transition-colors"
+                    className="text-xs text-gray-500 hover:text-[#156634] transition-colors text-center md:text-left"
                   >
                     {translations[language].footerTerms}
                   </Link>
                   <Link 
                     href="/politica-de-privacidade" 
-                    className="text-xs text-gray-500 hover:text-[#156634] transition-colors"
+                    className="text-xs text-gray-500 hover:text-[#156634] transition-colors text-center md:text-left"
                   >
                     {translations[language].footerPolicy}
                   </Link>
@@ -916,16 +935,17 @@ export default function EventoLandingPage() {
               </div>
 
               {/* Coluna 4: Idioma */}
-              <div className="space-y-3 flex flex-col items-center md:items-start">
-                <h3 className="text-xs font-medium text-gray-600">
+              <div className="col-span-1 md:col-span-1 space-y-3 flex flex-col items-center md:items-start">
+                <h3 className="text-xs font-medium text-gray-600 hidden md:block">
                   Idioma
                 </h3>
                 <Select value={language} onValueChange={(val: "pt" | "es" | "en") => setLanguage(val)}>
-                  <SelectTrigger className="w-full md:w-[140px] bg-white border-gray-200 text-gray-600 text-xs h-9">
+                  <SelectTrigger className="w-full max-w-[140px] md:w-[140px] bg-white border-gray-200 text-gray-600 text-xs h-8 md:h-9">
                     <SelectValue>
-                      <span className="flex items-center gap-2">
-                        <span>{language === "pt" ? "🇧🇷" : language === "es" ? "🇦🇷" : "🇺🇸"}</span>
-                        <span className="text-xs">{language === "pt" ? "Português" : language === "es" ? "Español" : "English"}</span>
+                      <span className="flex items-center gap-1.5 md:gap-2">
+                        <span className="text-sm">{language === "pt" ? "🇧🇷" : language === "es" ? "🇦🇷" : "🇺🇸"}</span>
+                        <span className="text-xs hidden sm:inline">{language === "pt" ? "Português" : language === "es" ? "Español" : "English"}</span>
+                        <span className="text-xs sm:hidden">{language === "pt" ? "PT" : language === "es" ? "ES" : "EN"}</span>
                       </span>
                     </SelectValue>
                   </SelectTrigger>
@@ -960,7 +980,7 @@ export default function EventoLandingPage() {
                   © {new Date().getFullYear()} EveMaster. Todos os direitos reservados.
                 </p>
                 <p className="text-gray-400">
-                  Fulsale LTDA - CNPJ: 00.000.000/0001-00
+                  Fulsale LTDA - CNPJ: 41.953.551/0001-57
                 </p>
               </div>
             </div>
