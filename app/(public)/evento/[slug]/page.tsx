@@ -253,12 +253,29 @@ export default function EventoLandingPage() {
   const updateTicketQuantity = (ticketId: string, change: number) => {
     setSelectedTickets(prev => {
       const current = prev[ticketId] || 0
-      const newValue = Math.max(0, current + change)
-      if (newValue === 0) {
-        const { [ticketId]: _, ...rest } = prev
-        return rest
+      const ticket = selectedBatch?.tickets?.find((t: any) => t.id === ticketId)
+      
+      // Se o ticket tem quantidade ilimitada (null, 0 ou undefined), permitir qualquer quantidade
+      const isUnlimited = !ticket || ticket.quantity === null || ticket.quantity === undefined || ticket.quantity === 0
+      
+      if (!isUnlimited) {
+        // Se tem limite, validar
+        const maxQuantity = ticket.quantity || 0
+        const newValue = Math.max(0, Math.min(maxQuantity, current + change))
+        if (newValue === 0) {
+          const { [ticketId]: _, ...rest } = prev
+          return rest
+        }
+        return { ...prev, [ticketId]: newValue }
+      } else {
+        // Ilimitado: permitir qualquer quantidade positiva
+        const newValue = Math.max(0, current + change)
+        if (newValue === 0) {
+          const { [ticketId]: _, ...rest } = prev
+          return rest
+        }
+        return { ...prev, [ticketId]: newValue }
       }
-      return { ...prev, [ticketId]: newValue }
     })
   }
 
@@ -668,7 +685,12 @@ export default function EventoLandingPage() {
                                   variant="outline"
                                   className="h-7 w-7 p-0"
                                   onClick={() => updateTicketQuantity(ticket.id, 1)}
-                                  disabled={(selectedTickets[ticket.id] || 0) >= ticket.quantity}
+                                  disabled={
+                                    ticket.quantity !== null && 
+                                    ticket.quantity !== undefined && 
+                                    ticket.quantity > 0 && 
+                                    (selectedTickets[ticket.id] || 0) >= ticket.quantity
+                                  }
                                 >
                                   <Plus className="h-3 w-3" />
                                 </Button>

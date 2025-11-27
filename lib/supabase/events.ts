@@ -42,7 +42,7 @@ export async function createEvent(eventData: {
       category: string
       price: number
       is_free: boolean
-      quantity: number
+      quantity: number | null
       has_kit: boolean
       kit_items?: string[]
       shirt_sizes?: string[]

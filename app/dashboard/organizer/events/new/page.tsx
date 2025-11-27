@@ -348,7 +348,7 @@ export default function NewEventPage() {
               category: ingresso.categoria,
               price: ingresso.gratuito ? 0 : parseFloat(ingresso.valor || "0"),
               is_free: ingresso.gratuito,
-              quantity: ingresso.quantidade,
+              quantity: ingresso.quantidade && ingresso.quantidade !== "" ? parseInt(ingresso.quantidade) : null,
               has_kit: ingresso.possuiKit,
               kit_items: ingresso.itensKit || [],
               shirt_sizes: ingresso.tamanhosCamiseta || [],
@@ -1443,16 +1443,14 @@ export default function NewEventPage() {
                                           type="number"
                                           min="0"
                                           step="1"
-                                          value={ingresso.quantidade || 0}
+                                          value={ingresso.quantidade ?? ""}
+                                          placeholder="Deixe vazio para ilimitado"
                                           onChange={(e) => {
                                             const valor = e.target.value
-                                            if (valor === "" || (!isNaN(Number(valor)) && Number(valor) >= 0)) {
-                                              updateIngresso(
-                                                lote.id,
-                                                ingresso.categoria,
-                                                "quantidade",
-                                                valor === "" ? 0 : parseInt(valor) || 0
-                                              )
+                                            if (valor === "") {
+                                              updateIngresso(lote.id, ingresso.categoria, "quantidade", null)
+                                            } else if (!isNaN(Number(valor)) && Number(valor) >= 0) {
+                                              updateIngresso(lote.id, ingresso.categoria, "quantidade", parseInt(valor))
                                             }
                                           }}
                                           className="w-20 h-7 text-xs"

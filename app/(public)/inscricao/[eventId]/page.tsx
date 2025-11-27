@@ -576,7 +576,10 @@ export default function CheckoutPage() {
           throw ticketFetchError
         }
 
-        if (!ticketData || ticketData.quantity <= 0) {
+        // Se quantity é null, undefined ou 0, significa ilimitado
+        const isUnlimited = !ticketData || ticketData.quantity === null || ticketData.quantity === undefined || ticketData.quantity === 0
+        
+        if (!isUnlimited && ticketData.quantity <= 0) {
           toast.error("Ingresso esgotado. Selecione outro ticket.")
           throw new Error("Ticket esgotado")
         }

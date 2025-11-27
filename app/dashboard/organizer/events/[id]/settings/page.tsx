@@ -311,7 +311,7 @@ export default function EventSettingsPage() {
               category: ticket.category,
               price: ticket.price || 0,
               is_free: ticket.is_free || false,
-              quantity: ticket.quantity || 0,
+              quantity: ticket.quantity !== null && ticket.quantity !== undefined && ticket.quantity !== "" ? ticket.quantity : null,
               has_kit: ticket.has_kit || false,
               kit_items: ticket.kit_items || [],
               shirt_sizes: ticket.shirt_sizes || [],
