@@ -153,40 +153,12 @@ export default function EventoLandingPage() {
     fetchEvent()
   }, [slug])
 
+  // Metadata é gerado no layout.tsx (server-side)
+  // Apenas atualizamos o título da página para melhor UX
   useEffect(() => {
-    if (!eventData) return
-
-    const title = `${eventData.name} | EveMaster Eventos Esportivos`
-    const rawDescription = eventData.description
-      ? eventData.description.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
-      : "Evento esportivo da EveMaster"
-    const description = rawDescription.slice(0, 150)
-    const origin = typeof window !== "undefined" ? window.location.origin : ""
-    const ogImage = eventData.banner_url || `${origin}/images/logo/logo.png`
-    const currentUrl = typeof window !== "undefined" ? window.location.href : ""
-
-    document.title = title
-
-    const setMeta = (attr: "name" | "property", key: string, value: string) => {
-      let meta = document.head.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`)
-      if (!meta) {
-        meta = document.createElement("meta")
-        meta.setAttribute(attr, key)
-        document.head.appendChild(meta)
-      }
-      meta.content = value
+    if (eventData) {
+      document.title = `${eventData.name} | EveMaster plataforma para eventos esportivos`
     }
-
-    setMeta("name", "description", description)
-    setMeta("property", "og:title", title)
-    setMeta("property", "og:description", description)
-    if (currentUrl) setMeta("property", "og:url", currentUrl)
-    setMeta("property", "og:type", "website")
-    setMeta("property", "og:image", ogImage)
-    setMeta("name", "twitter:card", "summary_large_image")
-    setMeta("name", "twitter:title", title)
-    setMeta("name", "twitter:description", description)
-    setMeta("name", "twitter:image", ogImage)
   }, [eventData])
 
   const updateTicketQuantity = (ticketId: string, change: number) => {
