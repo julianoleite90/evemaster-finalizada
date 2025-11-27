@@ -1,5 +1,5 @@
 import { MetadataRoute } from 'next'
-import { createClient } from '@/lib/supabase/client'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://evemaster.com.br'
@@ -42,7 +42,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let eventUrls: MetadataRoute.Sitemap = []
   
   try {
-    const supabase = createClient()
+    const supabase = await createServerClient()
     const { data: events } = await supabase
       .from('events')
       .select('slug, updated_at, created_at')
