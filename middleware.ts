@@ -16,13 +16,20 @@ export function middleware(request: NextRequest) {
   // Verificar se há cookie de autenticação do Supabase
   // Nome do cookie: sb-<project-ref>-auth-token
   const cookies = request.cookies.getAll()
-  const hasAuthCookie = cookies.some(
-    cookie => cookie.name.startsWith('sb-') && cookie.name.endsWith('-auth-token')
-  )
+  const hasAuthCookie = cookies.some(cookie => {
+    if (!cookie.name.startsWith('sb-')) return false
+    return (
+      cookie.name.endsWith('-auth-token') ||
+      cookie.name.includes('-auth-token.')
+    )
+  })
   
   // Se não tem cookie de auth, redirecionar para login
   if (!hasAuthCookie) {
-    console.log('[middleware] Nenhum cookie sb-* encontrado. Cookies recebidos:', cookies.map(c => c.name))
+    console.log(
+      '[middleware] Nenhum cookie sb-* encontrado. Cookies recebidos:',
+      cookies.map(c => c.name)
+    )
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('from', pathname)
