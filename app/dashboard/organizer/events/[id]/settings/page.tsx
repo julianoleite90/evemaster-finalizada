@@ -1189,7 +1189,7 @@ export default function EventSettingsPage() {
                                                     const itensAtuais = ticket.kit_items || []
                                                     const novosItens = checked
                                                       ? [...itensAtuais, item.value]
-                                                      : itensAtuais.filter(i => i !== item.value)
+                                                      : itensAtuais.filter((i: string) => i !== item.value)
                                                     updateTicket(batch.id, ticket.id, "kit_items", novosItens)
                                                     
                                                     // Se desmarcar camiseta, limpa tamanhos e quantidades
