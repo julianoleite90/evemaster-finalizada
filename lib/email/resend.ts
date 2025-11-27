@@ -149,11 +149,21 @@ export function gerarTemplateEmail(dados: EmailInscricao): string {
           
           <!-- Header -->
           <tr>
-            <td style="background: linear-gradient(135deg, #156634 0%, #1a7a3e 100%); padding: 30px; text-align: center;">
-              <img src="https://evemaster.app/images/logo/logo-white.png" alt="Evemaster" height="40" style="margin-bottom: 15px;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">
-                Inscrição Confirmada! ✓
+            <td style="background: linear-gradient(135deg, #156634 0%, #1a7a3e 100%); padding: 40px 30px; text-align: center;">
+              <!-- Logo -->
+              <div style="margin-bottom: 20px;">
+                <img src="https://evemaster.app/images/logo/logo.png" alt="Evemaster" height="50" style="background: white; padding: 10px; border-radius: 8px; display: inline-block;">
+              </div>
+              <!-- Check de Confirmação -->
+              <div style="background: rgba(255,255,255,0.2); border-radius: 50%; width: 80px; height: 80px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
+                <span style="font-size: 48px; color: #ffffff;">✓</span>
+              </div>
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">
+                Inscrição Confirmada!
               </h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 16px;">
+                Sua participação está garantida
+              </p>
             </td>
           </tr>
 
@@ -169,42 +179,121 @@ export function gerarTemplateEmail(dados: EmailInscricao): string {
               </p>
 
               <!-- Event Card -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; border-radius: 8px; margin-bottom: 30px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; border-radius: 12px; margin-bottom: 30px; border: 1px solid #e9ecef;">
                 <tr>
-                  <td style="padding: 25px;">
-                    <h2 style="color: #156634; margin: 0 0 15px; font-size: 20px;">
+                  <td style="padding: 30px;">
+                    <h2 style="color: #156634; margin: 0 0 20px; font-size: 22px; font-weight: 700;">
                       ${nomeEvento}
                     </h2>
-                    <table cellpadding="0" cellspacing="0">
+                    <table cellpadding="0" cellspacing="0" width="100%">
                       <tr>
-                        <td style="padding: 5px 0; color: #666666; font-size: 14px;">
-                          📅 <strong>Data:</strong> ${dataEvento}${horaEvento ? ` às ${horaEvento}` : ''}
+                        <td style="padding: 12px 0; border-bottom: 1px solid #dee2e6;">
+                          <table cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td style="width: 30px; vertical-align: top; padding-top: 2px;">
+                                <span style="font-size: 18px;">📅</span>
+                              </td>
+                              <td>
+                                <div style="color: #666666; font-size: 14px; line-height: 1.5;">
+                                  <strong style="color: #333333; display: block; margin-bottom: 4px;">Data:</strong>
+                                  <span>${dataEvento}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
+                      ${horaEvento ? `
                       <tr>
-                        <td style="padding: 5px 0; color: #666666; font-size: 14px;">
-                          📍 <strong>Local:</strong> ${localEvento}
+                        <td style="padding: 12px 0; border-bottom: 1px solid #dee2e6;">
+                          <table cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td style="width: 30px; vertical-align: top; padding-top: 2px;">
+                                <span style="font-size: 18px;">🕐</span>
+                              </td>
+                              <td>
+                                <div style="color: #666666; font-size: 14px; line-height: 1.5;">
+                                  <strong style="color: #333333; display: block; margin-bottom: 4px;">Horário:</strong>
+                                  <span>${horaEvento}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      ` : ''}
+                      <tr>
+                        <td style="padding: 12px 0; border-bottom: 1px solid #dee2e6;">
+                          <table cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td style="width: 30px; vertical-align: top; padding-top: 2px;">
+                                <span style="font-size: 18px;">📍</span>
+                              </td>
+                              <td>
+                                <div style="color: #666666; font-size: 14px; line-height: 1.5;">
+                                  <strong style="color: #333333; display: block; margin-bottom: 4px;">Sede do evento:</strong>
+                                  <span>${localEvento}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
                       ${
                         descricaoEvento
                           ? `<tr>
-                        <td style="padding: 5px 0; color: #666666; font-size: 14px;">
-                          📝 <strong>Descrição:</strong> ${descricaoEvento}
+                        <td style="padding: 12px 0; border-bottom: 1px solid #dee2e6;">
+                          <table cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td style="width: 30px; vertical-align: top; padding-top: 2px;">
+                                <span style="font-size: 18px;">📝</span>
+                              </td>
+                              <td>
+                                <div style="color: #666666; font-size: 14px; line-height: 1.5;">
+                                  <strong style="color: #333333; display: block; margin-bottom: 4px;">Descrição:</strong>
+                                  <span>${descricaoEvento}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>`
                           : ''
                       }
                       <tr>
-                        <td style="padding: 5px 0; color: #666666; font-size: 14px;">
-                          🏃 <strong>Categoria:</strong> ${categoria}
+                        <td style="padding: 12px 0; border-bottom: 1px solid #dee2e6;">
+                          <table cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td style="width: 30px; vertical-align: top; padding-top: 2px;">
+                                <span style="font-size: 18px;">🏃</span>
+                              </td>
+                              <td>
+                                <div style="color: #666666; font-size: 14px; line-height: 1.5;">
+                                  <strong style="color: #333333; display: block; margin-bottom: 4px;">Categoria:</strong>
+                                  <span>${categoria}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
                       <tr>
-                        <td style="padding: 5px 0; color: #666666; font-size: 14px;">
-                          💰 <strong>Valor:</strong> ${
-                            gratuito ? 'Gratuito' : `R$ ${valor.toFixed(2)}`
-                          }
+                        <td style="padding: 12px 0;">
+                          <table cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td style="width: 30px; vertical-align: top; padding-top: 2px;">
+                                <span style="font-size: 18px;">💰</span>
+                              </td>
+                              <td>
+                                <div style="color: #666666; font-size: 14px; line-height: 1.5;">
+                                  <strong style="color: #333333; display: block; margin-bottom: 4px;">Valor:</strong>
+                                  <span style="color: #156634; font-weight: 600; font-size: 16px;">${
+                                    gratuito ? 'Gratuito' : `R$ ${valor.toFixed(2)}`
+                                  }</span>
+                                </div>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
                     </table>
