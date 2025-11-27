@@ -227,20 +227,30 @@ export default function RegistrationsPage() {
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "Data não informada"
-    // Parse a data no formato YYYY-MM-DD como data local (não UTC)
-    const [year, month, day] = dateString.split('-').map(Number)
-    const date = new Date(year, month - 1, day) // month é 0-indexed
-    return format(date, "dd/MM/yyyy")
+    try {
+      // Tenta fazer parse da data ISO ou formato simples
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) {
+        return "Data inválida"
+      }
+      return format(date, "dd/MM/yyyy")
+    } catch (error) {
+      console.error("Erro ao formatar data:", error)
+      return "Data inválida"
+    }
   }
 
   const filteredRegistrations = registrations.filter((reg) => {
     // Filtro de busca
     if (searchTerm) {
       const search = searchTerm.toLowerCase()
+      const nome = (reg.nome || "").toLowerCase()
+      const email = (reg.email || "").toLowerCase()
+      const numeroInscricao = (reg.numeroInscricao || "").toLowerCase()
       if (
-        !reg.nome.toLowerCase().includes(search) &&
-        !reg.email.toLowerCase().includes(search) &&
-        !reg.numeroInscricao.toLowerCase().includes(search)
+        !nome.includes(search) &&
+        !email.includes(search) &&
+        !numeroInscricao.includes(search)
       ) {
         return false
       }
@@ -258,16 +268,28 @@ export default function RegistrationsPage() {
 
     // Filtro de data
     if (dateFrom) {
-      const regDate = new Date(reg.dataInscricao)
-      const fromDate = new Date(dateFrom)
-      if (regDate < fromDate) return false
+      try {
+        const regDate = new Date(reg.dataInscricao)
+        const fromDate = new Date(dateFrom)
+        if (isNaN(regDate.getTime()) || isNaN(fromDate.getTime())) return true // Se data inválida, não filtra
+        if (regDate < fromDate) return false
+      } catch (error) {
+        // Se houver erro ao comparar datas, não filtra
+        console.error("Erro ao filtrar por data inicial:", error)
+      }
     }
 
     if (dateTo) {
-      const regDate = new Date(reg.dataInscricao)
-      const toDate = new Date(dateTo)
-      toDate.setHours(23, 59, 59, 999) // Fim do dia
-      if (regDate > toDate) return false
+      try {
+        const regDate = new Date(reg.dataInscricao)
+        const toDate = new Date(dateTo)
+        if (isNaN(regDate.getTime()) || isNaN(toDate.getTime())) return true // Se data inválida, não filtra
+        toDate.setHours(23, 59, 59, 999) // Fim do dia
+        if (regDate > toDate) return false
+      } catch (error) {
+        // Se houver erro ao comparar datas, não filtra
+        console.error("Erro ao filtrar por data final:", error)
+      }
     }
 
     return true
@@ -440,7 +462,7 @@ export default function RegistrationsPage() {
               {formatCurrency(
                 filteredRegistrations
                   .filter((r) => r.statusPagamento === "paid")
-                  .reduce((sum, r) => sum + r.valor, 0)
+                  .reduce((sum, r) => sum + (Number(r.valor) || 0), 0)
               )}
             </div>
           </CardContent>
@@ -525,7 +547,7 @@ export default function RegistrationsPage() {
                       <td className="py-3 px-4">{getStatusBadge(registration.statusPagamento)}</td>
                       <td className="py-3 px-4">
                         <span className="text-sm font-medium">
-                          {formatCurrency(registration.valor)}
+                          {formatCurrency(Number(registration.valor) || 0)}
                         </span>
                       </td>
                       <td className="py-3 px-4">
