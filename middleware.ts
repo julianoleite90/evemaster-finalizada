@@ -1,77 +1,39 @@
-import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
-export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  })
-
-  try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-    // Se variáveis não estiverem definidas, apenas continua
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return response
-    }
-
-    // Criar cliente Supabase APENAS para gerenciar cookies
-    // Não fazemos chamadas HTTP aqui para evitar problemas no Edge Runtime
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options)
-          })
-        },
-      },
-    })
-
-    // IMPORTANTE: No Edge Runtime, chamadas HTTP assíncronas podem falhar
-    // Por isso, NÃO chamamos getUser() aqui - apenas gerenciamos cookies
-    // A atualização de sessão será feita nas páginas (server/client components)
-    // Isso evita MIDDLEWARE_INVOCATION_FAILED no Vercel
-
-    // Verificar cookies de autenticação para redirecionamento
-    const authCookies = request.cookies.getAll().filter(
-      cookie => cookie.name.includes('sb-') && 
-                (cookie.name.includes('auth-token') || cookie.name.includes('access-token'))
-    )
-
-    // Redirecionar para login se tentando acessar dashboard sem cookies de auth
-    if (
-      authCookies.length === 0 &&
-      request.nextUrl.pathname.startsWith('/dashboard') &&
-      !request.nextUrl.pathname.startsWith('/login') &&
-      !request.nextUrl.pathname.startsWith('/register')
-    ) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/login'
-      return NextResponse.redirect(url)
-    }
-
-    return response
-  } catch {
-    // Qualquer erro: retorna response padrão
-    // NUNCA quebra a aplicação
-    return response
-  }
+export const config = {
+  // Declaração explícita do runtime para Vercel
+  runtime: 'edge',
+  // Matcher otimizado - apenas rotas que realmente precisam de middleware
+  matcher: [
+    '/dashboard/:path*',
+    '/my-account/:path*',
+  ],
 }
 
-export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
-  ],
+export function middleware(request: NextRequest) {
+  // Middleware ultra-leve para Edge Runtime
+  // NUNCA fazer chamadas HTTP ou operações pesadas aqui
+  
+  const { pathname } = request.nextUrl
+  
+  // Verificar se há cookie de autenticação do Supabase
+  // Nome padrão: sb-<project-ref>-auth-token
+  const authCookie = request.cookies.getAll().find(
+    cookie => cookie.name.startsWith('sb-') && cookie.name.endsWith('-auth-token')
+  )
+  
+  // Rotas protegidas que exigem autenticação
+  const isProtectedRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/my-account')
+  
+  // Se tentando acessar rota protegida sem cookie de auth
+  if (isProtectedRoute && !authCookie) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    // Preservar URL original para redirect após login
+    url.searchParams.set('from', pathname)
+    return NextResponse.redirect(url)
+  }
+  
+  // Continuar normalmente
+  return NextResponse.next()
 }

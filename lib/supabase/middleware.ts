@@ -1,8 +1,22 @@
+/**
+ * ⚠️ DEPRECATED - NÃO USE ESTE ARQUIVO
+ * 
+ * Este arquivo contém uma implementação antiga de middleware que faz
+ * chamadas HTTP assíncronas (getUser, rpc) que NÃO funcionam no Edge Runtime.
+ * 
+ * Use o middleware.ts na raiz do projeto ao invés deste arquivo.
+ * 
+ * Para mais detalhes, veja: FIX_MIDDLEWARE_EDGE_RUNTIME.md
+ */
+
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 type CookieOptions = Parameters<NextResponse["cookies"]["set"]>[2]
 
+/**
+ * @deprecated Use o middleware.ts na raiz do projeto
+ */
 export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
