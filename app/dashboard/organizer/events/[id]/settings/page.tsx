@@ -952,42 +952,67 @@ export default function EventSettingsPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
-              {batches.map((batch) => (
-                <Card key={batch.id} className="overflow-hidden border-2 shadow-sm hover:shadow-md transition-shadow">
+            <div className="space-y-6">
+              {batches.map((batch, batchIndex) => (
+                <Card key={batch.id} className="overflow-hidden border-2 border-gray-200 shadow-sm hover:shadow-lg transition-all">
+                  {/* Cabeçalho do Lote */}
                   <CardHeader 
-                    className="cursor-pointer hover:bg-gray-50 transition-colors bg-gradient-to-r from-gray-50 to-white border-b"
+                    className="cursor-pointer hover:bg-gray-50/50 transition-colors bg-gradient-to-r from-[#156634]/5 via-white to-white border-b-2 border-gray-100"
                     onClick={() => toggleBatch(batch.id)}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          {expandedBatches[batch.id] ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <div>
-                          <CardTitle className="text-lg flex items-center gap-2">
-                            {batch.name}
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-4 flex-1">
+                        <div className="flex items-center justify-center h-10 w-10 rounded-full bg-[#156634]/10 text-[#156634] font-bold text-lg mt-1">
+                          {batchIndex + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3 mb-2">
+                            <CardTitle className="text-xl font-bold text-gray-900">
+                              {batch.name || `Lote ${batchIndex + 1}`}
+                            </CardTitle>
                             {batch.isNew && (
-                              <Badge variant="default" className="bg-blue-600">
+                              <Badge variant="default" className="bg-blue-600 text-white">
                                 Novo
                               </Badge>
                             )}
-                          </CardTitle>
-              <CardDescription>
-                            {batch.total_quantity === null || batch.total_quantity === undefined
-                              ? "Ilimitado"
-                              : `${batch.total_quantity} ingressos`} • {batch.tickets?.length || 0} categorias
-              </CardDescription>
-                  </div>
-                  </div>
+                            <Badge variant={batch.is_active ? "default" : "secondary"} className={batch.is_active ? "bg-green-100 text-green-800 border-green-300" : ""}>
+                              {batch.is_active ? "Ativo" : "Inativo"}
+                            </Badge>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                            <div className="flex items-center gap-1.5">
+                              <Calendar className="h-4 w-4 text-[#156634]" />
+                              <span className="font-medium">{new Date(batch.start_date).toLocaleDateString('pt-BR')}</span>
+                              <span className="text-gray-400">às</span>
+                              <span className="font-medium">{batch.start_time}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Users className="h-4 w-4 text-[#156634]" />
+                              <span>
+                                {batch.total_quantity === null || batch.total_quantity === undefined
+                                  ? "Ilimitado"
+                                  : `${batch.total_quantity.toLocaleString('pt-BR')} ingressos`}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Trophy className="h-4 w-4 text-[#156634]" />
+                              <span>{batch.tickets?.length || 0} {batch.tickets?.length === 1 ? 'categoria' : 'categorias'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={batch.is_active ? "default" : "secondary"}>
-                          {batch.is_active ? "Ativo" : "Inativo"}
-                        </Badge>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-9 w-9 text-gray-600 hover:text-gray-900"
+                        >
+                          {expandedBatches[batch.id] ? (
+                            <ChevronUp className="h-5 w-5" />
+                          ) : (
+                            <ChevronDown className="h-5 w-5" />
+                          )}
+                        </Button>
                         {batch.isNew && (
                           <Button
                             type="button"
@@ -997,191 +1022,257 @@ export default function EventSettingsPage() {
                               e.stopPropagation()
                               removeBatch(batch.id)
                             }}
-                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="h-9 w-9 text-red-600 hover:text-red-700 hover:bg-red-50"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
-                </div>
-              </div>
-            </CardHeader>
+                      </div>
+                    </div>
+                  </CardHeader>
 
                   {expandedBatches[batch.id] && (
-                    <CardContent className="space-y-6 pt-0">
-                      {/* Dados do Lote */}
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Nome do Lote</Label>
-                          <Input
-                            value={batch.name}
-                            onChange={(e) => updateBatch(batch.id, "name", e.target.value)}
-                            className="h-9"
-                          />
-                  </div>
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Data Início</Label>
-                          <Input
-                            type="date"
-                            value={batch.start_date}
-                            onChange={(e) => updateBatch(batch.id, "start_date", e.target.value)}
-                            className="h-9"
-                  />
-                  </div>
-                    <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Hora Início</Label>
-                          <Input
-                            type="time"
-                            value={batch.start_time}
-                            onChange={(e) => updateBatch(batch.id, "start_time", e.target.value)}
-                            className="h-9"
-                  />
-                </div>
-                    <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Quantidade Total</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            value={batch.total_quantity ?? ""}
-                            onChange={(e) => {
-                              const valor = e.target.value
-                              if (valor === "") {
-                                updateBatch(batch.id, "total_quantity", null)
-                              } else {
-                                const num = parseInt(valor)
-                                if (!isNaN(num) && num >= 0) {
-                                  updateBatch(batch.id, "total_quantity", num)
-                                }
-                              }
-                            }}
-                            placeholder="Deixe vazio para ilimitado"
-                            className="h-9"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Deixe vazio para ilimitado
-                        </p>
-                      </div>
-              </div>
-
-                      <Separator />
-
-                      {/* Ingressos */}
+                    <CardContent className="space-y-8 pt-6">
+                      {/* Seção: Informações do Lote */}
                       <div className="space-y-4">
-                        <div className="flex items-center justify-between pb-3 border-b">
-                          <h3 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
+                        <div className="flex items-center gap-2 pb-2 border-b">
+                          <Settings className="h-5 w-5 text-[#156634]" />
+                          <h3 className="text-lg font-semibold text-gray-900">Informações do Lote</h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                              Nome do Lote <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              value={batch.name}
+                              onChange={(e) => updateBatch(batch.id, "name", e.target.value)}
+                              className="h-10"
+                              placeholder="Ex: Lote Promocional"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                              <Calendar className="h-4 w-4" />
+                              Data de Início <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              type="date"
+                              value={batch.start_date}
+                              onChange={(e) => updateBatch(batch.id, "start_date", e.target.value)}
+                              className="h-10"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                              <Clock className="h-4 w-4" />
+                              Hora de Início <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              type="time"
+                              value={batch.start_time}
+                              onChange={(e) => updateBatch(batch.id, "start_time", e.target.value)}
+                              className="h-10"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                              <Users className="h-4 w-4" />
+                              Quantidade Total
+                            </Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={batch.total_quantity ?? ""}
+                              onChange={(e) => {
+                                const valor = e.target.value
+                                if (valor === "") {
+                                  updateBatch(batch.id, "total_quantity", null)
+                                } else {
+                                  const num = parseInt(valor)
+                                  if (!isNaN(num) && num >= 0) {
+                                    updateBatch(batch.id, "total_quantity", num)
+                                  }
+                                }
+                              }}
+                              placeholder="Deixe vazio para ilimitado"
+                              className="h-10"
+                            />
+                            <p className="text-xs text-gray-500">
+                              Deixe vazio para ilimitado
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <Separator className="my-6" />
+
+                      {/* Seção: Ingressos */}
+                      <div className="space-y-5">
+                        <div className="flex items-center justify-between pb-3 border-b-2 border-gray-200">
+                          <div className="flex items-center gap-2">
                             <Trophy className="h-5 w-5 text-[#156634]" />
-                            Ingressos
-                          </h3>
+                            <h3 className="text-lg font-semibold text-gray-900">Ingressos do Lote</h3>
+                            <Badge variant="outline" className="ml-2">
+                              {batch.tickets?.length || 0} {batch.tickets?.length === 1 ? 'ingresso' : 'ingressos'}
+                            </Badge>
+                          </div>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => addTicketToBatch(batch.id)}
-                            className="border-[#156634] text-[#156634] hover:bg-[#156634] hover:text-white"
+                            className="border-[#156634] text-[#156634] hover:bg-[#156634] hover:text-white font-medium"
                           >
                             <Plus className="mr-2 h-4 w-4" />
                             Adicionar Ingresso
                           </Button>
-                      </div>
+                        </div>
                         {batch.tickets && batch.tickets.length > 0 ? (
                           <div className="space-y-4">
-                            {batch.tickets.map((ticket: any) => (
-                              <Card key={ticket.id} className="border-2 border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                                <CardContent className="p-5 space-y-5">
-                                  <div className="flex items-center justify-between mb-3 pb-3 border-b">
-                      <div className="flex items-center gap-2">
-                                      <Badge variant={ticket.isNew ? "default" : "secondary"} className={ticket.isNew ? "bg-blue-600" : ""}>
-                                        {ticket.isNew ? "Novo" : "Existente"}
-                                      </Badge>
-                                      <h4 className="font-semibold text-gray-900">{ticket.category}</h4>
-                      </div>
+                            {batch.tickets.map((ticket: any, ticketIndex: number) => (
+                              <Card key={ticket.id} className="border-2 border-gray-200 shadow-sm hover:shadow-md transition-all bg-white">
+                                <CardContent className="p-6 space-y-6">
+                                  {/* Cabeçalho do Ingresso */}
+                                  <div className="flex items-center justify-between pb-4 border-b border-gray-200">
+                                    <div className="flex items-center gap-3">
+                                      <div className="flex items-center justify-center h-8 w-8 rounded-full bg-[#156634]/10 text-[#156634] font-semibold text-sm">
+                                        {ticketIndex + 1}
+                                      </div>
+                                      <div>
+                                        <div className="flex items-center gap-2">
+                                          <h4 className="font-semibold text-gray-900 text-lg">{ticket.category || 'Nova Categoria'}</h4>
+                                          {ticket.isNew && (
+                                            <Badge variant="default" className="bg-blue-600 text-white text-xs">
+                                              Novo
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        <p className="text-sm text-gray-500 mt-0.5">
+                                          {ticket.is_free ? 'Gratuito' : `R$ ${Number(ticket.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} • 
+                                          {' '}{ticket.quantity === null || ticket.quantity === undefined ? 'Ilimitado' : `${ticket.quantity} ingressos`}
+                                        </p>
+                                      </div>
+                                    </div>
                                     <Button
                                       type="button"
                                       variant="ghost"
                                       size="icon"
                                       onClick={() => removeTicket(batch.id, ticket.id)}
-                                      className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      className="h-9 w-9 text-red-600 hover:text-red-700 hover:bg-red-50"
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
-                    </div>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <div className="space-y-2">
-                                      <Label className="text-xs font-medium text-gray-700">Categoria *</Label>
-                                      <Input
-                                        value={ticket.category}
-                                        onChange={(e) => updateTicket(batch.id, ticket.id, "category", e.target.value)}
-                                        className="h-10"
-                                        placeholder="Ex: 5km, 10km"
-                                      />
-                  </div>
-                                    <div className="space-y-2">
-                                      <Label className="text-xs font-medium text-gray-700">Preço (R$)</Label>
-                                      <Input
-                                        type="number"
-                                        step="0.01"
-                                        value={ticket.price}
-                                        onChange={(e) => updateTicket(batch.id, ticket.id, "price", parseFloat(e.target.value) || 0)}
-                                        className="h-10"
-                                        disabled={ticket.is_free}
-                                        placeholder="0.00"
-                                      />
-              </div>
-                                    <div className="space-y-2">
-                                      <Label className="text-xs font-medium text-gray-700">Quantidade *</Label>
-                                      <Input
-                                        type="number"
-                                        value={ticket.quantity}
-                                        onChange={(e) => updateTicket(batch.id, ticket.id, "quantity", parseInt(e.target.value) || 0)}
-                                        className="h-10"
-                                        placeholder="0"
-                                      />
-                  </div>
-                                    <div className="flex items-end">
-                                      <div className="flex items-center space-x-2 w-full p-3 bg-gray-50 rounded-md border">
-                <Checkbox
-                                          id={`free-${ticket.id}`}
-                                          checked={ticket.is_free}
-                                          onCheckedChange={(checked) => updateTicket(batch.id, ticket.id, "is_free", checked)}
-                                        />
-                                        <Label htmlFor={`free-${ticket.id}`} className="text-xs font-medium cursor-pointer">
-                                          Gratuito
-                      </Label>
-                    </div>
-                  </div>
                                   </div>
 
-                                  <Separator />
+                                  {/* Informações Básicas do Ingresso */}
+                                  <div className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                      <div className="space-y-2">
+                                        <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                                          Categoria <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Input
+                                          value={ticket.category}
+                                          onChange={(e) => updateTicket(batch.id, ticket.id, "category", e.target.value)}
+                                          className="h-10"
+                                          placeholder="Ex: 5km, 10km, 21km"
+                                        />
+                                      </div>
+                                      <div className="space-y-2">
+                                        <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                                          <DollarSign className="h-4 w-4" />
+                                          Preço (R$)
+                                        </Label>
+                                        <Input
+                                          type="number"
+                                          step="0.01"
+                                          min="0"
+                                          value={ticket.price || ""}
+                                          onChange={(e) => updateTicket(batch.id, ticket.id, "price", parseFloat(e.target.value) || 0)}
+                                          className="h-10"
+                                          disabled={ticket.is_free}
+                                          placeholder="0.00"
+                                        />
+                                      </div>
+                                      <div className="space-y-2">
+                                        <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                                          <Users className="h-4 w-4" />
+                                          Quantidade
+                                        </Label>
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          value={ticket.quantity ?? ""}
+                                          onChange={(e) => {
+                                            const valor = e.target.value
+                                            if (valor === "") {
+                                              updateTicket(batch.id, ticket.id, "quantity", null)
+                                            } else {
+                                              const num = parseInt(valor)
+                                              if (!isNaN(num) && num >= 0) {
+                                                updateTicket(batch.id, ticket.id, "quantity", num)
+                                              }
+                                            }
+                                          }}
+                                          className="h-10"
+                                          placeholder="Deixe vazio para ilimitado"
+                                        />
+                                        <p className="text-xs text-gray-500">Vazio = ilimitado</p>
+                                      </div>
+                                      <div className="space-y-2">
+                                        <Label className="text-sm font-medium text-gray-700">Tipo</Label>
+                                        <div className="flex items-center space-x-2 h-10 px-3 bg-gray-50 rounded-md border">
+                                          <Checkbox
+                                            id={`free-${ticket.id}`}
+                                            checked={ticket.is_free}
+                                            onCheckedChange={(checked) => updateTicket(batch.id, ticket.id, "is_free", checked)}
+                                          />
+                                          <Label htmlFor={`free-${ticket.id}`} className="text-sm font-medium cursor-pointer">
+                                            Gratuito
+                                          </Label>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
 
-                                  {/* Configuração de Kit */}
-                                  <div className="space-y-4 pt-3 border-t">
-                                    <div className="flex items-center space-x-2">
-                  <Checkbox
-                                        id={`kit-${ticket.id}`}
-                                        checked={ticket.has_kit || false}
-                                        onCheckedChange={(checked) => {
-                                          updateTicket(batch.id, ticket.id, "has_kit", checked)
-                                          // Se desmarcar, limpa os dados do kit
-                                          if (!checked) {
-                                            updateTicket(batch.id, ticket.id, "kit_items", [])
-                                            updateTicket(batch.id, ticket.id, "shirt_sizes", [])
-                                            updateTicket(batch.id, ticket.id, "shirt_quantities", {})
-                                          }
-                                        }}
-                                      />
-                                      <Label htmlFor={`kit-${ticket.id}`} className="text-sm font-medium cursor-pointer flex items-center gap-2">
-                                        <Package className="h-4 w-4" />
-                                        Possui Kit
-                                      </Label>
-                </div>
+                                  <Separator className="my-5" />
+
+                                  {/* Seção: Kit do Participante */}
+                                  <div className="space-y-4">
+                                    <div className="flex items-center justify-between pb-2 border-b border-gray-200">
+                                      <div className="flex items-center gap-2">
+                                        <Package className="h-5 w-5 text-[#156634]" />
+                                        <h4 className="text-base font-semibold text-gray-900">Kit do Participante</h4>
+                                      </div>
+                                      <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                          id={`kit-${ticket.id}`}
+                                          checked={ticket.has_kit || false}
+                                          onCheckedChange={(checked) => {
+                                            updateTicket(batch.id, ticket.id, "has_kit", checked)
+                                            // Se desmarcar, limpa os dados do kit
+                                            if (!checked) {
+                                              updateTicket(batch.id, ticket.id, "kit_items", [])
+                                              updateTicket(batch.id, ticket.id, "shirt_sizes", [])
+                                              updateTicket(batch.id, ticket.id, "shirt_quantities", {})
+                                            }
+                                          }}
+                                        />
+                                        <Label htmlFor={`kit-${ticket.id}`} className="text-sm font-medium cursor-pointer">
+                                          Este ingresso inclui kit
+                                        </Label>
+                                      </div>
+                                    </div>
 
                                     {ticket.has_kit && (
-                                      <div className="pl-6 space-y-4">
+                                      <div className="space-y-5 pl-2 border-l-2 border-[#156634]/20">
                                         {/* Seleção de itens do kit */}
-                    <div className="space-y-2">
-                                          <Label className="text-sm">Itens do Kit</Label>
-                                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                        <div className="space-y-3">
+                                          <Label className="text-sm font-medium text-gray-700">Itens Incluídos no Kit</Label>
+                                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
                                             {ITENS_KIT.map((item) => (
-                                              <div key={item.value} className="flex items-center space-x-2">
+                                              <div key={item.value} className="flex items-center space-x-2 p-2 hover:bg-white rounded-md transition-colors">
                                                 <Checkbox
                                                   id={`item-${batch.id}-${ticket.id}-${item.value}`}
                                                   checked={(ticket.kit_items || []).includes(item.value)}
@@ -1201,26 +1292,29 @@ export default function EventSettingsPage() {
                                                 />
                                                 <Label
                                                   htmlFor={`item-${batch.id}-${ticket.id}-${item.value}`}
-                                                  className="text-sm font-normal cursor-pointer"
+                                                  className="text-sm font-normal cursor-pointer flex-1"
                                                 >
                                                   {item.label}
-                      </Label>
-                    </div>
+                                                </Label>
+                                              </div>
                                             ))}
-                  </div>
-                    </div>
+                                          </div>
+                                        </div>
 
                                         {/* Configuração de camiseta */}
                                         {(ticket.kit_items || []).includes("camiseta") && (
-                                          <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                            <Label className="text-sm font-medium">Configuração de Camiseta</Label>
+                                          <div className="space-y-4 p-4 bg-blue-50/50 rounded-lg border-2 border-blue-200/50">
+                                            <div className="flex items-center gap-2 pb-2 border-b border-blue-200">
+                                              <Package className="h-4 w-4 text-blue-700" />
+                                              <Label className="text-sm font-semibold text-blue-900">Configuração de Camiseta</Label>
+                                            </div>
                                             
-                                            <div className="space-y-2">
-                                              <Label className="text-xs text-muted-foreground">Tamanhos Disponíveis *</Label>
-                                              <div className="flex flex-wrap gap-2">
+                                            <div className="space-y-3">
+                                              <Label className="text-sm font-medium text-gray-700">Tamanhos Disponíveis <span className="text-red-500">*</span></Label>
+                                              <div className="flex flex-wrap gap-2 p-3 bg-white rounded-md border border-gray-200">
                                                 {TAMANHOS_CAMISETA.map((tamanho) => (
-                                                  <div key={tamanho.value} className="flex items-center space-x-2">
-                  <Checkbox
+                                                  <div key={tamanho.value} className="flex items-center space-x-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-md border border-gray-200 transition-colors">
+                                                    <Checkbox
                                                       id={`tamanho-${batch.id}-${ticket.id}-${tamanho.value}`}
                                                       checked={(ticket.shirt_sizes || []).includes(tamanho.value)}
                                                       onCheckedChange={(checked) => {
@@ -1241,35 +1335,35 @@ export default function EventSettingsPage() {
                                                     />
                                                     <Label
                                                       htmlFor={`tamanho-${batch.id}-${ticket.id}-${tamanho.value}`}
-                                                      className="text-xs font-normal cursor-pointer"
+                                                      className="text-sm font-medium cursor-pointer"
                                                     >
                                                       {tamanho.label}
-                        </Label>
-                      </div>
+                                                    </Label>
+                                                  </div>
                                                 ))}
                                               </div>
-                </div>
+                                            </div>
 
                                             {/* Quantidade por tamanho */}
                                             {(ticket.shirt_sizes || []).length > 0 && (
-                                              <div className="space-y-3 pt-2 border-t">
-                                                <Label className="text-xs text-muted-foreground">
-                                                  Quantidade de Camisetas por Tamanho para {ticket.category} *
+                                              <div className="space-y-3 pt-3 border-t border-blue-200">
+                                                <Label className="text-sm font-medium text-gray-700">
+                                                  Quantidade de Camisetas por Tamanho
                                                 </Label>
-                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-3 bg-white rounded-md border border-gray-200">
                                                   {(ticket.shirt_sizes || []).map((tamanho: string) => {
                                                     const tamanhoLabel = TAMANHOS_CAMISETA.find(t => t.value === tamanho)?.label || tamanho
                                                     return (
-                                                      <div key={tamanho} className="space-y-1">
-                                                        <Label htmlFor={`qtd-${tamanho}-${batch.id}-${ticket.id}`} className="text-xs">
+                                                      <div key={tamanho} className="space-y-2">
+                                                        <Label htmlFor={`qtd-${tamanho}-${batch.id}-${ticket.id}`} className="text-xs font-medium text-gray-600">
                                                           Tamanho {tamanhoLabel}
                                                         </Label>
-                    <Input
+                                                        <Input
                                                           id={`qtd-${tamanho}-${batch.id}-${ticket.id}`}
                                                           type="number"
                                                           min="0"
                                                           step="1"
-                                                          value={(ticket.shirt_quantities || {})[tamanho] || ""}
+                                                          value={(ticket.shirt_quantities || {})[tamanho] ?? ""}
                                                           onChange={(e) => {
                                                             const valor = e.target.value
                                                             const quantidadesAtuais = ticket.shirt_quantities || {}
@@ -1279,36 +1373,37 @@ export default function EventSettingsPage() {
                                                               "shirt_quantities",
                                                               {
                                                                 ...quantidadesAtuais,
-                                                                [tamanho]: valor === "" ? "" : valor,
+                                                                [tamanho]: valor === "" ? null : (valor ? parseInt(valor) : null),
                                                               }
                                                             )
                                                           }}
-                                                          placeholder="0"
+                                                          placeholder="Ilimitado"
                                                           className="w-full h-9"
-                        />
-                      </div>
+                                                        />
+                                                      </div>
                                                     )
                                                   })}
-                    </div>
+                                                </div>
                                                 {(ticket.shirt_sizes || []).length > 0 && (
-                                                  <p className="text-xs text-muted-foreground pt-1">
-                                                    Total: {
-                                                      Object.values(ticket.shirt_quantities || {})
-                                                        .reduce((sum: number, qtd: any) => sum + (parseInt(qtd) || 0), 0)
-                                                    } camisetas
-                                                  </p>
+                                                  <div className="flex items-center justify-between p-2 bg-blue-100 rounded-md border border-blue-300">
+                                                    <span className="text-sm font-medium text-blue-900">Total de camisetas:</span>
+                                                    <span className="text-sm font-bold text-blue-900">
+                                                      {Object.values(ticket.shirt_quantities || {})
+                                                        .reduce((sum: number, qtd: any) => sum + (parseInt(qtd) || 0), 0)}
+                                                    </span>
+                                                  </div>
                                                 )}
-                  </div>
-                )}
-              </div>
+                                              </div>
+                                            )}
+                                          </div>
                                         )}
-                  </div>
+                                      </div>
                                     )}
-                  </div>
+                                  </div>
                                 </CardContent>
                               </Card>
                             ))}
-                </div>
+                          </div>
                         ) : (
                           <div className="text-center py-8 border-2 border-dashed rounded-lg">
                             <p className="text-sm text-muted-foreground mb-4">
