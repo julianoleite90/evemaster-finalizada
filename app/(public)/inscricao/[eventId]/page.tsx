@@ -583,7 +583,7 @@ export default function CheckoutPage() {
 
         // 1. Criar inscrição com user_id se disponível
         const now = new Date()
-        const insertData = {
+        const insertData: any = {
           event_id: eventId,
           ticket_id: ingresso.id,
           registration_number: registrationNumber,
@@ -591,7 +591,11 @@ export default function CheckoutPage() {
           registration_time: now.toTimeString().split(' ')[0],
           status: isGratuito() ? "confirmed" : "pending",
           shirt_size: p.tamanhoCamiseta || null,
-          user_id: userId, // Vincular ao usuário se a conta foi criada
+        }
+        
+        // Adicionar user_id apenas se disponível (coluna pode não existir em bancos antigos)
+        if (userId) {
+          insertData.user_id = userId
         }
         console.log("Dados insert registration:", insertData)
 
