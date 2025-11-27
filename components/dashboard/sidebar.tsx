@@ -26,9 +26,6 @@ const organizerNavItems: NavItem[] = [
   { title: "Eventos", href: "/dashboard/organizer/events", icon: Calendar },
   { title: "Inscritos", href: "/dashboard/organizer/registrations", icon: Users },
   { title: "Financeiro", href: "/dashboard/organizer/financial", icon: DollarSign },
-  { title: "Kits", href: "/dashboard/organizer/kits", icon: Package },
-  { title: "Check-in", href: "/dashboard/organizer/checkin", icon: QrCode },
-  { title: "Relatórios", href: "/dashboard/organizer/reports", icon: FileText },
   { title: "Configurações", href: "/dashboard/organizer/settings", icon: Settings },
 ]
 

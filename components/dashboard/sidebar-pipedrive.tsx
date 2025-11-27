@@ -10,9 +10,6 @@ import {
   Users,
   DollarSign,
   Settings,
-  Package,
-  FileText,
-  QrCode,
   Link as LinkIcon,
   Menu,
   X,
@@ -22,7 +19,6 @@ import {
   AlertCircle,
   Wallet,
   Ticket,
-  BarChart3,
   User,
 } from "lucide-react"
 import { useState, useEffect } from "react"
@@ -51,14 +47,6 @@ const organizerSections: NavSection[] = [
       { title: "Inscritos", href: "/dashboard/organizer/registrations", icon: Users },
       { title: "Eventos", href: "/dashboard/organizer/events", icon: Calendar },
       { title: "Financeiro", href: "/dashboard/organizer/financial", icon: DollarSign },
-    ],
-  },
-  {
-    title: "Gestão",
-    items: [
-      { title: "Kits", href: "/dashboard/organizer/kits", icon: Package },
-      { title: "Check-in", href: "/dashboard/organizer/checkin", icon: QrCode },
-      { title: "Relatórios", href: "/dashboard/organizer/reports", icon: BarChart3 },
     ],
   },
   {
