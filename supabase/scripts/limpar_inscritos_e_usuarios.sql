@@ -68,13 +68,13 @@ SELECT
   'Organizadores (mantidos)' as tabela,
   COUNT(*) as total
 FROM public.users
-WHERE role = 'ORGANIZADOR' OR role = 'ORGANIZER'
+WHERE role = 'ORGANIZADOR'
 UNION ALL
 SELECT 
   'Afiliados (mantidos)' as tabela,
   COUNT(*) as total
 FROM public.users
-WHERE role = 'AFILIADO' OR role = 'AFFILIATE'
+WHERE role = 'AFILIADO'
 UNION ALL
 SELECT 
   'Admins (mantidos)' as tabela,

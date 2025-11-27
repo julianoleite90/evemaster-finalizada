@@ -16,9 +16,9 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [loadingMagicLink, setLoadingMagicLink] = useState(false)
+  const [loadingTempPassword, setLoadingTempPassword] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [magicLinkSent, setMagicLinkSent] = useState(false)
+  const [tempPasswordSent, setTempPasswordSent] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -66,7 +66,7 @@ export default function LoginPage() {
     }
   }
 
-  const handleMagicLink = async (e: React.FormEvent) => {
+  const handleSendTempPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!email) {
@@ -75,7 +75,7 @@ export default function LoginPage() {
     }
 
     try {
-      setLoadingMagicLink(true)
+      setLoadingTempPassword(true)
 
       // Chamar API para enviar senha temporária
       const response = await fetch('/api/auth/enviar-senha-temporaria', {
@@ -91,13 +91,13 @@ export default function LoginPage() {
         return
       }
 
-      setMagicLinkSent(true)
+      setTempPasswordSent(true)
       toast.success("Senha temporária enviada! Verifique seu email.")
     } catch (error: any) {
       console.error("Erro ao enviar senha temporária:", error)
       toast.error("Erro ao enviar senha temporária. Tente novamente.")
     } finally {
-      setLoadingMagicLink(false)
+      setLoadingTempPassword(false)
     }
   }
 
@@ -132,66 +132,12 @@ export default function LoginPage() {
             <p className="mt-2 text-sm text-gray-600">
               Acesse sua área de membros
             </p>
-            <div className="mt-4 flex flex-col gap-2 text-sm">
-              <Link
-                href="/login/organizer"
-                className="text-[#156634] hover:text-[#125529] font-medium"
-              >
-                Sou organizador →
-              </Link>
-              <Link
-                href="/login/affiliate"
-                className="text-[#156634] hover:text-[#125529] font-medium"
-              >
-                Sou afiliado →
-              </Link>
-              <Link
-                href="/login/admin"
-                className="text-[#156634] hover:text-[#125529] font-medium"
-              >
-                Sou administrador →
-              </Link>
-            </div>
-            <p className="mt-4 text-sm text-gray-600">
-              Não tem uma conta?{" "}
-              <Link
-                href="/register"
-                className="font-semibold text-[#156634] hover:text-[#125529]"
-              >
-                Criar conta gratuita
-              </Link>
-            </p>
           </div>
 
-          {magicLinkSent ? (
-            <div className="space-y-4">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                <Mail className="h-12 w-12 text-green-600 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-green-900 mb-2">
-                  Link enviado com sucesso!
-                </h3>
-                <p className="text-sm text-green-700 mb-4">
-                  Enviamos um link de acesso para <strong>{email}</strong>
-                </p>
-                <p className="text-xs text-green-600">
-                  Verifique seu email para receber sua senha temporária e fazer login.
-                </p>
-              </div>
-              <Button
-                onClick={() => {
-                  setMagicLinkSent(false)
-                  setEmail("")
-                }}
-                variant="outline"
-                className="w-full"
-              >
-                Enviar para outro email
-              </Button>
-            </div>
-          ) : (
+          {!tempPasswordSent ? (
             <>
-              {/* Form com Senha */}
-              <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Primeiro passo: Email e botão para receber senha */}
+              <form onSubmit={handleSendTempPassword} className="space-y-6">
                 <div>
                   <Label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                     Email
@@ -213,17 +159,70 @@ export default function LoginPage() {
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                      Senha
-                    </Label>
-                    <Link
-                      href="/forgot-password"
-                      className="text-sm font-medium text-[#156634] hover:text-[#125529]"
-                    >
-                      Esqueceu a senha?
-                    </Link>
+                  <Button
+                    type="submit"
+                    disabled={loadingTempPassword || !email}
+                    className="w-full h-12 text-base font-semibold bg-[#156634] hover:bg-[#125529] shadow-sm"
+                  >
+                    {loadingTempPassword ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Enviando...
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="mr-2 h-5 w-5" />
+                        Receber senha no email
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-center text-gray-500">
+                  Digite seu email e clique em &quot;Receber senha no email&quot; para receber uma senha temporária
+                </p>
+              </form>
+            </>
+          ) : (
+            <>
+              {/* Segundo passo: Mostrar mensagem de sucesso e input de senha */}
+              <div className="space-y-4 mb-6">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                  <Mail className="h-12 w-12 text-green-600 mx-auto mb-3" />
+                  <h3 className="text-lg font-semibold text-green-900 mb-2">
+                    Senha temporária enviada!
+                  </h3>
+                  <p className="text-sm text-green-700 mb-4">
+                    Enviamos uma senha temporária para <strong>{email}</strong>
+                  </p>
+                  <p className="text-xs text-green-600">
+                    Verifique seu email e insira a senha abaixo para fazer login
+                  </p>
+                </div>
+              </div>
+
+              {/* Form com Senha */}
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <Label htmlFor="email-display" className="block text-sm font-medium text-gray-700 mb-2">
+                    Email
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Input
+                      id="email-display"
+                      name="email-display"
+                      type="email"
+                      disabled
+                      value={email}
+                      className="pl-10 h-12 text-base bg-gray-50"
+                    />
                   </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                    Senha Temporária
+                  </Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <Input
@@ -235,7 +234,7 @@ export default function LoginPage() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="pl-10 pr-10 h-12 text-base"
-                      placeholder="Sua senha"
+                      placeholder="Digite a senha recebida por email"
                     />
                     <button
                       type="button"
@@ -272,42 +271,19 @@ export default function LoginPage() {
                 </div>
               </form>
 
-              {/* Separador */}
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">ou</span>
-                </div>
+              <div className="mt-4 text-center">
+                <Button
+                  onClick={() => {
+                    setTempPasswordSent(false)
+                    setEmail("")
+                    setPassword("")
+                  }}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Usar outro email
+                </Button>
               </div>
-
-              {/* Login sem Senha */}
-              <form onSubmit={handleMagicLink} className="space-y-4">
-                <div>
-                  <Button
-                    type="submit"
-                    disabled={loadingMagicLink || !email}
-                    variant="outline"
-                    className="w-full h-12 text-base font-semibold border-2 border-[#156634] text-[#156634] hover:bg-[#156634] hover:text-white"
-                  >
-                    {loadingMagicLink ? (
-                      <>
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Enviando...
-                      </>
-                    ) : (
-                      <>
-                        <Mail className="mr-2 h-5 w-5" />
-                        Entrar sem senha
-                      </>
-                    )}
-                  </Button>
-                </div>
-                <p className="text-xs text-center text-gray-500">
-                  Digite seu email acima e clique em &quot;Entrar sem senha&quot; para receber uma senha temporária por email
-                </p>
-              </form>
             </>
           )}
 

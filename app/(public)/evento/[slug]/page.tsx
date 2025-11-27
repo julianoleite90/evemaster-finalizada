@@ -121,6 +121,28 @@ export default function EventoLandingPage() {
       footerPayment: "We accept all credit cards, Pix and Boleto",
     },
   }
+
+  // Função para formatar data sem problemas de timezone
+  const formatEventDate = (dateString: string, locale: string = "pt-BR") => {
+    if (!dateString) return ""
+    // Parse a data no formato YYYY-MM-DD como data local (não UTC)
+    const [year, month, day] = dateString.split('-').map(Number)
+    const date = new Date(year, month - 1, day) // month é 0-indexed
+    
+    const localeMap: { [key: string]: string } = {
+      "pt": "pt-BR",
+      "es": "es-AR",
+      "en": "en-US"
+    }
+    
+    return date.toLocaleDateString(localeMap[locale] || locale, {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    })
+  }
+
   useEffect(() => {
     const fetchEvent = async () => {
       if (!slug) return
@@ -307,12 +329,7 @@ export default function EventoLandingPage() {
                     <div className="flex-1">
                       <p className="text-[10px] md:text-xs text-muted-foreground uppercase font-medium mb-0.5 md:mb-1">{translations[language].dataEvento}</p>
                       <p className="font-semibold text-sm md:text-base text-gray-900">
-                        {eventData.event_date && new Date(eventData.event_date).toLocaleDateString(language === "en" ? "en-US" : language === "es" ? "es-AR" : "pt-BR", {
-                          weekday: 'long',
-                          day: '2-digit',
-                          month: 'long',
-                          year: 'numeric'
-                        })}
+                        {eventData.event_date && formatEventDate(eventData.event_date, language)}
                       </p>
                     </div>
                   </div>

@@ -684,8 +684,13 @@ export default function CheckoutPage() {
       localStorage.setItem(`event_updated_${eventId}`, 'true')
 
       const resumoFinanceiro = calcularTotal()
+      // Formatar data sem problemas de timezone
       const dataEvento = eventData.event_date
-        ? new Date(eventData.event_date).toLocaleDateString('pt-BR')
+        ? (() => {
+            const [year, month, day] = eventData.event_date.split('-').map(Number)
+            const date = new Date(year, month - 1, day)
+            return date.toLocaleDateString('pt-BR')
+          })()
         : ''
       const horaEvento = eventData.start_time
         ? eventData.start_time.substring(0, 5)

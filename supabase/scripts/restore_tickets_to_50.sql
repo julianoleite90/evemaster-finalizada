@@ -3,41 +3,29 @@
 -- ============================================
 -- Este script restaura TODOS os tickets de um evento para quantidade 50
 -- 
--- INSTRUÇÕES:
--- 1. Execute primeiro: SELECT id, name, slug FROM public.events WHERE status = 'active';
--- 2. Copie o ID do evento desejado
--- 3. Substitua 'COLE_O_ID_AQUI' abaixo pelo ID copiado
--- 4. Execute este script
+-- OPÇÃO 1: Buscar pelo nome do evento (recomendado)
+-- Substitua 'NOME_DO_EVENTO_AQUI' pelo nome do evento
 
 DO $$
 DECLARE
-  v_event_id TEXT := 'COLE_O_ID_AQUI'; -- ⚠️ COLE O ID DO EVENTO AQUI
+  v_event_name_search TEXT := '1º Entrenamiento Internacional Night Run Costão do Santinho'; -- ⚠️ ALTERE AQUI
   v_event_id_uuid UUID;
-  v_tickets_updated INTEGER;
   v_event_name TEXT;
+  v_tickets_updated INTEGER;
   v_ticket_category TEXT;
   v_ticket_quantity INTEGER;
 BEGIN
-  -- Verificar se o ID foi alterado
-  IF v_event_id = 'COLE_O_ID_AQUI' THEN
-    RAISE EXCEPTION '❌ ERRO: Você precisa colar o ID do evento no lugar de "COLE_O_ID_AQUI"!';
-  END IF;
-
-  -- Converter para UUID
-  BEGIN
-    v_event_id_uuid := v_event_id::uuid;
-  EXCEPTION WHEN OTHERS THEN
-    RAISE EXCEPTION '❌ ERRO: ID inválido. Certifique-se de copiar o ID completo do evento.';
-  END;
-
-  -- Buscar nome do evento
-  SELECT name INTO v_event_name
+  -- Buscar evento pelo nome
+  SELECT id, name INTO v_event_id_uuid, v_event_name
   FROM public.events
-  WHERE id = v_event_id_uuid;
+  WHERE name ILIKE '%' || v_event_name_search || '%'
+  LIMIT 1;
 
-  IF v_event_name IS NULL THEN
-    RAISE EXCEPTION '❌ Evento com ID % não encontrado', v_event_id_uuid;
+  IF v_event_id_uuid IS NULL THEN
+    RAISE EXCEPTION '❌ Evento com nome contendo "%" não encontrado. Verifique o nome e tente novamente.', v_event_name_search;
   END IF;
+
+  RAISE NOTICE '✅ Evento encontrado: % (ID: %)', v_event_name, v_event_id_uuid;
 
   RAISE NOTICE '🔄 Restaurando tickets do evento: % (ID: %)', v_event_name, v_event_id_uuid;
 
@@ -92,8 +80,45 @@ BEGIN
 END $$;
 
 -- ============================================
+-- OPÇÃO 2: Usar ID diretamente (se já souber o ID)
+-- ============================================
+-- Descomente e use se já souber o ID do evento
+
+/*
+DO $$
+DECLARE
+  v_event_id_uuid UUID := 'COLE_O_ID_AQUI'::uuid; -- ⚠️ COLE O ID AQUI
+  v_event_name TEXT;
+  v_tickets_updated INTEGER;
+BEGIN
+  -- Buscar nome do evento
+  SELECT name INTO v_event_name
+  FROM public.events
+  WHERE id = v_event_id_uuid;
+
+  IF v_event_name IS NULL THEN
+    RAISE EXCEPTION '❌ Evento com ID % não encontrado', v_event_id_uuid;
+  END IF;
+
+  RAISE NOTICE '🔄 Restaurando tickets do evento: % (ID: %)', v_event_name, v_event_id_uuid;
+
+  -- Restaurar todos os tickets para 50
+  UPDATE public.tickets
+  SET quantity = 50
+  WHERE batch_id IN (
+    SELECT id FROM public.ticket_batches WHERE event_id = v_event_id_uuid
+  );
+
+  GET DIAGNOSTICS v_tickets_updated = ROW_COUNT;
+  
+  RAISE NOTICE '✅ % tickets restaurados para quantidade 50', v_tickets_updated;
+END $$;
+*/
+
+-- ============================================
 -- VERIFICAÇÃO: Ver tickets após restauração
 -- ============================================
+-- Execute após restaurar para verificar
 
 /*
 SELECT 
@@ -106,7 +131,7 @@ SELECT
 FROM public.tickets t
 INNER JOIN public.ticket_batches tb ON t.batch_id = tb.id
 INNER JOIN public.events e ON tb.event_id = e.id
-WHERE e.id = 'COLE_O_ID_AQUI'::uuid
+WHERE e.name ILIKE '%Night Run%'  -- ALTERE AQUI
 ORDER BY tb.name, t.category;
 */
 

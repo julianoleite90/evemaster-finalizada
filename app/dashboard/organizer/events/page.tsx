@@ -200,7 +200,10 @@ export default function EventsPage() {
   }
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
+    if (!dateString) return "Data não informada"
+    // Parse a data no formato YYYY-MM-DD como data local (não UTC)
+    const [year, month, day] = dateString.split('-').map(Number)
+    const date = new Date(year, month - 1, day) // month é 0-indexed
     return date.toLocaleDateString("pt-BR", {
       day: "2-digit",
       month: "long",

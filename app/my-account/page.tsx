@@ -147,7 +147,10 @@ export default function MyAccountPage() {
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "Data não informada"
-    return new Date(dateString).toLocaleDateString("pt-BR", {
+    // Parse a data no formato YYYY-MM-DD como data local (não UTC)
+    const [year, month, day] = dateString.split('-').map(Number)
+    const date = new Date(year, month - 1, day) // month é 0-indexed
+    return date.toLocaleDateString("pt-BR", {
       weekday: "long",
       day: "2-digit",
       month: "long",

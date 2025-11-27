@@ -226,7 +226,11 @@ export default function RegistrationsPage() {
   }
 
   const formatDate = (dateString: string) => {
-    return format(new Date(dateString), "dd/MM/yyyy")
+    if (!dateString) return "Data não informada"
+    // Parse a data no formato YYYY-MM-DD como data local (não UTC)
+    const [year, month, day] = dateString.split('-').map(Number)
+    const date = new Date(year, month - 1, day) // month é 0-indexed
+    return format(date, "dd/MM/yyyy")
   }
 
   const filteredRegistrations = registrations.filter((reg) => {

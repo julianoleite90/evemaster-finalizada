@@ -14,7 +14,10 @@ export async function GET(
       return new Response('Event not found', { status: 404 })
     }
 
-    const eventDate = new Date(event.event_date).toLocaleDateString('pt-BR', {
+    // Parse a data no formato YYYY-MM-DD como data local (não UTC)
+    const [year, month, day] = event.event_date.split('-').map(Number)
+    const date = new Date(year, month - 1, day) // month é 0-indexed
+    const eventDate = date.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
