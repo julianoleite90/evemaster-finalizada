@@ -17,20 +17,31 @@ const stripHtml = (value?: string) =>
     : ''
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const event = await getEventBySlug(params.slug).catch(() => null)
+  let event = null
+  
+  try {
+    event = await getEventBySlug(params.slug)
+  } catch (error) {
+    console.error('Erro ao buscar evento para metadata:', error)
+    // Continua com valores padrão
+  }
 
-  const title = event
+  const title = event?.name
     ? `${event.name} | EveMaster plataforma para eventos esportivos`
     : defaultTitle
 
   const description =
-    stripHtml(event?.description) || event?.summary || defaultDescription
+    event?.description || event?.summary
+      ? stripHtml(event.description || event.summary)
+      : defaultDescription
 
-  const ogImage =
-    event?.banner_url || `${siteUrl}/images/logo/logo.png`
+  const ogImage = event?.banner_url
+    ? event.banner_url
+    : `${siteUrl}/images/logo/logo.png`
+    
   const canonicalUrl = event?.slug
     ? `${siteUrl}/evento/${event.slug}`
-    : siteUrl
+    : `${siteUrl}/evento/${params.slug}`
 
   return {
     title,
