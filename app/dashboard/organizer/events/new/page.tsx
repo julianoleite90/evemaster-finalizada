@@ -399,10 +399,23 @@ export default function NewEventPage() {
         zip_code: formData.cep,
         distances: distanciasPadrao,
         custom_distances: formData.distanciasCustom,
-        total_capacity: formData.lotes.reduce((total, lote) => {
-          const qtd = lote.quantidadeTotal && lote.quantidadeTotal !== "" ? parseInt(lote.quantidadeTotal) : null
-          return qtd !== null ? total + qtd : total
-        }, 0) || undefined,
+        total_capacity: ((): number | undefined => {
+          // Verifica se todos os lotes são ilimitados
+          const todasQuantidades = formData.lotes.map(lote => {
+            const qtd = lote.quantidadeTotal && lote.quantidadeTotal !== "" ? parseInt(lote.quantidadeTotal) : null
+            return qtd
+          })
+          
+          // Se todos forem null (ilimitados), retorna undefined
+          const todosIlimitados = todasQuantidades.every(qtd => qtd === null)
+          if (todosIlimitados) {
+            return undefined
+          }
+          
+          // Se algum tiver quantidade, soma (null conta como 0)
+          const soma = todasQuantidades.reduce((total: number, qtd) => total + (qtd || 0), 0)
+          return soma > 0 ? soma : undefined
+        })(),
         lotes,
         settings: {
           payment_pix_enabled: formData.meiosPagamento.pix,

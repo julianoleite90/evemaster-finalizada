@@ -98,6 +98,12 @@ export default function EventsPage() {
         // Buscar todas as inscrições e pagamentos de uma vez
         const eventIds = events.map((e: any) => e.id)
         
+        // Buscar lotes para recalcular capacidade
+        const { data: allBatches } = await supabase
+          .from("ticket_batches")
+          .select("event_id, total_quantity")
+          .in("event_id", eventIds)
+        
         const { data: allRegistrations } = await supabase
           .from("registrations")
           .select("id, event_id")
@@ -130,13 +136,41 @@ export default function EventsPage() {
           }
         })
 
+        // Recalcular capacidade baseada nos lotes
+        const capacidadeByEvent: Record<string, number | null> = {}
+        allBatches?.forEach((batch: any) => {
+          if (!capacidadeByEvent[batch.event_id]) {
+            capacidadeByEvent[batch.event_id] = 0
+          }
+          // Se algum lote for ilimitado (null), o evento é ilimitado
+          if (batch.total_quantity === null) {
+            capacidadeByEvent[batch.event_id] = null
+          } else if (capacidadeByEvent[batch.event_id] !== null) {
+            // Só soma se ainda não foi marcado como ilimitado
+            capacidadeByEvent[batch.event_id] = (capacidadeByEvent[batch.event_id] || 0) + (batch.total_quantity || 0)
+          }
+        })
+        
+        // Se todos os lotes de um evento forem ilimitados, a capacidade calculada será null
+        // Se algum lote tiver quantidade, será a soma
+        // Se não houver lotes, verifica o total_capacity do evento
+
         // Converter para o formato esperado
         const eventosFormatados: Event[] = events.map((event: any) => {
           const stats = statsByEvent[event.id] || { inscritos: 0, receita: 0 }
-          // Se total_capacity for null, undefined, 0 ou inválido, considerar como ilimitado
-          const capacidade = event.total_capacity && event.total_capacity > 0 
-            ? event.total_capacity 
-            : null
+          
+          // Usar capacidade calculada dos lotes, ou fallback para total_capacity do evento
+          let capacidade = capacidadeByEvent[event.id]
+          if (capacidade === undefined) {
+            // Se não há lotes, usar total_capacity do evento
+            capacidade = event.total_capacity && event.total_capacity > 0 
+              ? event.total_capacity 
+              : null
+          } else if (capacidade === 0) {
+            // Se a soma for 0, considerar ilimitado
+            capacidade = null
+          }
+          
           return {
             id: event.id,
             slug: event.slug,
