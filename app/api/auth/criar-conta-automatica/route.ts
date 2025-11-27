@@ -61,62 +61,64 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // Verificar se o usuário já existe
-    let existingUser = null
-    if (supabaseAdmin) {
-      const { data } = await supabaseAdmin.auth.admin.getUserByEmail(email)
-      existingUser = data?.user
-    } else {
-      // Sem admin, tentar buscar na tabela users
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, email')
-        .eq('email', email)
-        .maybeSingle()
-      
-      if (userData) {
-        // Usuário existe na tabela users, retornar o ID
-        return NextResponse.json({
-          success: true,
-          message: 'Conta já existia',
-          userId: userData.id,
-        })
-      }
-    }
+    // Verificar se o usuário já existe na tabela users
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('email', email)
+      .maybeSingle()
     
-    if (existingUser) {
-      // Usuário já existe, apenas atualizar dados se necessário
+    if (userData) {
+      // Usuário já existe, atualizar dados se necessário
       console.log('📧 [API] Usuário já existe:', email)
       
-      if (supabaseAdmin) {
-        // Atualizar metadados
-        await supabaseAdmin.auth.admin.updateUserById(
-          existingUser.id,
-          {
-            user_metadata: {
-              full_name: nome,
-              phone: telefone,
-              cpf: cpf?.replace(/\D/g, ''),
-              address: endereco,
-              address_number: numero,
-              address_complement: complemento,
-              neighborhood: bairro,
-              city: cidade,
-              state: estado,
-              zip_code: cep?.replace(/\D/g, ''),
-              role: 'ATLETA',
-            },
-          }
-        )
-      }
+      // Atualizar dados do usuário
+      await supabase
+        .from('users')
+        .update({
+          full_name: nome,
+          phone: telefone?.replace(/\D/g, ''),
+          cpf: cpf?.replace(/\D/g, '') || null,
+          address: endereco,
+          address_number: numero,
+          address_complement: complemento,
+          neighborhood: bairro,
+          city: cidade,
+          state: estado,
+          zip_code: cep?.replace(/\D/g, '') || null,
+        })
+        .eq('id', userData.id)
 
-      // Garantir que existe em public.users
-      await supabase.rpc('ensure_user_exists')
+      // Se tiver admin, atualizar metadados também
+      if (supabaseAdmin) {
+        try {
+          await supabaseAdmin.auth.admin.updateUserById(
+            userData.id,
+            {
+              user_metadata: {
+                full_name: nome,
+                phone: telefone,
+                cpf: cpf?.replace(/\D/g, ''),
+                address: endereco,
+                address_number: numero,
+                address_complement: complemento,
+                neighborhood: bairro,
+                city: cidade,
+                state: estado,
+                zip_code: cep?.replace(/\D/g, ''),
+                role: 'ATLETA',
+              },
+            }
+          )
+        } catch (metaError) {
+          console.warn('⚠️ [API] Erro ao atualizar metadados (não crítico):', metaError)
+        }
+      }
 
       return NextResponse.json({
         success: true,
         message: 'Conta já existia, dados atualizados',
-        userId: existingUser.id,
+        userId: userData.id,
       })
     }
 
