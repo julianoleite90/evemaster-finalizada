@@ -4,20 +4,30 @@
 -- Este script restaura as quantidades dos tickets para o valor original
 -- quando as inscrições foram deletadas
 
+-- IMPORTANTE: Antes de executar, substitua 'SEU_EVENT_ID_AQUI' pelo ID real do evento
+-- Você pode encontrar o ID executando: SELECT id, name, slug FROM public.events WHERE status = 'active';
+
 -- Para um evento específico (substitua o ID)
 DO $$
 DECLARE
-  v_event_id UUID := 'EVENT_ID_AQUI'::uuid; -- ALTERE AQUI com o ID do evento ativo
+  v_event_id UUID; -- Será definido abaixo
   v_ticket_id UUID;
   v_registrations_count INTEGER;
   v_current_quantity INTEGER;
   v_original_quantity INTEGER := 25; -- Quantidade original de cada ticket
   v_tickets_updated INTEGER := 0;
 BEGIN
+  -- ⚠️ ALTERE AQUI: Coloque o ID do evento entre as aspas
+  v_event_id := 'SEU_EVENT_ID_AQUI'::uuid;
+  
+  -- Verificar se o ID foi alterado
+  IF v_event_id = 'SEU_EVENT_ID_AQUI'::uuid THEN
+    RAISE EXCEPTION '❌ ERRO: Você precisa substituir "SEU_EVENT_ID_AQUI" pelo ID real do evento!';
+  END IF;
+  
   -- Verificar se o evento existe
   IF NOT EXISTS (SELECT 1 FROM public.events WHERE id = v_event_id) THEN
-    RAISE NOTICE '❌ Evento com ID % não encontrado', v_event_id;
-    RETURN;
+    RAISE EXCEPTION '❌ Evento com ID % não encontrado. Verifique se o ID está correto.', v_event_id;
   END IF;
 
   RAISE NOTICE '🔄 Restaurando quantidades dos tickets para o evento: %', v_event_id;
