@@ -465,7 +465,7 @@ export default function EventSettingsPage() {
   }
 
   const removeBatch = (batchId: string) => {
-    setBatches(prev => prev.filter(batch => batch.id !== batchId))
+    setBatches(prev => prev.filter((batch: any) => batch.id !== batchId))
     setExpandedBatches(prev => {
       const newState = { ...prev }
       delete newState[batchId]
@@ -1227,7 +1227,7 @@ export default function EventSettingsPage() {
                                                         const tamanhosAtuais = ticket.shirt_sizes || []
                                                         const novosTamanhos = checked
                                                           ? [...tamanhosAtuais, tamanho.value]
-                                                          : tamanhosAtuais.filter(t => t !== tamanho.value)
+                                                          : tamanhosAtuais.filter((t: string) => t !== tamanho.value)
                                                         updateTicket(batch.id, ticket.id, "shirt_sizes", novosTamanhos)
                                                         
                                                         // Se desmarcar um tamanho, remove a quantidade
