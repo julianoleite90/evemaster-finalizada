@@ -12,10 +12,13 @@ export async function middleware(request: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+    // Se variáveis não estiverem definidas, apenas continua
     if (!supabaseUrl || !supabaseAnonKey) {
       return response
     }
 
+    // Criar cliente Supabase APENAS para gerenciar cookies
+    // Não fazemos chamadas HTTP aqui para evitar problemas no Edge Runtime
     const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
       cookies: {
         getAll() {
@@ -29,22 +32,20 @@ export async function middleware(request: NextRequest) {
       },
     })
 
-    // IMPORTANT: You *must* call getUser() immediately after createServerClient
-    // This refreshes the session and updates cookies
-    let user = null
-    try {
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser()
-      user = authUser
-    } catch {
-      // If getUser() fails, continue without user
-      // Session will be verified in pages if needed
-    }
+    // IMPORTANTE: No Edge Runtime, chamadas HTTP assíncronas podem falhar
+    // Por isso, NÃO chamamos getUser() aqui - apenas gerenciamos cookies
+    // A atualização de sessão será feita nas páginas (server/client components)
+    // Isso evita MIDDLEWARE_INVOCATION_FAILED no Vercel
 
-    // Redirect to login if accessing protected route without auth
+    // Verificar cookies de autenticação para redirecionamento
+    const authCookies = request.cookies.getAll().filter(
+      cookie => cookie.name.includes('sb-') && 
+                (cookie.name.includes('auth-token') || cookie.name.includes('access-token'))
+    )
+
+    // Redirecionar para login se tentando acessar dashboard sem cookies de auth
     if (
-      !user &&
+      authCookies.length === 0 &&
       request.nextUrl.pathname.startsWith('/dashboard') &&
       !request.nextUrl.pathname.startsWith('/login') &&
       !request.nextUrl.pathname.startsWith('/register')
@@ -56,7 +57,8 @@ export async function middleware(request: NextRequest) {
 
     return response
   } catch {
-    // Any error: return default response to prevent app crash
+    // Qualquer erro: retorna response padrão
+    // NUNCA quebra a aplicação
     return response
   }
 }
