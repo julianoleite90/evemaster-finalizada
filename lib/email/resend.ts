@@ -27,37 +27,59 @@ export interface EmailInscricao {
 }
 
 export async function enviarEmailConfirmacao(dados: EmailInscricao) {
-  if (!resendClient) {
-    console.error('Resend API key não configurada.')
+  console.log('📧 [Resend] Iniciando envio de email para:', dados.para)
+  
+  if (!resendApiKey) {
+    console.error('❌ [Resend] RESEND_API_KEY não configurada')
     return { success: false, error: 'RESEND_API_KEY não configurada' }
   }
 
-  const pdfBuffer = await gerarPDFInscricao(dados)
+  if (!resendClient) {
+    console.error('❌ [Resend] Cliente Resend não inicializado')
+    return { success: false, error: 'Cliente Resend não inicializado' }
+  }
+
+  console.log('📧 [Resend] Gerando PDF...')
+  let pdfBuffer: Buffer
+  try {
+    pdfBuffer = await gerarPDFInscricao(dados)
+    console.log('✅ [Resend] PDF gerado com sucesso, tamanho:', pdfBuffer.length, 'bytes')
+  } catch (pdfError: any) {
+    console.error('❌ [Resend] Erro ao gerar PDF:', pdfError)
+    // Continua sem PDF se houver erro
+    pdfBuffer = Buffer.from('')
+  }
 
   try {
+    console.log('📧 [Resend] Enviando email via Resend API...', {
+      from: resendFromEmail,
+      to: dados.para,
+      subject: `Confirmação da sua inscrição - ${dados.nomeEvento}`,
+    })
+
     const response = await resendClient.emails.send({
       from: resendFromEmail,
       to: dados.para,
       subject: `Confirmação da sua inscrição - ${dados.nomeEvento}`,
       html: gerarTemplateEmail(dados),
-      attachments: [
+      attachments: pdfBuffer.length > 0 ? [
         {
           filename: `ingresso-${dados.codigoInscricao}.pdf`,
           content: pdfBuffer.toString('base64'),
         },
-      ],
+      ] : undefined,
     })
 
     if (response.error) {
-      console.error('Erro ao enviar email:', response.error)
+      console.error('❌ [Resend] Erro ao enviar email:', response.error)
       return { success: false, error: response.error }
     }
 
-    console.log('Email enviado com sucesso:', response.data?.id)
+    console.log('✅ [Resend] Email enviado com sucesso! ID:', response.data?.id)
     return { success: true, data: response.data }
   } catch (error: any) {
-    console.error('Erro inesperado no Resend:', error)
-    return { success: false, error }
+    console.error('❌ [Resend] Erro inesperado:', error)
+    return { success: false, error: error.message || error }
   }
 }
 

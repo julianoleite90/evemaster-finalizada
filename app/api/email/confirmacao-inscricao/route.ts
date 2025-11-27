@@ -5,7 +5,13 @@ export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('📧 [API] Recebida requisição de envio de emails')
+    
     const body = await request.json()
+    console.log('📧 [API] Body recebido:', {
+      quantidadeInscricoes: body.inscricoes?.length,
+      nomeEvento: body.evento?.nome,
+    })
     
     const { inscricoes, evento, resumoFinanceiro } = body as {
       inscricoes: Array<{
@@ -41,6 +47,8 @@ export async function POST(request: NextRequest) {
 
     // Enviar email para cada participante
     for (const inscricao of inscricoes) {
+      console.log(`📧 [API] Processando email para: ${inscricao.email}`)
+      
       const dadosEmail: EmailInscricao = {
         para: inscricao.email,
         nomeParticipante: inscricao.nome,
@@ -57,6 +65,8 @@ export async function POST(request: NextRequest) {
       }
 
       const resultado = await enviarEmailConfirmacao(dadosEmail)
+      console.log(`📧 [API] Resultado para ${inscricao.email}:`, resultado)
+      
       resultados.push({
         email: inscricao.email,
         ...resultado,

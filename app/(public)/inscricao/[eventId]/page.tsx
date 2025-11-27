@@ -645,34 +645,55 @@ export default function CheckoutPage() {
 
       // Enviar emails de confirmação (em background)
       try {
-        await fetch('/api/email/confirmacao-inscricao', {
+        const emailPayload = {
+          inscricoes: participantes.map((p, i) => ({
+            email: p.email,
+            nome: p.nome,
+            categoria: ingressosSelecionados[i].categoria,
+            valor: ingressosSelecionados[i].valor,
+            gratuito: ingressosSelecionados[i].gratuito,
+            codigoInscricao: `EVE-${Date.now().toString(36).toUpperCase()}-${i + 1}`,
+          })),
+          evento: {
+            nome: eventData.name,
+            data: dataEvento,
+            hora: horaEvento,
+            local: eventData.location || eventData.address || '',
+            descricao: eventData.description
+              ? eventData.description.replace(/<[^>]*>/g, '').substring(0, 200)
+              : undefined,
+          },
+          resumoFinanceiro: {
+            subtotal: resumoFinanceiro.subtotal,
+            taxa: resumoFinanceiro.taxa,
+            total: resumoFinanceiro.total,
+          },
+        }
+
+        console.log('📧 [Frontend] Enviando emails de confirmação...', {
+          quantidade: emailPayload.inscricoes.length,
+          emails: emailPayload.inscricoes.map(i => i.email),
+        })
+
+        const emailResponse = await fetch('/api/email/confirmacao-inscricao', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            inscricoes: participantes.map((p, i) => ({
-              email: p.email,
-              nome: p.nome,
-              categoria: ingressosSelecionados[i].categoria,
-              valor: ingressosSelecionados[i].valor,
-              gratuito: ingressosSelecionados[i].gratuito,
-              codigoInscricao: `EVE-${Date.now().toString(36).toUpperCase()}-${i + 1}`,
-            })),
-            evento: {
-              nome: eventData.name,
-              data: dataEvento,
-              hora: horaEvento,
-              local: eventData.location || eventData.address || '',
-              descricao: eventData.description || '',
-            },
-            resumoFinanceiro: {
-              subtotal: resumoFinanceiro.subtotal,
-              taxa: resumoFinanceiro.taxa,
-              total: resumoFinanceiro.total,
-            },
-          }),
+          body: JSON.stringify(emailPayload),
         })
+
+        if (!emailResponse.ok) {
+          const errorText = await emailResponse.text()
+          console.error('❌ [Frontend] Erro HTTP ao enviar emails:', {
+            status: emailResponse.status,
+            statusText: emailResponse.statusText,
+            error: errorText,
+          })
+        } else {
+          const emailResult = await emailResponse.json()
+          console.log('✅ [Frontend] Emails processados:', emailResult)
+        }
       } catch (emailError) {
-        console.error('Erro ao enviar emails:', emailError)
+        console.error('❌ [Frontend] Erro ao enviar emails:', emailError)
         // Não bloquear o fluxo se o email falhar
       }
       
