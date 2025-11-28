@@ -1106,7 +1106,7 @@ export default function EventSettingsPage() {
                 Banner do Evento
               </CardTitle>
               <CardDescription>
-                    Imagem principal do evento
+                    Imagem principal do evento. Proporção recomendada: 21:9 (ex: 1920x823px ou 1680x720px)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

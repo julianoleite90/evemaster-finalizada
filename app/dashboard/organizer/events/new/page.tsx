@@ -1222,7 +1222,7 @@ export default function NewEventPage() {
                       <div className="group relative">
                         <Info className="h-4 w-4 text-muted-foreground cursor-help" />
                         <div className="absolute left-0 top-6 w-64 p-2 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
-                          Este banner será exibido no cabeçalho da página do evento. Tamanho recomendado: 1920x600px (formato JPG ou PNG).
+                          Este banner será exibido no cabeçalho da página do evento. Proporção recomendada: 21:9 (ex: 1920x823px ou 1680x720px). Formato JPG ou PNG.
                         </div>
                       </div>
                     </div>
@@ -1247,7 +1247,7 @@ export default function NewEventPage() {
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Tamanho recomendado: 1920x600px (formato JPG ou PNG)
+                      Proporção recomendada: 21:9 (ex: 1920x823px ou 1680x720px). Formato JPG ou PNG.
                     </p>
                   </div>
 

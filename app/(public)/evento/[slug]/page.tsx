@@ -362,7 +362,7 @@ export default function EventoLandingPage() {
       />
       
       {/* Banner */}
-      <div className="relative w-full h-[250px] sm:h-[350px] md:h-[450px] lg:h-[550px] bg-gradient-to-r from-[#156634] to-[#1a7a3e] overflow-hidden">
+      <div className="relative w-full aspect-[21/11] md:aspect-[21/6] bg-gray-100 overflow-hidden">
         {eventData.banner_url ? (
           <Image
             src={eventData.banner_url}
@@ -371,14 +371,10 @@ export default function EventoLandingPage() {
             className="object-cover object-center"
             sizes="100vw"
             priority
-            style={{
-              objectFit: 'cover',
-              objectPosition: 'center',
-            }}
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white text-center px-4">
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-r from-[#156634] to-[#1a7a3e]">
+            <h1 className="text-4xl md:text-5xl font-bold text-white text-center px-4">
               {eventData.name}
             </h1>
           </div>
