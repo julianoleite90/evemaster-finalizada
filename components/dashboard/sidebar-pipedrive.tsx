@@ -51,7 +51,6 @@ const organizerSections: NavSection[] = [
   },
   {
     items: [
-      { title: "Meu Perfil", href: "/dashboard/organizer/profile", icon: User },
       { title: "Configurações", href: "/dashboard/organizer/settings", icon: Settings },
     ],
   },

@@ -9,11 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
-import { Loader2, DollarSign, TrendingUp, Wallet, ArrowDown, Filter, Plus, Users, Eye, Edit, FilePlus, Trash2 } from "lucide-react"
+import { Loader2, DollarSign, TrendingUp, Wallet, ArrowDown, Filter, Plus } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Checkbox } from "@/components/ui/checkbox"
 
 export default function OrganizerFinancialPage() {
   const [loading, setLoading] = useState(true)
@@ -30,19 +29,6 @@ export default function OrganizerFinancialPage() {
   const [showWithdrawalDialog, setShowWithdrawalDialog] = useState(false)
   const [withdrawalAmount, setWithdrawalAmount] = useState("")
   const [requestingWithdrawal, setRequestingWithdrawal] = useState(false)
-  
-  // Usuários da organização
-  const [organizationUsers, setOrganizationUsers] = useState<any[]>([])
-  const [showAddUserDialog, setShowAddUserDialog] = useState(false)
-  const [newUserEmail, setNewUserEmail] = useState("")
-  const [newUserPermissions, setNewUserPermissions] = useState({
-    can_view: true,
-    can_edit: false,
-    can_create: false,
-    can_delete: false,
-  })
-  const [addingUser, setAddingUser] = useState(false)
-  const [allUsers, setAllUsers] = useState<any[]>([])
 
   useEffect(() => {
     fetchData()
@@ -130,25 +116,6 @@ export default function OrganizerFinancialPage() {
 
       setWithdrawals(withdrawalsData || [])
 
-      // Buscar usuários da organização
-      const { data: orgUsers } = await supabase
-        .from("organization_users")
-        .select(`
-          *,
-          user:users(id, email, full_name)
-        `)
-        .eq("organizer_id", organizer.id)
-        .eq("is_active", true)
-
-      setOrganizationUsers(orgUsers || [])
-
-      // Buscar todos os usuários para adicionar
-      const { data: allUsersData } = await supabase
-        .from("users")
-        .select("id, email, full_name")
-        .order("email")
-
-      setAllUsers(allUsersData || [])
     } catch (error: any) {
       console.error("Erro ao buscar dados:", error)
       toast.error("Erro ao carregar dados financeiros")
@@ -212,73 +179,6 @@ export default function OrganizerFinancialPage() {
     }
   }
 
-  const handleAddUser = async () => {
-    if (!organizerId || !newUserEmail) {
-      toast.error("Preencha o email do usuário")
-      return
-    }
-
-    try {
-      setAddingUser(true)
-      const supabase = createClient()
-
-      // Buscar usuário pelo email
-      const { data: user } = await supabase
-        .from("users")
-        .select("id")
-        .eq("email", newUserEmail)
-        .single()
-
-      if (!user) {
-        toast.error("Usuário não encontrado com este email")
-        return
-      }
-
-      // Verificar se já está na organização
-      const { data: existing } = await supabase
-        .from("organization_users")
-        .select("id")
-        .eq("organizer_id", organizerId)
-        .eq("user_id", user.id)
-        .single()
-
-      if (existing) {
-        toast.error("Usuário já está na organização")
-        return
-      }
-
-      // Adicionar usuário
-      const { error } = await supabase
-        .from("organization_users")
-        .insert({
-          organizer_id: organizerId,
-          user_id: user.id,
-          can_view: newUserPermissions.can_view,
-          can_edit: newUserPermissions.can_edit,
-          can_create: newUserPermissions.can_create,
-          can_delete: newUserPermissions.can_delete,
-          is_active: true,
-        })
-
-      if (error) throw error
-
-      toast.success("Usuário adicionado com sucesso!")
-      setShowAddUserDialog(false)
-      setNewUserEmail("")
-      setNewUserPermissions({
-        can_view: true,
-        can_edit: false,
-        can_create: false,
-        can_delete: false,
-      })
-      fetchData()
-    } catch (error: any) {
-      console.error("Erro ao adicionar usuário:", error)
-      toast.error("Erro ao adicionar usuário: " + (error.message || "Erro desconhecido"))
-    } finally {
-      setAddingUser(false)
-    }
-  }
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -428,7 +328,6 @@ export default function OrganizerFinancialPage() {
         <TabsList>
           <TabsTrigger value="transactions">Transações</TabsTrigger>
           <TabsTrigger value="withdrawals">Saques</TabsTrigger>
-          <TabsTrigger value="users">Usuários</TabsTrigger>
         </TabsList>
 
         {/* Tab: Transações */}
@@ -540,180 +439,6 @@ export default function OrganizerFinancialPage() {
           </Card>
         </TabsContent>
 
-        {/* Tab: Usuários */}
-        <TabsContent value="users" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Usuários da Organização</CardTitle>
-                  <CardDescription>Gerencie permissões dos usuários</CardDescription>
-                </div>
-                <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Adicionar Usuário
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Adicionar Usuário</DialogTitle>
-                      <DialogDescription>
-                        Adicione um usuário à sua organização com permissões específicas
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email do Usuário</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={newUserEmail}
-                          onChange={(e) => setNewUserEmail(e.target.value)}
-                          placeholder="usuario@exemplo.com"
-                        />
-                      </div>
-                      <div className="space-y-3">
-                        <Label>Permissões</Label>
-                        <div className="space-y-2">
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="can_view"
-                              checked={newUserPermissions.can_view}
-                              onCheckedChange={(checked) =>
-                                setNewUserPermissions({ ...newUserPermissions, can_view: !!checked })
-                              }
-                            />
-                            <Label htmlFor="can_view" className="flex items-center gap-2 cursor-pointer">
-                              <Eye className="h-4 w-4" />
-                              Visualizar
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="can_edit"
-                              checked={newUserPermissions.can_edit}
-                              onCheckedChange={(checked) =>
-                                setNewUserPermissions({ ...newUserPermissions, can_edit: !!checked })
-                              }
-                            />
-                            <Label htmlFor="can_edit" className="flex items-center gap-2 cursor-pointer">
-                              <Edit className="h-4 w-4" />
-                              Editar
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="can_create"
-                              checked={newUserPermissions.can_create}
-                              onCheckedChange={(checked) =>
-                                setNewUserPermissions({ ...newUserPermissions, can_create: !!checked })
-                              }
-                            />
-                            <Label htmlFor="can_create" className="flex items-center gap-2 cursor-pointer">
-                              <FilePlus className="h-4 w-4" />
-                              Criar
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="can_delete"
-                              checked={newUserPermissions.can_delete}
-                              onCheckedChange={(checked) =>
-                                setNewUserPermissions({ ...newUserPermissions, can_delete: !!checked })
-                              }
-                            />
-                            <Label htmlFor="can_delete" className="flex items-center gap-2 cursor-pointer">
-                              <Trash2 className="h-4 w-4" />
-                              Deletar
-                            </Label>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setShowAddUserDialog(false)}>
-                        Cancelar
-                      </Button>
-                      <Button
-                        onClick={handleAddUser}
-                        disabled={addingUser || !newUserEmail}
-                        className="bg-[#156634] hover:bg-[#1a7a3e]"
-                      >
-                        {addingUser ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Adicionando...
-                          </>
-                        ) : (
-                          "Adicionar Usuário"
-                        )}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Usuário</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Permissões</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {organizationUsers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">
-                        Nenhum usuário adicionado
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    organizationUsers.map((orgUser) => (
-                      <TableRow key={orgUser.id}>
-                        <TableCell>{orgUser.user?.full_name || "-"}</TableCell>
-                        <TableCell>{orgUser.user?.email || "-"}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-2 flex-wrap">
-                            {orgUser.can_view && <Badge variant="outline">Visualizar</Badge>}
-                            {orgUser.can_edit && <Badge variant="outline">Editar</Badge>}
-                            {orgUser.can_create && <Badge variant="outline">Criar</Badge>}
-                            {orgUser.can_delete && <Badge variant="outline">Deletar</Badge>}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={async () => {
-                              const supabase = createClient()
-                              const { error } = await supabase
-                                .from("organization_users")
-                                .update({ is_active: false })
-                                .eq("id", orgUser.id)
-                              if (error) {
-                                toast.error("Erro ao remover usuário")
-                              } else {
-                                toast.success("Usuário removido")
-                                fetchData()
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
     </div>
   )

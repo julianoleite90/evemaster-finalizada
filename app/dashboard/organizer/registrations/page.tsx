@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Search, Download, Filter, X, Calendar, CheckCircle, Clock, XCircle, Loader2 } from "lucide-react"
+import { Search, Download, Filter, X, Calendar, CheckCircle, Clock, XCircle, Loader2, User, Mail, MapPin, DollarSign } from "lucide-react"
 import { useState, useEffect } from "react"
 import { format } from "date-fns"
 import { createClient } from "@/lib/supabase/client"
@@ -91,7 +91,6 @@ export default function RegistrationsPage() {
         }
 
         if (!organizer) {
-          // Se ainda não tem perfil, apenas mostrar dados vazios sem erro
           setLoading(false)
           return
         }
@@ -196,22 +195,22 @@ export default function RegistrationsPage() {
     switch (status) {
       case "paid":
         return (
-          <Badge className="bg-green-100 text-green-800 hover:bg-green-100 flex items-center gap-1">
-            <CheckCircle className="h-3 w-3" />
+          <Badge className="bg-green-50 text-green-700 border-green-200 hover:bg-green-50 text-xs font-medium">
+            <CheckCircle className="h-3 w-3 mr-1" />
             Pago
           </Badge>
         )
       case "pending":
         return (
-          <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 flex items-center gap-1">
-            <Clock className="h-3 w-3" />
+          <Badge className="bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-50 text-xs font-medium">
+            <Clock className="h-3 w-3 mr-1" />
             Pendente
           </Badge>
         )
       case "cancelled":
         return (
-          <Badge className="bg-red-100 text-red-800 hover:bg-red-100 flex items-center gap-1">
-            <XCircle className="h-3 w-3" />
+          <Badge className="bg-red-50 text-red-700 border-red-200 hover:bg-red-50 text-xs font-medium">
+            <XCircle className="h-3 w-3 mr-1" />
             Cancelado
           </Badge>
         )
@@ -228,20 +227,17 @@ export default function RegistrationsPage() {
   const formatDate = (dateString: string) => {
     if (!dateString) return "Data não informada"
     try {
-      // Tenta fazer parse da data ISO ou formato simples
       const date = new Date(dateString)
       if (isNaN(date.getTime())) {
         return "Data inválida"
       }
       return format(date, "dd/MM/yyyy")
     } catch (error) {
-      console.error("Erro ao formatar data:", error)
       return "Data inválida"
     }
   }
 
   const filteredRegistrations = registrations.filter((reg) => {
-    // Filtro de busca
     if (searchTerm) {
       const search = searchTerm.toLowerCase()
       const nome = (reg.nome || "").toLowerCase()
@@ -256,25 +252,21 @@ export default function RegistrationsPage() {
       }
     }
 
-    // Filtro de evento
     if (selectedEvent !== "all" && reg.evento !== selectedEvent) {
       return false
     }
 
-    // Filtro de status
     if (selectedStatus !== "all" && reg.statusPagamento !== selectedStatus) {
       return false
     }
 
-    // Filtro de data
     if (dateFrom) {
       try {
         const regDate = new Date(reg.dataInscricao)
         const fromDate = new Date(dateFrom)
-        if (isNaN(regDate.getTime()) || isNaN(fromDate.getTime())) return true // Se data inválida, não filtra
+        if (isNaN(regDate.getTime()) || isNaN(fromDate.getTime())) return true
         if (regDate < fromDate) return false
       } catch (error) {
-        // Se houver erro ao comparar datas, não filtra
         console.error("Erro ao filtrar por data inicial:", error)
       }
     }
@@ -283,11 +275,10 @@ export default function RegistrationsPage() {
       try {
         const regDate = new Date(reg.dataInscricao)
         const toDate = new Date(dateTo)
-        if (isNaN(regDate.getTime()) || isNaN(toDate.getTime())) return true // Se data inválida, não filtra
-        toDate.setHours(23, 59, 59, 999) // Fim do dia
+        if (isNaN(regDate.getTime()) || isNaN(toDate.getTime())) return true
+        toDate.setHours(23, 59, 59, 999)
         if (regDate > toDate) return false
       } catch (error) {
-        // Se houver erro ao comparar datas, não filtra
         console.error("Erro ao filtrar por data final:", error)
       }
     }
@@ -321,20 +312,20 @@ export default function RegistrationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Inscritos</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-semibold tracking-tight">Inscritos</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Gerencie todas as inscrições dos seus eventos
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
+          <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
             <Filter className="mr-2 h-4 w-4" />
             Filtros
             {hasActiveFilters && (
-              <span className="ml-2 h-2 w-2 bg-[#156634] rounded-full" />
+              <span className="ml-2 h-1.5 w-1.5 bg-[#156634] rounded-full" />
             )}
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" size="sm">
             <Download className="mr-2 h-4 w-4" />
             Exportar
           </Button>
@@ -349,30 +340,30 @@ export default function RegistrationsPage() {
           placeholder="Buscar por nome, email ou número de inscrição..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-9"
+          className="pl-9 h-9"
         />
       </div>
 
       {/* Filtros avançados */}
       {showFilters && (
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Filtros</CardTitle>
+              <CardTitle className="text-base font-medium">Filtros</CardTitle>
               {hasActiveFilters && (
                 <Button variant="ghost" size="sm" onClick={clearFilters}>
-                  <X className="mr-2 h-4 w-4" />
-                  Limpar Filtros
+                  <X className="mr-2 h-3.5 w-3.5" />
+                  Limpar
                 </Button>
               )}
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-2">
-                <Label>Evento</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Evento</Label>
                 <Select value={selectedEvent} onValueChange={setSelectedEvent}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder="Todos os eventos" />
                   </SelectTrigger>
                   <SelectContent>
@@ -386,10 +377,10 @@ export default function RegistrationsPage() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label>Status de Pagamento</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Status</Label>
                 <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder="Todos os status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -401,21 +392,23 @@ export default function RegistrationsPage() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label>Data Inicial</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Data Inicial</Label>
                 <Input
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
+                  className="h-9 text-sm"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Data Final</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Data Final</Label>
                 <Input
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
+                  className="h-9 text-sm"
                 />
               </div>
             </div>
@@ -424,156 +417,157 @@ export default function RegistrationsPage() {
       )}
 
       {/* Estatísticas rápidas */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total de Inscritos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{filteredRegistrations.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Pagas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {filteredRegistrations.filter((r) => r.statusPagamento === "paid").length}
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium">Total</p>
+                <p className="text-xl font-semibold mt-1">{filteredRegistrations.length}</p>
+              </div>
+              <User className="h-8 w-8 text-muted-foreground/50" />
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              {filteredRegistrations.filter((r) => r.statusPagamento === "pending").length}
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium">Pagas</p>
+                <p className="text-xl font-semibold mt-1 text-green-600">
+                  {filteredRegistrations.filter((r) => r.statusPagamento === "paid").length}
+                </p>
+              </div>
+              <CheckCircle className="h-8 w-8 text-green-500/50" />
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(
-                filteredRegistrations
-                  .filter((r) => r.statusPagamento === "paid")
-                  .reduce((sum, r) => sum + (Number(r.valor) || 0), 0)
-              )}
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium">Pendentes</p>
+                <p className="text-xl font-semibold mt-1 text-yellow-600">
+                  {filteredRegistrations.filter((r) => r.statusPagamento === "pending").length}
+                </p>
+              </div>
+              <Clock className="h-8 w-8 text-yellow-500/50" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium">Receita</p>
+                <p className="text-xl font-semibold mt-1">
+                  {formatCurrency(
+                    filteredRegistrations
+                      .filter((r) => r.statusPagamento === "paid")
+                      .reduce((sum, r) => sum + (Number(r.valor) || 0), 0)
+                  )}
+                </p>
+              </div>
+              <DollarSign className="h-8 w-8 text-muted-foreground/50" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tabela de inscritos */}
+      {/* Lista de inscritos - Layout moderno */}
       <Card>
-        <CardHeader>
-          <CardTitle>Lista de Inscritos</CardTitle>
-          <CardDescription>
-            {filteredRegistrations.length} inscrito(s) encontrado(s)
-          </CardDescription>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base font-semibold">Lista de Inscritos</CardTitle>
+              <CardDescription className="text-xs mt-1">
+                {filteredRegistrations.length} inscrito(s) encontrado(s)
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                    Nº Inscrição
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                    Nome
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                    Email
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                    Evento
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                    Categoria
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                    Data
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                    Status
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                    Valor
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                    Ações
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRegistrations.length > 0 ? (
-                  filteredRegistrations.map((registration) => (
-                    <tr
-                      key={registration.id}
-                      className="border-b hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="py-3 px-4">
-                        <span className="text-sm font-mono text-muted-foreground">
+        <CardContent className="p-0">
+          {filteredRegistrations.length > 0 ? (
+            <div className="divide-y">
+              {filteredRegistrations.map((registration) => (
+                <Link
+                  key={registration.id}
+                  href={`/dashboard/organizer/registrations/${registration.id}`}
+                  className="block hover:bg-gray-50/50 transition-colors"
+                >
+                  <div className="px-4 py-3 flex items-center gap-4">
+                    {/* Avatar/Inicial */}
+                    <div className="flex-shrink-0">
+                      <div className="h-10 w-10 rounded-full bg-[#156634]/10 flex items-center justify-center">
+                        <span className="text-sm font-medium text-[#156634]">
+                          {registration.nome.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Informações principais */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {registration.nome}
+                        </p>
+                        {getStatusBadge(registration.statusPagamento)}
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Mail className="h-3 w-3" />
+                          <span className="truncate">{registration.email}</span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          <span className="truncate">{registration.evento}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Informações secundárias */}
+                    <div className="hidden md:flex items-center gap-6 text-xs text-muted-foreground">
+                      <div className="text-right">
+                        <p className="font-mono text-[10px] text-gray-500 mb-0.5">
                           {registration.numeroInscricao}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="text-sm font-medium">{registration.nome}</span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="text-sm text-muted-foreground">
-                          {registration.email}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="text-sm">{registration.evento}</span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge variant="outline" className="text-xs">
+                        </p>
+                        <p className="text-[10px]">{formatDate(registration.dataInscricao)}</p>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant="outline" className="text-[10px] mb-1">
                           {registration.categoria}
                         </Badge>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="text-sm text-muted-foreground">
-                          {formatDate(registration.dataInscricao)}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">{getStatusBadge(registration.statusPagamento)}</td>
-                      <td className="py-3 px-4">
-                        <span className="text-sm font-medium">
+                        <p className="text-xs font-medium text-gray-900">
                           {formatCurrency(Number(registration.valor) || 0)}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/dashboard/organizer/registrations/${registration.id}`}>
-                            Ver Detalhes
-                          </Link>
-                        </Button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={9} className="py-12 text-center">
-                      <p className="text-muted-foreground">
-                        Nenhum inscrito encontrado com os filtros aplicados
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Mobile: Informações compactas */}
+                    <div className="md:hidden flex flex-col items-end gap-1 text-xs">
+                      <p className="font-mono text-[10px] text-gray-500">
+                        {registration.numeroInscricao}
                       </p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                      <p className="text-xs font-medium text-gray-900">
+                        {formatCurrency(Number(registration.valor) || 0)}
+                      </p>
+                      <Badge variant="outline" className="text-[10px]">
+                        {registration.categoria}
+                      </Badge>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="px-4 py-12 text-center">
+              <p className="text-sm text-muted-foreground">
+                Nenhum inscrito encontrado com os filtros aplicados
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
   )
 }
-
