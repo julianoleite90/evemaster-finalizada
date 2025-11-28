@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Loader2, Calendar, MapPin, Ticket, Download, Eye } from "lucide-react"
+import { Loader2, Calendar, MapPin, Ticket, Download, Eye, Clock } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -319,10 +319,21 @@ export default function MyAccountPage() {
                             <p className="text-xs text-gray-500">Data do Evento</p>
                             <p className="text-sm font-medium">
                               {formatDate(event?.event_date)}
-                              {event?.start_time && ` às ${formatTime(event.start_time)}`}
                             </p>
                           </div>
                         </div>
+
+                        {event?.start_time && (
+                          <div className="flex items-start gap-2">
+                            <Clock className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs text-gray-500">Horário</p>
+                              <p className="text-sm font-medium">
+                                {formatTime(event.start_time)}
+                              </p>
+                            </div>
+                          </div>
+                        )}
 
                         <div className="flex items-start gap-2">
                           <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
@@ -338,8 +349,38 @@ export default function MyAccountPage() {
                           <div className="flex items-start gap-2">
                             <Ticket className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
                             <div className="min-w-0">
-                              <p className="text-xs text-gray-500">Categoria</p>
+                              <p className="text-xs text-gray-500">Distância/Categoria</p>
                               <p className="text-sm font-medium">{ticket.category}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {inscricao.shirt_size && (
+                          <div className="flex items-start gap-2">
+                            <div className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs text-gray-500">Tamanho da Camiseta</p>
+                              <p className="text-sm font-medium">{inscricao.shirt_size}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {inscricao.has_kit !== undefined && (
+                          <div className="flex items-start gap-2">
+                            <div className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs text-gray-500">Kit</p>
+                              <p className="text-sm font-medium">{inscricao.has_kit ? "Sim" : "Não"}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {inscricao.has_insurance !== undefined && (
+                          <div className="flex items-start gap-2">
+                            <div className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs text-gray-500">Seguro</p>
+                              <p className="text-sm font-medium">{inscricao.has_insurance ? "Sim" : "Não"}</p>
                             </div>
                           </div>
                         )}
@@ -359,7 +400,7 @@ export default function MyAccountPage() {
 
                       <div className="flex gap-2 pt-3 border-t">
                         {event?.slug && (
-                          <Button variant="outline" asChild>
+                          <Button variant="outline" asChild className="inline-flex items-center">
                             <Link href={`/evento/${event.slug}`}>
                               <Eye className="h-4 w-4 mr-2" />
                               Ver Evento
@@ -369,6 +410,7 @@ export default function MyAccountPage() {
                         <Button 
                           variant="outline"
                           onClick={() => handleDownloadPDF(inscricao)}
+                          className="inline-flex items-center"
                         >
                           <Download className="h-4 w-4 mr-2" />
                           Baixar Ingresso
