@@ -272,7 +272,7 @@ export default function MyAccountPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6">
+        <div className="grid gap-4">
           {inscricoes.map((inscricao) => {
             const event = inscricao.event
             const ticket = inscricao.ticket
@@ -282,7 +282,7 @@ export default function MyAccountPage() {
                 <div className="md:flex">
                   {/* Banner do Evento */}
                   {event?.banner_url && (
-                    <div className="md:w-64 h-48 md:h-auto relative">
+                    <div className="md:w-48 h-32 md:h-auto relative flex-shrink-0">
                       <Image
                         src={event.banner_url}
                         alt={event.name || "Evento"}
@@ -294,10 +294,10 @@ export default function MyAccountPage() {
 
                   {/* Conteúdo */}
                   <div className="flex-1">
-                    <CardHeader>
+                    <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <CardTitle className="text-xl mb-2">
+                          <CardTitle className="text-lg mb-1.5">
                             {event?.name || "Evento não encontrado"}
                           </CardTitle>
                           <div className="flex flex-wrap gap-2 items-center">
@@ -311,45 +311,45 @@ export default function MyAccountPage() {
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div className="flex items-start gap-3">
-                          <Calendar className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm text-gray-500">Data do Evento</p>
-                            <p className="font-medium">
+                    <CardContent className="pt-0">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        <div className="flex items-start gap-2">
+                          <Calendar className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-xs text-gray-500">Data do Evento</p>
+                            <p className="text-sm font-medium">
                               {formatDate(event?.event_date)}
                               {event?.start_time && ` às ${formatTime(event.start_time)}`}
                             </p>
                           </div>
                         </div>
 
-                        <div className="flex items-start gap-3">
-                          <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm text-gray-500">Local</p>
-                            <p className="font-medium">
+                        <div className="flex items-start gap-2">
+                          <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-xs text-gray-500">Local</p>
+                            <p className="text-sm font-medium">
                               {event?.location || event?.address || "Local não informado"}
                             </p>
                           </div>
                         </div>
 
                         {ticket && (
-                          <div className="flex items-start gap-3">
-                            <Ticket className="h-5 w-5 text-gray-400 mt-0.5" />
-                            <div>
-                              <p className="text-sm text-gray-500">Categoria</p>
-                              <p className="font-medium">{ticket.category}</p>
+                          <div className="flex items-start gap-2">
+                            <Ticket className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs text-gray-500">Categoria</p>
+                              <p className="text-sm font-medium">{ticket.category}</p>
                             </div>
                           </div>
                         )}
 
                         {inscricao.athletes && Array.isArray(inscricao.athletes) && inscricao.athletes.length > 0 && (
-                          <div className="flex items-start gap-3">
-                            <div className="h-5 w-5 mt-0.5" />
-                            <div>
-                              <p className="text-sm text-gray-500">Participante</p>
-                              <p className="font-medium">
+                          <div className="flex items-start gap-2">
+                            <div className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs text-gray-500">Participante</p>
+                              <p className="text-sm font-medium">
                                 {inscricao.athletes[0].full_name || inscricao.athletes[0].email}
                               </p>
                             </div>
@@ -357,7 +357,7 @@ export default function MyAccountPage() {
                         )}
                       </div>
 
-                      <div className="flex gap-2 pt-4 border-t">
+                      <div className="flex gap-2 pt-3 border-t">
                         {event?.slug && (
                           <Button variant="outline" asChild>
                             <Link href={`/evento/${event.slug}`}>
