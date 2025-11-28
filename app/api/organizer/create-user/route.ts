@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Verificar se o usuário já existe
+    // Verificar se o usuário já existe na tabela users
     const { data: existingUser } = await supabase
       .from("users")
       .select("id, email")
@@ -90,9 +90,33 @@ export async function POST(request: NextRequest) {
 
     if (existingUser) {
       return NextResponse.json(
-        { error: "Usuário já existe com este email" },
+        { error: "Usuário já existe com este email", details: "Este email já está cadastrado no sistema" },
         { status: 400 }
       )
+    }
+
+    // Verificar se o usuário existe no auth mas foi deletado da tabela users
+    // Se existir, deletar do auth para permitir recriação
+    try {
+      const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers()
+      const existingAuthUser = authUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
+      
+      if (existingAuthUser) {
+        console.log("Usuário encontrado no auth mas não na tabela users. Deletando do auth para permitir recriação...")
+        // Deletar do auth para permitir criar novamente
+        const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(existingAuthUser.id)
+        if (deleteError) {
+          console.error("Erro ao deletar usuário do auth:", deleteError)
+          return NextResponse.json(
+            { error: "Email já cadastrado no sistema de autenticação", details: "Este email já possui uma conta. Entre em contato com o suporte para reativar." },
+            { status: 400 }
+          )
+        }
+        console.log("Usuário deletado do auth com sucesso. Prosseguindo com criação...")
+      }
+    } catch (authCheckError) {
+      console.error("Erro ao verificar/deletar usuário no auth:", authCheckError)
+      // Continuar mesmo se houver erro na verificação do auth
     }
 
     // Criar usuário no Auth
