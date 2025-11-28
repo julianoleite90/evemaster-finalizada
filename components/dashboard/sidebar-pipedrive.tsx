@@ -77,8 +77,11 @@ const adminSections: NavSection[] = [
   {
     items: [
       { title: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
-      { title: "Eventos", href: "/dashboard/admin/events", icon: Calendar, badge: 8 },
+      { title: "Aprovações", href: "/dashboard/admin/approvals", icon: AlertCircle },
+      { title: "Organizadores", href: "/dashboard/admin/organizers", icon: Users },
+      { title: "Afiliados", href: "/dashboard/admin/affiliates", icon: Users },
       { title: "Usuários", href: "/dashboard/admin/users", icon: Users },
+      { title: "Eventos", href: "/dashboard/admin/events", icon: Calendar },
       { title: "Financeiro", href: "/dashboard/admin/financial", icon: DollarSign },
     ],
   },

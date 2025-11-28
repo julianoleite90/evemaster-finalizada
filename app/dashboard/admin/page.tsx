@@ -1,135 +1,254 @@
+"use client"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Calendar, Users, DollarSign, TrendingUp, AlertCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Calendar, Users, DollarSign, TrendingUp, AlertCircle, Loader2, CheckCircle2, XCircle } from "lucide-react"
+import Link from "next/link"
+import { useEffect, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
+import { toast } from "sonner"
 
 export default function AdminDashboard() {
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({
+    pendingApprovals: 0,
+    totalOrganizers: 0,
+    totalAffiliates: 0,
+    totalUsers: 0,
+    totalEvents: 0,
+    totalRevenue: 0,
+    activeOrganizers: 0,
+    activeAffiliates: 0,
+  })
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const supabase = createClient()
+
+        // Verificar se é admin
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data: userData } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", user.id)
+          .single()
+
+        if (userData?.role !== "ADMIN") {
+          toast.error("Acesso negado")
+          return
+        }
+
+        // Buscar estatísticas
+        const [
+          { count: pendingOrgs },
+          { count: pendingAffs },
+          { count: totalOrgs },
+          { count: totalAffs },
+          { count: totalUsers },
+          { count: totalEvents },
+          { data: revenueData },
+          { count: activeOrgs },
+          { count: activeAffs },
+        ] = await Promise.all([
+          supabase.from("organizers").select("*", { count: "exact", head: true }).eq("status", "pending"),
+          supabase.from("affiliates").select("*", { count: "exact", head: true }).eq("status", "pending"),
+          supabase.from("organizers").select("*", { count: "exact", head: true }),
+          supabase.from("affiliates").select("*", { count: "exact", head: true }),
+          supabase.from("users").select("*", { count: "exact", head: true }),
+          supabase.from("events").select("*", { count: "exact", head: true }),
+          supabase.from("payments").select("amount").eq("payment_status", "paid"),
+          supabase.from("organizers").select("*", { count: "exact", head: true }).eq("is_active", true),
+          supabase.from("affiliates").select("*", { count: "exact", head: true }).eq("is_active", true),
+        ])
+
+        const totalRevenue = revenueData?.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0
+
+        setStats({
+          pendingApprovals: (pendingOrgs || 0) + (pendingAffs || 0),
+          totalOrganizers: totalOrgs || 0,
+          totalAffiliates: totalAffs || 0,
+          totalUsers: totalUsers || 0,
+          totalEvents: totalEvents || 0,
+          totalRevenue,
+          activeOrganizers: activeOrgs || 0,
+          activeAffiliates: activeAffs || 0,
+        })
+      } catch (error) {
+        console.error("Erro ao buscar dados:", error)
+        toast.error("Erro ao carregar dados")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard Admin</h1>
-        <p className="text-muted-foreground">
-          Visão geral da plataforma
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard Admin</h1>
+          <p className="text-muted-foreground">
+            Visão geral da plataforma
+          </p>
+        </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">MRR</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">R$ 125.450</div>
-            <p className="text-xs text-muted-foreground">
-              Receita Recorrente Mensal
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Take Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">12.5%</div>
-            <p className="text-xs text-muted-foreground">
-              Taxa da plataforma
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Eventos Pendentes</CardTitle>
+            <CardTitle className="text-sm font-medium">Aprovações Pendentes</CardTitle>
             <AlertCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">8</div>
-            <p className="text-xs text-muted-foreground">
-              Aguardando aprovação
+            <div className="text-2xl font-bold">{stats.pendingApprovals}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Cadastros aguardando aprovação
             </p>
+            <Button asChild variant="link" className="p-0 h-auto mt-2">
+              <Link href="/dashboard/admin/approvals">Ver aprovações →</Link>
+            </Button>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Organizadores</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalOrganizers}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {stats.activeOrganizers} ativos
+            </p>
+            <Button asChild variant="link" className="p-0 h-auto mt-2">
+              <Link href="/dashboard/admin/organizers">Ver organizadores →</Link>
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Afiliados</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalAffiliates}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {stats.activeAffiliates} ativos
+            </p>
+            <Button asChild variant="link" className="p-0 h-auto mt-2">
+              <Link href="/dashboard/admin/affiliates">Ver afiliados →</Link>
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Eventos</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalEvents}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Eventos cadastrados
+            </p>
+            <Button asChild variant="link" className="p-0 h-auto mt-2">
+              <Link href="/dashboard/admin/events">Ver eventos →</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
 
+      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">5.234</div>
-            <p className="text-xs text-muted-foreground">
-              +234 este mês
+            <div className="text-2xl font-bold">{stats.totalUsers}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Usuários cadastrados
             </p>
+            <Button asChild variant="link" className="p-0 h-auto mt-2">
+              <Link href="/dashboard/admin/users">Ver usuários →</Link>
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {new Intl.NumberFormat("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              }).format(stats.totalRevenue)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Receita acumulada
+            </p>
+            <Button asChild variant="link" className="p-0 h-auto mt-2">
+              <Link href="/dashboard/admin/financial">Ver financeiro →</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent Activity */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Eventos Pendentes</CardTitle>
-            <CardDescription>
-              Eventos aguardando moderação
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Maratona Internacional</p>
-                  <p className="text-xs text-muted-foreground">Organizador: João Silva</p>
-                </div>
-                <div className="flex gap-2">
-                  <button className="text-xs text-green-600 hover:underline">Aprovar</button>
-                  <button className="text-xs text-red-600 hover:underline">Rejeitar</button>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Corrida Noturna SP</p>
-                  <p className="text-xs text-muted-foreground">Organizador: Maria Santos</p>
-                </div>
-                <div className="flex gap-2">
-                  <button className="text-xs text-green-600 hover:underline">Aprovar</button>
-                  <button className="text-xs text-red-600 hover:underline">Rejeitar</button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Estatísticas da Plataforma</CardTitle>
-            <CardDescription>
-              Métricas gerais
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Total de Eventos</span>
-                <span className="text-sm font-medium">342</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Total de Inscrições</span>
-                <span className="text-sm font-medium">45.678</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Receita Total</span>
-                <span className="text-sm font-medium">R$ 2.345.678</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Organizadores Ativos</span>
-                <span className="text-sm font-medium">127</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Ações Rápidas */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Ações Rápidas</CardTitle>
+          <CardDescription>
+            Acesso rápido às principais funcionalidades
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Button asChild variant="outline" className="h-auto flex-col items-start p-4">
+              <Link href="/dashboard/admin/approvals">
+                <AlertCircle className="h-5 w-5 mb-2" />
+                <span className="font-semibold">Aprovar Cadastros</span>
+                <span className="text-xs text-muted-foreground mt-1">
+                  {stats.pendingApprovals} pendente{stats.pendingApprovals !== 1 ? "s" : ""}
+                </span>
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-auto flex-col items-start p-4">
+              <Link href="/dashboard/admin/organizers">
+                <Users className="h-5 w-5 mb-2" />
+                <span className="font-semibold">Gerenciar Organizadores</span>
+                <span className="text-xs text-muted-foreground mt-1">
+                  Configurar taxas e IDs da Barte
+                </span>
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-auto flex-col items-start p-4">
+              <Link href="/dashboard/admin/users">
+                <Users className="h-5 w-5 mb-2" />
+                <span className="font-semibold">Gerenciar Usuários</span>
+                <span className="text-xs text-muted-foreground mt-1">
+                  Ativar/desativar usuários
+                </span>
+              </Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
