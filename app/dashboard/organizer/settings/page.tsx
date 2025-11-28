@@ -42,6 +42,11 @@ export default function OrganizerSettingsPage() {
   const [organizationUsers, setOrganizationUsers] = useState<any[]>([])
   const [showAddUserDialog, setShowAddUserDialog] = useState(false)
   const [newUserEmail, setNewUserEmail] = useState("")
+  const [newUserName, setNewUserName] = useState("")
+  const [newUserPassword, setNewUserPassword] = useState("")
+  const [newUserPhone, setNewUserPhone] = useState("")
+  const [userExists, setUserExists] = useState<boolean | null>(null)
+  const [checkingUser, setCheckingUser] = useState(false)
   const [newUserPermissions, setNewUserPermissions] = useState({
     can_view: true,
     can_edit: false,
@@ -155,6 +160,39 @@ export default function OrganizerSettingsPage() {
     }
   }
 
+  const checkUserExists = async (email: string) => {
+    if (!email || !email.includes("@")) {
+      setUserExists(null)
+      return
+    }
+
+    try {
+      setCheckingUser(true)
+      const supabase = createClient()
+      const { data: user } = await supabase
+        .from("users")
+        .select("id, email, full_name")
+        .eq("email", email)
+        .maybeSingle()
+
+      setUserExists(!!user)
+    } catch (error) {
+      console.error("Erro ao verificar usuário:", error)
+      setUserExists(null)
+    } finally {
+      setCheckingUser(false)
+    }
+  }
+
+  const handleEmailChange = (email: string) => {
+    setNewUserEmail(email)
+    if (email) {
+      checkUserExists(email)
+    } else {
+      setUserExists(null)
+    }
+  }
+
   const handleAddUser = async () => {
     if (!organizerId || !newUserEmail) {
       toast.error("Preencha o email do usuário")
@@ -165,16 +203,51 @@ export default function OrganizerSettingsPage() {
       setAddingUser(true)
       const supabase = createClient()
 
-      // Buscar usuário pelo email
-      const { data: user } = await supabase
-        .from("users")
-        .select("id")
-        .eq("email", newUserEmail)
-        .single()
+      let userId: string
 
-      if (!user) {
-        toast.error("Usuário não encontrado com este email")
-        return
+      // Se o usuário não existe, criar novo usuário
+      if (userExists === false) {
+        if (!newUserName || !newUserPassword) {
+          toast.error("Preencha o nome e a senha para criar um novo usuário")
+          return
+        }
+
+        // Criar novo usuário via API
+        const response = await fetch("/api/organizer/create-user", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: newUserEmail,
+            password: newUserPassword,
+            full_name: newUserName,
+            phone: newUserPhone,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || "Erro ao criar usuário")
+        }
+
+        userId = data.user.id
+        toast.success("Usuário criado com sucesso!")
+      } else {
+        // Buscar usuário existente
+        const { data: user } = await supabase
+          .from("users")
+          .select("id")
+          .eq("email", newUserEmail)
+          .single()
+
+        if (!user) {
+          toast.error("Usuário não encontrado com este email")
+          return
+        }
+
+        userId = user.id
       }
 
       // Verificar se já está na organização
@@ -182,20 +255,20 @@ export default function OrganizerSettingsPage() {
         .from("organization_users")
         .select("id")
         .eq("organizer_id", organizerId)
-        .eq("user_id", user.id)
-        .single()
+        .eq("user_id", userId)
+        .maybeSingle()
 
       if (existing) {
         toast.error("Usuário já está na organização")
         return
       }
 
-      // Adicionar usuário
+      // Adicionar usuário à organização
       const { error } = await supabase
         .from("organization_users")
         .insert({
           organizer_id: organizerId,
-          user_id: user.id,
+          user_id: userId,
           can_view: newUserPermissions.can_view,
           can_edit: newUserPermissions.can_edit,
           can_create: newUserPermissions.can_create,
@@ -208,6 +281,10 @@ export default function OrganizerSettingsPage() {
       toast.success("Usuário adicionado com sucesso!")
       setShowAddUserDialog(false)
       setNewUserEmail("")
+      setNewUserName("")
+      setNewUserPassword("")
+      setNewUserPhone("")
+      setUserExists(null)
       setNewUserPermissions({
         can_view: true,
         can_edit: false,
@@ -526,14 +603,70 @@ export default function OrganizerSettingsPage() {
                     <div className="space-y-4 py-4">
                       <div className="space-y-2">
                         <Label htmlFor="email">Email do Usuário</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={newUserEmail}
-                          onChange={(e) => setNewUserEmail(e.target.value)}
-                          placeholder="usuario@exemplo.com"
-                        />
+                        <div className="relative">
+                          <Input
+                            id="email"
+                            type="email"
+                            value={newUserEmail}
+                            onChange={(e) => handleEmailChange(e.target.value)}
+                            placeholder="usuario@exemplo.com"
+                            className={checkingUser ? "pr-10" : ""}
+                          />
+                          {checkingUser && (
+                            <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                          )}
+                        </div>
+                        {userExists === false && (
+                          <p className="text-xs text-blue-600 mt-1">
+                            Usuário não encontrado. Preencha os dados para criar um novo usuário.
+                          </p>
+                        )}
+                        {userExists === true && (
+                          <p className="text-xs text-green-600 mt-1">
+                            Usuário encontrado. Será adicionado à organização.
+                          </p>
+                        )}
                       </div>
+
+                      {/* Campos para novo usuário */}
+                      {userExists === false && (
+                        <>
+                          <div className="space-y-2">
+                            <Label htmlFor="name">Nome Completo *</Label>
+                            <Input
+                              id="name"
+                              type="text"
+                              value={newUserName}
+                              onChange={(e) => setNewUserName(e.target.value)}
+                              placeholder="Nome completo do usuário"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="password">Senha *</Label>
+                            <Input
+                              id="password"
+                              type="password"
+                              value={newUserPassword}
+                              onChange={(e) => setNewUserPassword(e.target.value)}
+                              placeholder="Senha do usuário"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Mínimo de 6 caracteres
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="phone">Telefone (opcional)</Label>
+                            <Input
+                              id="phone"
+                              type="tel"
+                              value={newUserPhone}
+                              onChange={(e) => setNewUserPhone(e.target.value)}
+                              placeholder="(00) 00000-0000"
+                            />
+                          </div>
+                        </>
+                      )}
+
                       <div className="space-y-3">
                         <Label>Permissões</Label>
                         <div className="space-y-2">
@@ -598,16 +731,16 @@ export default function OrganizerSettingsPage() {
                       </Button>
                       <Button
                         onClick={handleAddUser}
-                        disabled={addingUser || !newUserEmail}
+                        disabled={addingUser || !newUserEmail || (userExists === false && (!newUserName || !newUserPassword))}
                         className="bg-[#156634] hover:bg-[#1a7a3e]"
                       >
                         {addingUser ? (
                           <>
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Adicionando...
+                            {userExists === false ? "Criando..." : "Adicionando..."}
                           </>
                         ) : (
-                          "Adicionar Usuário"
+                          userExists === false ? "Criar e Adicionar Usuário" : "Adicionar Usuário"
                         )}
                       </Button>
                     </DialogFooter>
