@@ -133,12 +133,27 @@ export default function EventSettingsPage() {
   // Afiliados
   const [affiliates, setAffiliates] = useState<any[]>([])
   const [showAddAffiliate, setShowAddAffiliate] = useState(false)
+  const [editingAffiliate, setEditingAffiliate] = useState<any | null>(null)
   const [newAffiliate, setNewAffiliate] = useState({
     email: "",
     commission_type: "percentage" as "percentage" | "fixed",
     commission_value: "",
   })
   const [organizerId, setOrganizerId] = useState<string | null>(null)
+
+  // Cupons
+  const [coupons, setCoupons] = useState<any[]>([])
+  const [showAddCoupon, setShowAddCoupon] = useState(false)
+  const [editingCoupon, setEditingCoupon] = useState<any | null>(null)
+  const [newCoupon, setNewCoupon] = useState({
+    code: "",
+    discount_type: "percentage" as "percentage" | "fixed",
+    discount_value: "",
+    affiliate_id: "" as string | "",
+    max_uses: "",
+    expires_at: "",
+    is_active: true,
+  })
 
   // Buscar afiliados do evento
   const fetchAffiliates = async () => {
@@ -158,10 +173,20 @@ export default function EventSettingsPage() {
 
       setOrganizerId(organizer.id)
 
-      // Buscar convites de afiliados
+      // Buscar convites de afiliados com dados do afiliado e usuário
       const { data: invites, error } = await supabase
         .from("event_affiliate_invites")
-        .select("*")
+        .select(`
+          *,
+          affiliate:affiliates(
+            id,
+            user:users(
+              id,
+              email,
+              full_name
+            )
+          )
+        `)
         .eq("event_id", eventId)
         .eq("organizer_id", organizer.id)
         .order("created_at", { ascending: false })
@@ -174,6 +199,72 @@ export default function EventSettingsPage() {
       setAffiliates(invites || [])
     } catch (error) {
       console.error("Erro ao buscar afiliados:", error)
+    }
+  }
+
+  // Buscar cupons do evento
+  const fetchCoupons = async () => {
+    try {
+      const supabase = createClient()
+      
+      // Buscar cupons do evento com dados do afiliado
+      const { data: couponsData, error } = await supabase
+        .from("affiliate_coupons")
+        .select(`
+          *,
+          affiliate:affiliates(
+            id,
+            user:users(
+              id,
+              email,
+              full_name
+            )
+          )
+        `)
+        .eq("event_id", eventId)
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        console.error("Erro ao buscar cupons:", error)
+        return
+      }
+
+      setCoupons(couponsData || [])
+    } catch (error) {
+      console.error("Erro ao buscar cupons:", error)
+    }
+  }
+
+  // Buscar afiliados aceitos para usar no select de cupons
+  const [acceptedAffiliates, setAcceptedAffiliates] = useState<any[]>([])
+  const fetchAcceptedAffiliates = async () => {
+    try {
+      const supabase = createClient()
+      
+      // Buscar comissões de afiliados aceitos do evento
+      const { data: commissions, error } = await supabase
+        .from("event_affiliate_commissions")
+        .select(`
+          *,
+          affiliate:affiliates(
+            id,
+            user:users(
+              id,
+              email,
+              full_name
+            )
+          )
+        `)
+        .eq("event_id", eventId)
+
+      if (error) {
+        console.error("Erro ao buscar afiliados aceitos:", error)
+        return
+      }
+
+      setAcceptedAffiliates(commissions || [])
+    } catch (error) {
+      console.error("Erro ao buscar afiliados aceitos:", error)
     }
   }
 
@@ -256,6 +347,14 @@ export default function EventSettingsPage() {
   useEffect(() => {
     if (subMenu === "afiliados" && eventId) {
       fetchAffiliates()
+    }
+  }, [subMenu, eventId])
+
+  // Buscar cupons quando a tab de cupons for selecionada
+  useEffect(() => {
+    if (subMenu === "cupons" && eventId) {
+      fetchCoupons()
+      fetchAcceptedAffiliates()
     }
   }, [subMenu, eventId])
 
@@ -1967,25 +2066,334 @@ export default function EventSettingsPage() {
                   <p className="text-sm text-gray-600 mt-1">
                     Gerencie cupons de desconto para este evento
                   </p>
-                    </div>
-                <Button className="bg-[#156634] hover:bg-[#1a7a3e] text-white">
+                </div>
+                <Button 
+                  className="bg-[#156634] hover:bg-[#1a7a3e] text-white"
+                  onClick={() => {
+                    setShowAddCoupon(true)
+                    setEditingCoupon(null)
+                    setNewCoupon({
+                      code: "",
+                      discount_type: "percentage",
+                      discount_value: "",
+                      affiliate_id: "",
+                      max_uses: "",
+                      expires_at: "",
+                      is_active: true,
+                    })
+                  }}
+                >
                   <Plus className="mr-2 h-4 w-4" />
                   Criar Cupom
                 </Button>
-                    </div>
-              <Card className="border-2 shadow-sm">
-                <CardContent className="pt-6">
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Tag className="h-8 w-8 text-gray-400" />
-                  </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum cupom criado</h3>
-                    <p className="text-sm text-gray-600 mb-6">Crie seu primeiro cupom de desconto para este evento</p>
-                    <Button className="bg-[#156634] hover:bg-[#1a7a3e]">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Criar Primeiro Cupom
-                    </Button>
               </div>
+
+              {/* Formulário de adicionar/editar cupom */}
+              {(showAddCoupon || editingCoupon) && (
+                <Card className="border-2 shadow-sm">
+                  <CardHeader>
+                    <CardTitle>{editingCoupon ? "Editar Cupom" : "Adicionar Novo Cupom"}</CardTitle>
+                    <CardDescription>
+                      Configure o cupom de desconto para este evento
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="coupon-code">Código do Cupom *</Label>
+                        <Input
+                          id="coupon-code"
+                          placeholder="EXEMPLO10"
+                          value={editingCoupon?.code || newCoupon.code}
+                          onChange={(e) => {
+                            if (editingCoupon) {
+                              setEditingCoupon({ ...editingCoupon, code: e.target.value.toUpperCase() })
+                            } else {
+                              setNewCoupon({ ...newCoupon, code: e.target.value.toUpperCase() })
+                            }
+                          }}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Tipo de Desconto *</Label>
+                        <Select
+                          value={editingCoupon ? (editingCoupon.discount_percentage ? "percentage" : "fixed") : newCoupon.discount_type}
+                          onValueChange={(value: "percentage" | "fixed") => {
+                            if (editingCoupon) {
+                              setEditingCoupon({ 
+                                ...editingCoupon, 
+                                discount_percentage: value === "percentage" ? editingCoupon.discount_percentage : null,
+                                discount_amount: value === "fixed" ? editingCoupon.discount_amount : null,
+                              })
+                            } else {
+                              setNewCoupon({ ...newCoupon, discount_type: value })
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="percentage">Percentual (%)</SelectItem>
+                            <SelectItem value="fixed">Valor Fixo (R$)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="coupon-discount-value">
+                          {editingCoupon ? (editingCoupon.discount_percentage ? "Percentual (%) *" : "Valor Fixo (R$) *") : (newCoupon.discount_type === "percentage" ? "Percentual (%) *" : "Valor Fixo (R$) *")}
+                        </Label>
+                        <Input
+                          id="coupon-discount-value"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder={editingCoupon ? (editingCoupon.discount_percentage ? "10.00" : "50.00") : (newCoupon.discount_type === "percentage" ? "10.00" : "50.00")}
+                          value={editingCoupon ? (editingCoupon.discount_percentage || editingCoupon.discount_amount || "") : newCoupon.discount_value}
+                          onChange={(e) => {
+                            if (editingCoupon) {
+                              if (editingCoupon.discount_percentage) {
+                                setEditingCoupon({ ...editingCoupon, discount_percentage: parseFloat(e.target.value) || null })
+                              } else {
+                                setEditingCoupon({ ...editingCoupon, discount_amount: parseFloat(e.target.value) || null })
+                              }
+                            } else {
+                              setNewCoupon({ ...newCoupon, discount_value: e.target.value })
+                            }
+                          }}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="coupon-affiliate">Vincular a Afiliado (opcional)</Label>
+                        <Select
+                          value={editingCoupon?.affiliate_id || newCoupon.affiliate_id}
+                          onValueChange={(value) => {
+                            if (editingCoupon) {
+                              setEditingCoupon({ ...editingCoupon, affiliate_id: value || null })
+                            } else {
+                              setNewCoupon({ ...newCoupon, affiliate_id: value })
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Nenhum afiliado" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">Nenhum afiliado</SelectItem>
+                            {acceptedAffiliates.map((aff) => (
+                              <SelectItem key={aff.affiliate?.id} value={aff.affiliate?.id}>
+                                {aff.affiliate?.user?.full_name || aff.affiliate?.user?.email || "Afiliado"}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="coupon-max-uses">Máximo de Usos (opcional)</Label>
+                        <Input
+                          id="coupon-max-uses"
+                          type="number"
+                          min="1"
+                          placeholder="Ilimitado"
+                          value={editingCoupon?.max_uses || newCoupon.max_uses}
+                          onChange={(e) => {
+                            if (editingCoupon) {
+                              setEditingCoupon({ ...editingCoupon, max_uses: e.target.value ? parseInt(e.target.value) : null })
+                            } else {
+                              setNewCoupon({ ...newCoupon, max_uses: e.target.value })
+                            }
+                          }}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="coupon-expires">Data de Expiração (opcional)</Label>
+                        <Input
+                          id="coupon-expires"
+                          type="datetime-local"
+                          value={editingCoupon?.expires_at ? new Date(editingCoupon.expires_at).toISOString().slice(0, 16) : newCoupon.expires_at}
+                          onChange={(e) => {
+                            if (editingCoupon) {
+                              setEditingCoupon({ ...editingCoupon, expires_at: e.target.value ? new Date(e.target.value).toISOString() : null })
+                            } else {
+                              setNewCoupon({ ...newCoupon, expires_at: e.target.value })
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="coupon-active"
+                        checked={editingCoupon?.is_active !== false && (editingCoupon ? editingCoupon.is_active : newCoupon.is_active)}
+                        onCheckedChange={(checked) => {
+                          if (editingCoupon) {
+                            setEditingCoupon({ ...editingCoupon, is_active: checked as boolean })
+                          } else {
+                            setNewCoupon({ ...newCoupon, is_active: checked as boolean })
+                          }
+                        }}
+                      />
+                      <Label htmlFor="coupon-active" className="cursor-pointer">
+                        Cupom ativo
+                      </Label>
+                    </div>
+
+                    <div className="flex gap-2 pt-4">
+                      <Button
+                        className="flex-1 bg-[#156634] hover:bg-[#1a7a3e]"
+                        onClick={async () => {
+                          const couponData = editingCoupon || newCoupon
+                          
+                          if (!couponData.code || !(couponData.discount_percentage || couponData.discount_amount || couponData.discount_value)) {
+                            toast.error("Preencha código e valor do desconto")
+                            return
+                          }
+
+                          try {
+                            const isPercentage = editingCoupon 
+                              ? !!editingCoupon.discount_percentage 
+                              : couponData.discount_type === "percentage"
+                            
+                            const discountValue = editingCoupon
+                              ? (editingCoupon.discount_percentage || editingCoupon.discount_amount || "")
+                              : couponData.discount_value
+
+                            const response = await fetch(editingCoupon ? `/api/events/coupon/${editingCoupon.id}` : "/api/events/coupon", {
+                              method: editingCoupon ? "PUT" : "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                event_id: eventId,
+                                code: couponData.code,
+                                discount_percentage: isPercentage ? parseFloat(discountValue) : null,
+                                discount_amount: !isPercentage ? parseFloat(discountValue) : null,
+                                affiliate_id: couponData.affiliate_id || null,
+                                max_uses: couponData.max_uses ? parseInt(couponData.max_uses) : null,
+                                expires_at: couponData.expires_at || null,
+                                is_active: couponData.is_active !== false,
+                              }),
+                            })
+
+                            const data = await response.json()
+
+                            if (!response.ok) {
+                              throw new Error(data.error || "Erro ao salvar cupom")
+                            }
+
+                            toast.success(editingCoupon ? "Cupom atualizado com sucesso!" : "Cupom criado com sucesso!")
+                            setShowAddCoupon(false)
+                            setEditingCoupon(null)
+                            setNewCoupon({
+                              code: "",
+                              discount_type: "percentage",
+                              discount_value: "",
+                              affiliate_id: "",
+                              max_uses: "",
+                              expires_at: "",
+                              is_active: true,
+                            })
+                            fetchCoupons()
+                          } catch (error: any) {
+                            toast.error(error.message || "Erro ao salvar cupom")
+                          }
+                        }}
+                      >
+                        {editingCoupon ? "Salvar Alterações" : "Criar Cupom"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowAddCoupon(false)
+                          setEditingCoupon(null)
+                          setNewCoupon({
+                            code: "",
+                            discount_type: "percentage",
+                            discount_value: "",
+                            affiliate_id: "",
+                            max_uses: "",
+                            expires_at: "",
+                            is_active: true,
+                          })
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Lista de cupons */}
+              <Card className="border-2 shadow-sm">
+                <CardHeader>
+                  <CardTitle>Cupons Cadastrados</CardTitle>
+                  <CardDescription>
+                    Lista de cupons de desconto para este evento
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {coupons.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Tag className="h-8 w-8 text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum cupom criado</h3>
+                      <p className="text-sm text-gray-600 mb-6">Crie seu primeiro cupom de desconto para este evento</p>
+                      <Button 
+                        className="bg-[#156634] hover:bg-[#1a7a3e]"
+                        onClick={() => setShowAddCoupon(true)}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Criar Primeiro Cupom
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {coupons.map((coupon) => (
+                        <div
+                          key={coupon.id}
+                          className="flex items-center justify-between p-4 border rounded-lg"
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="font-medium">{coupon.code}</p>
+                              <Badge variant={coupon.is_active ? "default" : "secondary"}>
+                                {coupon.is_active ? "Ativo" : "Inativo"}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-500">
+                              Desconto: {coupon.discount_percentage ? `${coupon.discount_percentage}%` : `R$ ${coupon.discount_amount?.toFixed(2)}`}
+                            </p>
+                            {coupon.affiliate && (
+                              <p className="text-xs text-gray-400">
+                                Afiliado: {coupon.affiliate.user?.full_name || coupon.affiliate.user?.email}
+                              </p>
+                            )}
+                            <p className="text-xs text-gray-400">
+                              Usos: {coupon.current_uses || 0}{coupon.max_uses ? ` / ${coupon.max_uses}` : " / Ilimitado"}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingCoupon(coupon)
+                                setShowAddCoupon(false)
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -2011,13 +2419,13 @@ export default function EventSettingsPage() {
                 </Button>
               </div>
 
-              {/* Formulário de adicionar afiliado */}
-              {showAddAffiliate && (
+              {/* Formulário de adicionar/editar afiliado */}
+              {(showAddAffiliate || editingAffiliate) && (
                 <Card className="border-2 shadow-sm">
                   <CardHeader>
-                    <CardTitle>Adicionar Novo Afiliado</CardTitle>
+                    <CardTitle>{editingAffiliate ? "Editar Afiliado" : "Adicionar Novo Afiliado"}</CardTitle>
                     <CardDescription>
-                      Envie um convite de afiliação para este evento
+                      {editingAffiliate ? "Edite a comissão do afiliado" : "Envie um convite de afiliação para este evento"}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -2027,18 +2435,29 @@ export default function EventSettingsPage() {
                         id="affiliate-email"
                         type="email"
                         placeholder="afiliado@exemplo.com"
-                        value={newAffiliate.email}
-                        onChange={(e) => setNewAffiliate({ ...newAffiliate, email: e.target.value })}
+                        value={editingAffiliate?.email || newAffiliate.email}
+                        onChange={(e) => {
+                          if (editingAffiliate) {
+                            setEditingAffiliate({ ...editingAffiliate, email: e.target.value })
+                          } else {
+                            setNewAffiliate({ ...newAffiliate, email: e.target.value })
+                          }
+                        }}
+                        disabled={!!editingAffiliate}
                       />
                     </div>
 
                     <div className="space-y-2">
                       <Label>Tipo de Comissão *</Label>
                       <Select
-                        value={newAffiliate.commission_type}
-                        onValueChange={(value: "percentage" | "fixed") => 
-                          setNewAffiliate({ ...newAffiliate, commission_type: value })
-                        }
+                        value={editingAffiliate?.commission_type || newAffiliate.commission_type}
+                        onValueChange={(value: "percentage" | "fixed") => {
+                          if (editingAffiliate) {
+                            setEditingAffiliate({ ...editingAffiliate, commission_type: value })
+                          } else {
+                            setNewAffiliate({ ...newAffiliate, commission_type: value })
+                          }
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -2052,16 +2471,22 @@ export default function EventSettingsPage() {
 
                     <div className="space-y-2">
                       <Label htmlFor="commission-value">
-                        {newAffiliate.commission_type === "percentage" ? "Percentual (%) *" : "Valor Fixo (R$) *"}
+                        {(editingAffiliate?.commission_type || newAffiliate.commission_type) === "percentage" ? "Percentual (%) *" : "Valor Fixo (R$) *"}
                       </Label>
                       <Input
                         id="commission-value"
                         type="number"
-                        step={newAffiliate.commission_type === "percentage" ? "0.01" : "0.01"}
+                        step="0.01"
                         min="0"
-                        placeholder={newAffiliate.commission_type === "percentage" ? "10.00" : "50.00"}
-                        value={newAffiliate.commission_value}
-                        onChange={(e) => setNewAffiliate({ ...newAffiliate, commission_value: e.target.value })}
+                        placeholder={(editingAffiliate?.commission_type || newAffiliate.commission_type) === "percentage" ? "10.00" : "50.00"}
+                        value={editingAffiliate?.commission_value || newAffiliate.commission_value}
+                        onChange={(e) => {
+                          if (editingAffiliate) {
+                            setEditingAffiliate({ ...editingAffiliate, commission_value: e.target.value })
+                          } else {
+                            setNewAffiliate({ ...newAffiliate, commission_value: e.target.value })
+                          }
+                        }}
                       />
                     </div>
 
@@ -2069,45 +2494,70 @@ export default function EventSettingsPage() {
                       <Button
                         className="flex-1 bg-[#156634] hover:bg-[#1a7a3e]"
                         onClick={async () => {
-                          if (!newAffiliate.email || !newAffiliate.commission_value) {
+                          const affiliateData = editingAffiliate || newAffiliate
+                          
+                          if (!affiliateData.email || !affiliateData.commission_value) {
                             toast.error("Preencha todos os campos")
                             return
                           }
 
                           try {
-                            const response = await fetch("/api/events/affiliate-invite", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                event_id: eventId,
-                                email: newAffiliate.email,
-                                commission_type: newAffiliate.commission_type,
-                                commission_value: parseFloat(newAffiliate.commission_value),
-                              }),
-                            })
+                            if (editingAffiliate) {
+                              // Editar afiliado
+                              const response = await fetch(`/api/events/affiliate/${editingAffiliate.id}`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  commission_type: affiliateData.commission_type,
+                                  commission_value: parseFloat(affiliateData.commission_value),
+                                }),
+                              })
 
-                            const data = await response.json()
+                              const data = await response.json()
 
-                            if (!response.ok) {
-                              throw new Error(data.error || "Erro ao enviar convite")
+                              if (!response.ok) {
+                                throw new Error(data.error || "Erro ao atualizar afiliado")
+                              }
+
+                              toast.success("Afiliado atualizado com sucesso!")
+                              setEditingAffiliate(null)
+                              fetchAffiliates()
+                            } else {
+                              // Criar novo convite
+                              const response = await fetch("/api/events/affiliate-invite", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  event_id: eventId,
+                                  email: affiliateData.email,
+                                  commission_type: affiliateData.commission_type,
+                                  commission_value: parseFloat(affiliateData.commission_value),
+                                }),
+                              })
+
+                              const data = await response.json()
+
+                              if (!response.ok) {
+                                throw new Error(data.error || "Erro ao enviar convite")
+                              }
+
+                              toast.success("Convite enviado com sucesso!")
+                              setShowAddAffiliate(false)
+                              setNewAffiliate({ email: "", commission_type: "percentage", commission_value: "" })
+                              fetchAffiliates()
                             }
-
-                            toast.success("Convite enviado com sucesso!")
-                            setShowAddAffiliate(false)
-                            setNewAffiliate({ email: "", commission_type: "percentage", commission_value: "" })
-                            // Recarregar lista de afiliados
-                            fetchAffiliates()
                           } catch (error: any) {
-                            toast.error(error.message || "Erro ao enviar convite")
+                            toast.error(error.message || "Erro ao processar")
                           }
                         }}
                       >
-                        Enviar Convite
+                        {editingAffiliate ? "Salvar Alterações" : "Enviar Convite"}
                       </Button>
                       <Button
                         variant="outline"
                         onClick={() => {
                           setShowAddAffiliate(false)
+                          setEditingAffiliate(null)
                           setNewAffiliate({ email: "", commission_type: "percentage", commission_value: "" })
                         }}
                       >
@@ -2151,6 +2601,9 @@ export default function EventSettingsPage() {
                         >
                           <div className="flex-1">
                             <p className="font-medium">{affiliate.email}</p>
+                            {affiliate.affiliate?.user?.full_name && (
+                              <p className="text-xs text-gray-400">{affiliate.affiliate.user.full_name}</p>
+                            )}
                             <p className="text-sm text-gray-500">
                               Comissão: {affiliate.commission_type === "percentage" ? `${affiliate.commission_value}%` : `R$ ${affiliate.commission_value}`}
                             </p>
@@ -2158,6 +2611,18 @@ export default function EventSettingsPage() {
                               {affiliate.status === "accepted" ? "Aceito" : affiliate.status === "pending" ? "Pendente" : "Rejeitado"}
                             </Badge>
                           </div>
+                          {affiliate.status === "accepted" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingAffiliate(affiliate)
+                                setShowAddAffiliate(false)
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       ))}
                     </div>
