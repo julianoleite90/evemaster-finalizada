@@ -255,7 +255,9 @@ export default function OrganizerSettingsPage() {
         const data = await response.json()
 
         if (!response.ok) {
-          throw new Error(data.error || "Erro ao criar usuário")
+          const errorMessage = data.details || data.error || "Erro ao criar usuário"
+          console.error("Erro da API:", errorMessage, data)
+          throw new Error(errorMessage)
         }
 
         userId = data.user.id
@@ -323,7 +325,20 @@ export default function OrganizerSettingsPage() {
       }, 500)
     } catch (error: any) {
       console.error("Erro ao adicionar usuário:", error)
-      toast.error("Erro ao adicionar usuário: " + (error.message || "Erro desconhecido"))
+      const errorMessage = error.message || "Erro desconhecido"
+      
+      // Mensagens mais específicas baseadas no erro
+      if (errorMessage.includes("já existe")) {
+        toast.error("Este email já está cadastrado no sistema")
+      } else if (errorMessage.includes("senha") || errorMessage.includes("password")) {
+        toast.error("A senha deve ter no mínimo 6 caracteres")
+      } else if (errorMessage.includes("email") || errorMessage.includes("Email")) {
+        toast.error("Email inválido")
+      } else if (errorMessage.includes("Não autorizado") || errorMessage.includes("organizador")) {
+        toast.error("Você não tem permissão para criar usuários")
+      } else {
+        toast.error("Erro ao adicionar usuário: " + errorMessage)
+      }
     } finally {
       setAddingUser(false)
     }

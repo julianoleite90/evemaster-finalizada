@@ -16,7 +16,24 @@ export async function POST(request: NextRequest) {
 
     if (!email || !password || !full_name) {
       return NextResponse.json(
-        { error: "Email, senha e nome são obrigatórios" },
+        { error: "Email, senha e nome são obrigatórios", details: "Preencha todos os campos obrigatórios" },
+        { status: 400 }
+      )
+    }
+
+    // Validar senha
+    if (password.length < 6) {
+      return NextResponse.json(
+        { error: "Senha muito curta", details: "A senha deve ter no mínimo 6 caracteres" },
+        { status: 400 }
+      )
+    }
+
+    // Validar email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: "Email inválido", details: "Digite um email válido" },
         { status: 400 }
       )
     }
@@ -92,8 +109,21 @@ export async function POST(request: NextRequest) {
 
     if (createError || !authUser.user) {
       console.error("Erro ao criar usuário no Auth:", createError)
+      
+      // Mensagens de erro mais específicas
+      let errorMessage = "Erro ao criar usuário"
+      if (createError?.message?.includes("already registered") || createError?.message?.includes("already exists")) {
+        errorMessage = "Este email já está cadastrado"
+      } else if (createError?.message?.includes("password")) {
+        errorMessage = "A senha não atende aos requisitos mínimos"
+      } else if (createError?.message?.includes("email")) {
+        errorMessage = "Email inválido"
+      } else {
+        errorMessage = createError?.message || "Erro ao criar usuário no sistema de autenticação"
+      }
+      
       return NextResponse.json(
-        { error: "Erro ao criar usuário", details: createError?.message },
+        { error: errorMessage, details: createError?.message },
         { status: 500 }
       )
     }
