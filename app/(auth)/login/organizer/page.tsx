@@ -28,12 +28,27 @@ export default function OrganizerLoginPage() {
       setLoading(true)
       const supabase = createClient()
 
+      console.log("🔐 [LOGIN ORGANIZADOR] Iniciando login com email:", email)
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
+      console.log("🔐 [LOGIN ORGANIZADOR] Resposta signIn:", { 
+        hasUser: !!data?.user, 
+        userId: data?.user?.id,
+        userEmail: data?.user?.email,
+        error: error?.message,
+        errorCode: error?.status
+      })
+
       if (error) {
+        console.error("❌ [LOGIN ORGANIZADOR] ERRO NO LOGIN:", {
+          message: error.message,
+          status: error.status,
+          name: error.name
+        })
         if (error.message.includes("Invalid login credentials")) {
           toast.error("Email ou senha incorretos")
         } else {
@@ -43,42 +58,77 @@ export default function OrganizerLoginPage() {
       }
 
       if (data.user) {
+        console.log("✅ [LOGIN ORGANIZADOR] Usuário autenticado:", {
+          id: data.user.id,
+          email: data.user.email,
+          role: data.user.user_metadata?.role
+        })
+        
         // Aguardar para garantir que o middleware criou o registro em users
         await new Promise(resolve => setTimeout(resolve, 1500))
 
+        console.log("🔍 [LOGIN ORGANIZADOR] Verificando se é organizador principal...")
         // Verificar se é organizador principal (tem perfil próprio)
-        let { data: organizer } = await supabase
+        let { data: organizer, error: organizerError } = await supabase
           .from("organizers")
           .select("id")
           .eq("user_id", data.user.id)
           .maybeSingle()
 
+        console.log("🔍 [LOGIN ORGANIZADOR] Resultado busca organizador:", { 
+          organizerId: organizer?.id,
+          error: organizerError?.message,
+          errorCode: organizerError?.code
+        })
+
         // Se não encontrou, verificar se é membro de uma organização
         if (!organizer) {
-          const { data: orgMembership } = await supabase
+          console.log("🔍 [LOGIN ORGANIZADOR] Não é organizador principal. Verificando membership...")
+          const { data: orgMembership, error: orgError } = await supabase
             .from("organization_users")
             .select("organizer_id, is_active")
             .eq("user_id", data.user.id)
             .eq("is_active", true)
             .maybeSingle()
 
+          console.log("🔍 [LOGIN ORGANIZADOR] Resultado busca membership:", { 
+            membership: orgMembership,
+            organizerId: orgMembership?.organizer_id,
+            isActive: orgMembership?.is_active,
+            error: orgError?.message,
+            errorCode: orgError?.code
+          })
+
           if (orgMembership) {
+            console.log("✅ [LOGIN ORGANIZADOR] Usuário é membro de organização. Permitindo login.")
             // Usuário é membro de uma organização, permitir login
             toast.success("Login realizado com sucesso!")
             window.location.href = "/dashboard/organizer"
             return
           }
 
+          console.log("🔍 [LOGIN ORGANIZADOR] Não é membro. Verificando role do usuário...")
           // Se não é membro, tentar criar perfil de organizador automaticamente
-          const { data: userData } = await supabase
+          const { data: userData, error: userDataError } = await supabase
             .from("users")
             .select("role, full_name")
             .eq("id", data.user.id)
             .maybeSingle()
 
+          console.log("🔍 [LOGIN ORGANIZADOR] Dados do usuário na tabela users:", { 
+            userData,
+            role: userData?.role,
+            fullName: userData?.full_name,
+            error: userDataError?.message,
+            errorCode: userDataError?.code
+          })
+
           const userRole = userData?.role || data.user.user_metadata?.role
+          console.log("🔍 [LOGIN ORGANIZADOR] Role final:", userRole)
+          
           if (userRole && (userRole.toUpperCase() === "ORGANIZADOR" || userRole.toUpperCase() === "ORGANIZER")) {
             const companyName = userData?.full_name || data.user.user_metadata?.full_name || "Organizador"
+            console.log("🔍 [LOGIN ORGANIZADOR] Tentando criar perfil de organizador...")
             const { data: newOrganizer, error: createError } = await supabase
               .from("organizers")
               .insert({
@@ -91,23 +141,48 @@ export default function OrganizerLoginPage() {
               .select("id")
               .single()
 
+            console.log("🔍 [LOGIN ORGANIZADOR] Resultado criação organizador:", { 
+              newOrganizerId: newOrganizer?.id,
+              error: createError?.message,
+              errorCode: createError?.code,
+              errorDetails: createError
+            })
+
             if (newOrganizer && !createError) {
               organizer = newOrganizer
               toast.success("Perfil de organizador criado automaticamente!")
             } else {
-              console.error("Erro ao criar perfil de organizador:", createError)
+              console.error("❌ [LOGIN ORGANIZADOR] Erro ao criar perfil:", createError)
             }
+          } else {
+            console.log("⚠️ [LOGIN ORGANIZADOR] Role não permite criar perfil:", userRole)
           }
         }
 
         if (!organizer) {
+          // Buscar userData novamente para o log de erro
+          const { data: userDataForLog } = await supabase
+            .from("users")
+            .select("role, full_name")
+            .eq("id", data.user.id)
+            .maybeSingle()
+          
+          console.error("❌ [LOGIN ORGANIZADOR] FALHA TOTAL - Usuário não tem acesso:")
+          console.error("  - User ID:", data.user.id)
+          console.error("  - User Email:", data.user.email)
+          console.error("  - Não é organizador principal")
+          console.error("  - Não é membro de organização")
+          console.error("  - Role:", userDataForLog?.role || data.user.user_metadata?.role)
           toast.error("Esta conta não possui perfil de organizador ou não é membro de nenhuma organização. Entre em contato com o suporte.")
           await supabase.auth.signOut()
           return
         }
 
+        console.log("✅ [LOGIN ORGANIZADOR] Login autorizado. Redirecionando...")
         toast.success("Login realizado com sucesso!")
         window.location.href = "/dashboard/organizer"
+      } else {
+        console.error("❌ [LOGIN ORGANIZADOR] data.user é null/undefined")
       }
     } catch (error: any) {
       console.error("Erro ao fazer login:", error)

@@ -6,6 +6,7 @@ export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("🔧 [CREATE USER API] Iniciando criação de usuário...")
     const body = await request.json()
     const { email, password, full_name, phone } = body as {
       email: string
@@ -14,7 +15,16 @@ export async function POST(request: NextRequest) {
       phone?: string
     }
 
+    console.log("🔧 [CREATE USER API] Dados recebidos:", { 
+      email, 
+      hasPassword: !!password, 
+      passwordLength: password?.length,
+      full_name,
+      phone 
+    })
+
     if (!email || !password || !full_name) {
+      console.error("❌ [CREATE USER API] Campos obrigatórios faltando")
       return NextResponse.json(
         { error: "Email, senha e nome são obrigatórios", details: "Preencha todos os campos obrigatórios" },
         { status: 400 }
@@ -42,7 +52,14 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
+    console.log("🔧 [CREATE USER API] Verificando autenticação:", {
+      hasUser: !!user,
+      userId: user?.id,
+      error: authError?.message
+    })
+
     if (authError || !user) {
+      console.error("❌ [CREATE USER API] Não autorizado")
       return NextResponse.json(
         { error: "Não autorizado" },
         { status: 401 }
@@ -50,13 +67,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se é organizador
-    const { data: organizer } = await supabase
+    const { data: organizer, error: organizerError } = await supabase
       .from("organizers")
       .select("id")
       .eq("user_id", user.id)
       .single()
 
+    console.log("🔧 [CREATE USER API] Verificando se é organizador:", {
+      organizerId: organizer?.id,
+      error: organizerError?.message
+    })
+
     if (!organizer) {
+      console.error("❌ [CREATE USER API] Usuário não é organizador")
       return NextResponse.json(
         { error: "Apenas organizadores podem criar usuários" },
         { status: 403 }
@@ -120,6 +143,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar usuário no Auth
+    console.log("🔧 [CREATE USER API] Criando usuário no Auth...")
     const { data: authUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -131,8 +155,16 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    console.log("🔧 [CREATE USER API] Resultado criação Auth:", {
+      hasUser: !!authUser?.user,
+      userId: authUser?.user?.id,
+      error: createError?.message,
+      errorCode: createError?.status,
+      errorName: createError?.name
+    })
+
     if (createError || !authUser.user) {
-      console.error("Erro ao criar usuário no Auth:", createError)
+      console.error("❌ [CREATE USER API] ERRO AO CRIAR NO AUTH:", createError)
       
       // Mensagens de erro mais específicas
       let errorMessage = "Erro ao criar usuário"
@@ -153,6 +185,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar registro na tabela users
+    console.log("🔧 [CREATE USER API] Criando registro na tabela users...")
     const { error: userError } = await supabase
       .from("users")
       .insert({
@@ -164,15 +197,30 @@ export async function POST(request: NextRequest) {
         is_active: true,
       })
 
+    console.log("🔧 [CREATE USER API] Resultado inserção em users:", {
+      error: userError?.message,
+      errorCode: userError?.code,
+      errorDetails: userError
+    })
+
     if (userError) {
-      console.error("Erro ao criar registro em users:", userError)
+      console.error("❌ [CREATE USER API] ERRO AO CRIAR EM USERS:", userError)
       // Tentar deletar o usuário do Auth se falhar
-      await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
+      console.log("🔧 [CREATE USER API] Tentando deletar usuário do Auth...")
+      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
+      if (deleteError) {
+        console.error("❌ [CREATE USER API] Erro ao deletar do Auth:", deleteError)
+      }
       return NextResponse.json(
         { error: "Erro ao criar registro do usuário", details: userError.message },
         { status: 500 }
       )
     }
+
+    console.log("✅ [CREATE USER API] Usuário criado com sucesso:", {
+      id: authUser.user.id,
+      email: authUser.user.email
+    })
 
     return NextResponse.json({
       success: true,
