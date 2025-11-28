@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Loader2, Calendar, MapPin, Ticket, Download, Eye, Clock } from "lucide-react"
+import { Loader2, Ticket } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -279,130 +279,101 @@ export default function MyAccountPage() {
 
             return (
               <Card key={inscricao.id} className="overflow-hidden">
-                <div className="md:flex">
-                  {/* Banner do Evento */}
-                  {event?.banner_url && (
-                    <div className="md:w-48 h-32 md:h-auto relative flex-shrink-0">
-                      <Image
-                        src={event.banner_url}
-                        alt={event.name || "Evento"}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  )}
-
-                  {/* Conteúdo */}
-                  <div className="flex-1">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg mb-1.5">
-                            {event?.name || "Evento não encontrado"}
-                          </CardTitle>
-                          <div className="flex flex-wrap gap-2 items-center">
-                            {getStatusBadge(inscricao.status || "pending")}
-                            {event?.category && (
-                              <Badge variant="outline">
-                                {event.category}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-base mb-2">
+                        {event?.name || "Evento não encontrado"}
+                      </CardTitle>
+                      <div className="flex flex-wrap gap-2 items-center">
+                        {getStatusBadge(inscricao.status || "pending")}
+                        {event?.category && (
+                          <Badge variant="outline" className="text-xs">
+                            {event.category}
+                          </Badge>
+                        )}
                       </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                        <div className="flex items-start gap-2">
-                          <Calendar className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                          <div className="min-w-0">
-                            <p className="text-xs text-gray-500">Data do Evento</p>
-                            <p className="text-sm font-medium">
-                              {formatDate(event?.event_date)}
-                            </p>
-                          </div>
+                    </div>
+                    {/* Banner pequeno no canto */}
+                    {event?.banner_url && (
+                      <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 relative">
+                        <Image
+                          src={event.banner_url}
+                          alt={event.name || "Evento"}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 mb-3">
+                        <div>
+                          <p className="text-xs text-gray-500 mb-0.5">Data</p>
+                          <p className="text-sm font-medium">
+                            {formatDate(event?.event_date)}
+                          </p>
                         </div>
 
                         {event?.start_time && (
-                          <div className="flex items-start gap-2">
-                            <Clock className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                            <div className="min-w-0">
-                              <p className="text-xs text-gray-500">Horário</p>
-                              <p className="text-sm font-medium">
-                                {formatTime(event.start_time)}
-                              </p>
-                            </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-0.5">Horário</p>
+                            <p className="text-sm font-medium">
+                              {formatTime(event.start_time)}
+                            </p>
                           </div>
                         )}
 
-                        <div className="flex items-start gap-2">
-                          <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                          <div className="min-w-0">
-                            <p className="text-xs text-gray-500">Local</p>
-                            <p className="text-sm font-medium">
-                              {event?.location || event?.address || "Local não informado"}
-                            </p>
-                          </div>
+                        <div>
+                          <p className="text-xs text-gray-500 mb-0.5">Local</p>
+                          <p className="text-sm font-medium truncate">
+                            {event?.location || event?.address || "Não informado"}
+                          </p>
                         </div>
 
                         {ticket && (
-                          <div className="flex items-start gap-2">
-                            <Ticket className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                            <div className="min-w-0">
-                              <p className="text-xs text-gray-500">Distância/Categoria</p>
-                              <p className="text-sm font-medium">{ticket.category}</p>
-                            </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-0.5">Distância</p>
+                            <p className="text-sm font-medium">{ticket.category}</p>
                           </div>
                         )}
 
                         {inscricao.shirt_size && (
-                          <div className="flex items-start gap-2">
-                            <div className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                            <div className="min-w-0">
-                              <p className="text-xs text-gray-500">Tamanho da Camiseta</p>
-                              <p className="text-sm font-medium">{inscricao.shirt_size}</p>
-                            </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-0.5">Camiseta</p>
+                            <p className="text-sm font-medium">{inscricao.shirt_size}</p>
                           </div>
                         )}
 
                         {inscricao.has_kit !== undefined && (
-                          <div className="flex items-start gap-2">
-                            <div className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                            <div className="min-w-0">
-                              <p className="text-xs text-gray-500">Kit</p>
-                              <p className="text-sm font-medium">{inscricao.has_kit ? "Sim" : "Não"}</p>
-                            </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-0.5">Kit</p>
+                            <p className="text-sm font-medium">{inscricao.has_kit ? "Sim" : "Não"}</p>
                           </div>
                         )}
 
                         {inscricao.has_insurance !== undefined && (
-                          <div className="flex items-start gap-2">
-                            <div className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                            <div className="min-w-0">
-                              <p className="text-xs text-gray-500">Seguro</p>
-                              <p className="text-sm font-medium">{inscricao.has_insurance ? "Sim" : "Não"}</p>
-                            </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-0.5">Seguro</p>
+                            <p className="text-sm font-medium">{inscricao.has_insurance ? "Sim" : "Não"}</p>
                           </div>
                         )}
 
                         {inscricao.athletes && Array.isArray(inscricao.athletes) && inscricao.athletes.length > 0 && (
-                          <div className="flex items-start gap-2">
-                            <div className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                            <div className="min-w-0">
-                              <p className="text-xs text-gray-500">Participante</p>
-                              <p className="text-sm font-medium">
-                                {inscricao.athletes[0].full_name || inscricao.athletes[0].email}
-                              </p>
-                            </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-0.5">Participante</p>
+                            <p className="text-sm font-medium truncate">
+                              {inscricao.athletes[0].full_name || inscricao.athletes[0].email}
+                            </p>
                           </div>
                         )}
                       </div>
 
                       <div className="flex gap-2 pt-3 border-t">
                         {event?.slug && (
-                          <Button variant="outline" asChild className="inline-flex items-center">
+                          <Button variant="outline" asChild className="flex-1">
                             <Link href={`/evento/${event.slug}`}>
-                              <Eye className="h-4 w-4 mr-2" />
                               Ver Evento
                             </Link>
                           </Button>
@@ -410,15 +381,12 @@ export default function MyAccountPage() {
                         <Button 
                           variant="outline"
                           onClick={() => handleDownloadPDF(inscricao)}
-                          className="inline-flex items-center"
+                          className="flex-1"
                         >
-                          <Download className="h-4 w-4 mr-2" />
                           Baixar Ingresso
                         </Button>
                       </div>
                     </CardContent>
-                  </div>
-                </div>
               </Card>
             )
           })}
