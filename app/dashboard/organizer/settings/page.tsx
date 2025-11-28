@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Building2, MapPin, FileText, Mail, Phone, User, CreditCard, Percent, AlertCircle, Loader2, Settings, Eye, Edit, FilePlus, Trash2, Plus, Users } from "lucide-react"
+import { Building2, MapPin, FileText, Mail, Phone, User, CreditCard, Percent, AlertCircle, Loader2, Settings, Eye, Edit, FilePlus, Trash2, Plus, Users, XCircle, CheckCircle2 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
@@ -113,15 +113,15 @@ export default function OrganizerSettingsPage() {
         pix: ""
       })
 
-      // Buscar usuários da organização
+      // Buscar usuários da organização (ativos e inativos)
       const { data: orgUsers } = await supabase
         .from("organization_users")
         .select(`
           *,
-          user:users(id, email, full_name)
+          user:users(id, email, full_name, is_active)
         `)
         .eq("organizer_id", organizer.id)
-        .eq("is_active", true)
+        .order("created_at", { ascending: false })
 
       setOrganizationUsers(orgUsers || [])
     } catch (error: any) {
@@ -771,6 +771,7 @@ export default function OrganizerSettingsPage() {
                   <TableRow>
                     <TableHead>Usuário</TableHead>
                     <TableHead>Email</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Permissões</TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
@@ -778,43 +779,91 @@ export default function OrganizerSettingsPage() {
                 <TableBody>
                   {organizationUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
                         Nenhum usuário adicionado
                       </TableCell>
                     </TableRow>
                   ) : (
                     organizationUsers.map((orgUser) => (
-                      <TableRow key={orgUser.id}>
-                        <TableCell>{orgUser.user?.full_name || "-"}</TableCell>
+                      <TableRow key={orgUser.id} className={!orgUser.is_active ? "opacity-60" : ""}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{orgUser.user?.full_name || "-"}</span>
+                          </div>
+                        </TableCell>
                         <TableCell>{orgUser.user?.email || "-"}</TableCell>
                         <TableCell>
+                          {orgUser.is_active ? (
+                            <Badge className="bg-green-50 text-green-700 border-green-200">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Ativo
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-gray-50 text-gray-700 border-gray-200">
+                              <XCircle className="h-3 w-3 mr-1" />
+                              Inativo
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <div className="flex gap-2 flex-wrap">
-                            {orgUser.can_view && <Badge variant="outline">Visualizar</Badge>}
-                            {orgUser.can_edit && <Badge variant="outline">Editar</Badge>}
-                            {orgUser.can_create && <Badge variant="outline">Criar</Badge>}
-                            {orgUser.can_delete && <Badge variant="outline">Deletar</Badge>}
+                            {orgUser.can_view && <Badge variant="outline" className="text-xs">Visualizar</Badge>}
+                            {orgUser.can_edit && <Badge variant="outline" className="text-xs">Editar</Badge>}
+                            {orgUser.can_create && <Badge variant="outline" className="text-xs">Criar</Badge>}
+                            {orgUser.can_delete && <Badge variant="outline" className="text-xs">Deletar</Badge>}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={async () => {
-                              const supabase = createClient()
-                              const { error } = await supabase
-                                .from("organization_users")
-                                .update({ is_active: false })
-                                .eq("id", orgUser.id)
-                              if (error) {
-                                toast.error("Erro ao remover usuário")
-                              } else {
-                                toast.success("Usuário removido")
-                                fetchProfile()
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={async () => {
+                                if (confirm(`Tem certeza que deseja ${orgUser.is_active ? "inativar" : "ativar"} este usuário?`)) {
+                                  const supabase = createClient()
+                                  const { error } = await supabase
+                                    .from("organization_users")
+                                    .update({ is_active: !orgUser.is_active })
+                                    .eq("id", orgUser.id)
+                                  if (error) {
+                                    toast.error("Erro ao atualizar usuário")
+                                  } else {
+                                    toast.success(`Usuário ${orgUser.is_active ? "inativado" : "ativado"} com sucesso`)
+                                    fetchProfile()
+                                  }
+                                }
+                              }}
+                              title={orgUser.is_active ? "Inativar usuário" : "Ativar usuário"}
+                            >
+                              {orgUser.is_active ? (
+                                <XCircle className="h-4 w-4 text-yellow-600" />
+                              ) : (
+                                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={async () => {
+                                if (confirm("Tem certeza que deseja remover este usuário da organização? Esta ação não pode ser desfeita.")) {
+                                  const supabase = createClient()
+                                  const { error } = await supabase
+                                    .from("organization_users")
+                                    .delete()
+                                    .eq("id", orgUser.id)
+                                  if (error) {
+                                    toast.error("Erro ao remover usuário")
+                                  } else {
+                                    toast.success("Usuário removido com sucesso")
+                                    fetchProfile()
+                                  }
+                                }
+                              }}
+                              title="Remover usuário"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
