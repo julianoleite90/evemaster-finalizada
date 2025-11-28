@@ -79,9 +79,14 @@ export default function NewEventPage() {
     horarioInicio: "",
     horarioFim: "",
     categoria: "",
+    language: "pt" as "pt" | "es" | "en",
     modalidades: [] as string[],
     distancias: [] as string[],
     distanciasCustom: [] as string[],
+    difficulty_level: "" as "Fácil" | "Moderado" | "Difícil" | "Muito Difícil" | "",
+    major_access: false,
+    major_access_type: "",
+    race_type: "" as "asfalto" | "trail" | "misto" | "",
     bannerEvento: null as File | null,
     gpxStrava: null as File | null,
     // Endereço
@@ -389,10 +394,15 @@ export default function NewEventPage() {
         name: formData.nome,
         description: formData.descricao,
         category: formData.categoria,
+        language: formData.language,
         event_date: formData.data,
         start_time: formData.horarioInicio,
         end_time: formData.horarioFim || undefined,
         location: localCompleto || "Local a definir",
+        difficulty_level: formData.difficulty_level || undefined,
+        major_access: formData.major_access,
+        major_access_type: formData.major_access ? formData.major_access_type : undefined,
+        race_type: formData.race_type || undefined,
         address: enderecoCompleto || "Endereço a definir",
         city: formData.cidade,
         state: formData.estado,
@@ -402,7 +412,7 @@ export default function NewEventPage() {
         total_capacity: ((): number | undefined => {
           // Verifica se todos os lotes são ilimitados
           const todasQuantidades = formData.lotes.map(lote => {
-            const qtd = lote.quantidadeTotal && lote.quantidadeTotal !== "" ? parseInt(lote.quantidadeTotal) : null
+          const qtd = lote.quantidadeTotal && lote.quantidadeTotal !== "" ? parseInt(lote.quantidadeTotal) : null
             return qtd
           })
           
@@ -1025,6 +1035,129 @@ export default function NewEventPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="language">Idioma do Evento *</Label>
+                <Select
+                  value={formData.language}
+                  onValueChange={(value) => setFormData({ ...formData, language: value as "pt" | "es" | "en" })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o idioma" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pt">
+                      <span className="flex items-center gap-2">
+                        <span>🇧🇷</span> <span>Português</span>
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="es">
+                      <span className="flex items-center gap-2">
+                        <span>🇦🇷</span> <span>Español</span>
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="en">
+                      <span className="flex items-center gap-2">
+                        <span>🇺🇸</span> <span>English</span>
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Dificuldade, Acesso Major e Tipo de Prova */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="difficulty_level">Dificuldade da Prova</Label>
+                  <Select
+                    value={formData.difficulty_level}
+                    onValueChange={(value) => setFormData({ ...formData, difficulty_level: value as any })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a dificuldade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Fácil">Fácil</SelectItem>
+                      <SelectItem value="Moderado">Moderado</SelectItem>
+                      <SelectItem value="Difícil">Difícil</SelectItem>
+                      <SelectItem value="Muito Difícil">Muito Difícil</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="race_type">Tipo de Prova</Label>
+                  <Select
+                    value={formData.race_type}
+                    onValueChange={(value) => setFormData({ ...formData, race_type: value as any })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="asfalto">Asfalto</SelectItem>
+                      <SelectItem value="trail">Trail</SelectItem>
+                      <SelectItem value="misto">Misto</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Acesso a Prova Major</Label>
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="major_access_sim"
+                        name="major_access"
+                        checked={formData.major_access === true}
+                        onChange={() => setFormData({ ...formData, major_access: true })}
+                        className="h-4 w-4 text-[#156634]"
+                      />
+                      <Label htmlFor="major_access_sim" className="font-normal cursor-pointer">Sim</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="major_access_nao"
+                        name="major_access"
+                        checked={formData.major_access === false}
+                        onChange={() => setFormData({ ...formData, major_access: false, major_access_type: "" })}
+                        className="h-4 w-4 text-[#156634]"
+                      />
+                      <Label htmlFor="major_access_nao" className="font-normal cursor-pointer">Não</Label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {formData.major_access && (
+                <div className="space-y-2">
+                  <Label htmlFor="major_access_type">Qual prova major? *</Label>
+                  <Select
+                    value={formData.major_access_type}
+                    onValueChange={(value) => setFormData({ ...formData, major_access_type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a prova major" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Boston Marathon">Boston Marathon</SelectItem>
+                      <SelectItem value="New York City Marathon">New York City Marathon</SelectItem>
+                      <SelectItem value="Chicago Marathon">Chicago Marathon</SelectItem>
+                      <SelectItem value="Berlin Marathon">Berlin Marathon</SelectItem>
+                      <SelectItem value="London Marathon">London Marathon</SelectItem>
+                      <SelectItem value="Tokyo Marathon">Tokyo Marathon</SelectItem>
+                      <SelectItem value="Paris Marathon">Paris Marathon</SelectItem>
+                      <SelectItem value="Amsterdam Marathon">Amsterdam Marathon</SelectItem>
+                      <SelectItem value="Dubai Marathon">Dubai Marathon</SelectItem>
+                      <SelectItem value="São Paulo Marathon">São Paulo Marathon</SelectItem>
+                      <SelectItem value="Rio de Janeiro Marathon">Rio de Janeiro Marathon</SelectItem>
+                      <SelectItem value="Outra">Outra</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Distâncias para corrida */}
               {formData.categoria === "corrida" && (

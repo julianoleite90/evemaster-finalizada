@@ -295,25 +295,25 @@ export default function MyAccountPage() {
                       </div>
                     </div>
                     {/* Banner pequeno no canto */}
-                    {event?.banner_url && (
+                  {event?.banner_url && (
                       <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 relative">
-                        <Image
-                          src={event.banner_url}
-                          alt={event.name || "Evento"}
-                          fill
-                          className="object-cover"
-                        />
+                      <Image
+                        src={event.banner_url}
+                        alt={event.name || "Evento"}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  )}
                       </div>
-                    )}
-                  </div>
-                </CardHeader>
+                    </CardHeader>
                 <CardContent className="pt-0">
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 mb-3">
-                        <div>
+                          <div>
                           <p className="text-xs text-gray-500 mb-0.5">Data</p>
                           <p className="text-sm font-medium">
-                            {formatDate(event?.event_date)}
-                          </p>
+                              {formatDate(event?.event_date)}
+                            </p>
                         </div>
 
                         {event?.start_time && (
@@ -347,10 +347,10 @@ export default function MyAccountPage() {
                         )}
 
                         {inscricao.has_kit !== undefined && (
-                          <div>
+                            <div>
                             <p className="text-xs text-gray-500 mb-0.5">Kit</p>
                             <p className="text-sm font-medium">{inscricao.has_kit ? "Sim" : "Não"}</p>
-                          </div>
+                            </div>
                         )}
 
                         {inscricao.has_insurance !== undefined && (
@@ -361,11 +361,11 @@ export default function MyAccountPage() {
                         )}
 
                         {inscricao.athletes && Array.isArray(inscricao.athletes) && inscricao.athletes.length > 0 && (
-                          <div>
+                            <div>
                             <p className="text-xs text-gray-500 mb-0.5">Participante</p>
                             <p className="text-sm font-medium truncate">
-                              {inscricao.athletes[0].full_name || inscricao.athletes[0].email}
-                            </p>
+                                {inscricao.athletes[0].full_name || inscricao.athletes[0].email}
+                              </p>
                           </div>
                         )}
                       </div>

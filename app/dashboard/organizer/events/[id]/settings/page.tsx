@@ -108,6 +108,7 @@ export default function EventSettingsPage() {
     name: "",
     description: "",
     category: "",
+    language: "pt" as "pt" | "es" | "en",
     event_date: "",
     start_time: "",
     end_time: "",
@@ -118,6 +119,10 @@ export default function EventSettingsPage() {
     zip_code: "",
     banner_url: "",
     status: "draft",
+    difficulty_level: "" as "Fácil" | "Moderado" | "Difícil" | "Muito Difícil" | "",
+    major_access: false,
+    major_access_type: "",
+    race_type: "" as "asfalto" | "trail" | "misto" | "",
   })
 
   // Lotes e ingressos
@@ -280,6 +285,7 @@ export default function EventSettingsPage() {
             name: event.name || "",
             description: event.description || "",
             category: event.category || "",
+            language: (event.language === "pt" || event.language === "es" || event.language === "en") ? event.language : "pt",
             event_date: event.event_date || "",
             start_time: event.start_time || "",
             end_time: event.end_time || "",
@@ -290,6 +296,10 @@ export default function EventSettingsPage() {
             zip_code: event.zip_code || "",
             banner_url: event.banner_url || "",
             status: event.status || "draft",
+            difficulty_level: event.difficulty_level || "",
+            major_access: event.major_access || false,
+            major_access_type: event.major_access_type || "",
+            race_type: event.race_type || "",
           })
 
           // Carregar lotes e ingressos
@@ -367,25 +377,40 @@ export default function EventSettingsPage() {
 
   const handleSaveEventData = async () => {
     try {
+      console.log("🔵 [DEBUG] Iniciando salvamento do evento...")
+      console.log("🔵 [DEBUG] Event ID:", eventId)
       setSaving(true)
       const supabase = createClient()
 
       // Se tem novo banner, fazer upload
       let bannerUrl = eventData.banner_url
       if (newBanner) {
+        console.log("🔵 [DEBUG] Novo banner detectado, fazendo upload...")
         try {
           bannerUrl = await uploadEventBanner(newBanner, eventId)
+          console.log("🔵 [DEBUG] Banner upload concluído:", bannerUrl)
           toast.success("Banner atualizado!")
         } catch (error) {
-          console.error("Erro ao fazer upload do banner:", error)
+          console.error("🔴 [DEBUG] Erro ao fazer upload do banner:", error)
           toast.error("Erro ao fazer upload do banner")
         }
       }
 
-      const updateData = {
+      console.log("🔵 [DEBUG] Construindo updateData...")
+      console.log("🔵 [DEBUG] eventData atual:", {
+        name: eventData.name,
+        category: eventData.category,
+        difficulty_level: eventData.difficulty_level,
+        major_access: eventData.major_access,
+        major_access_type: eventData.major_access_type,
+        race_type: eventData.race_type,
+      })
+
+      const updateData: any = {
         name: eventData.name,
         description: eventData.description,
         category: eventData.category,
+        language: eventData.language,
         event_date: eventData.event_date,
         start_time: eventData.start_time,
         end_time: eventData.end_time || null,
@@ -399,6 +424,27 @@ export default function EventSettingsPage() {
         updated_at: new Date().toISOString(),
       }
 
+      // Adicionar campos novos apenas se existirem (após migration)
+      if (eventData.difficulty_level) {
+        updateData.difficulty_level = eventData.difficulty_level
+        console.log("🔵 [DEBUG] Adicionado difficulty_level:", eventData.difficulty_level)
+      }
+      if (eventData.major_access !== undefined) {
+        updateData.major_access = eventData.major_access
+        console.log("🔵 [DEBUG] Adicionado major_access:", eventData.major_access)
+      }
+      if (eventData.major_access_type) {
+        updateData.major_access_type = eventData.major_access_type
+        console.log("🔵 [DEBUG] Adicionado major_access_type:", eventData.major_access_type)
+      }
+      if (eventData.race_type) {
+        updateData.race_type = eventData.race_type
+        console.log("🔵 [DEBUG] Adicionado race_type:", eventData.race_type)
+      }
+
+      console.log("🔵 [DEBUG] updateData completo:", JSON.stringify(updateData, null, 2))
+      console.log("🔵 [DEBUG] Chamando Supabase update...")
+
       const { data, error } = await supabase
         .from("events")
         .update(updateData)
@@ -406,17 +452,55 @@ export default function EventSettingsPage() {
         .select()
         .single()
 
-      if (error) throw error
+      console.log("🔵 [DEBUG] Resposta do Supabase:")
+      console.log("  - Data:", data ? "✅ Recebido" : "❌ Nulo")
+      console.log("  - Error:", error ? {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      } : "✅ Nenhum erro")
+
+      if (error) {
+        console.error("🔴 [DEBUG] Erro do Supabase:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          fullError: error,
+        })
+        throw error
+      }
+
+      console.log("✅ [DEBUG] Evento salvo com sucesso!")
+      console.log("✅ [DEBUG] Dados retornados:", data)
 
       setEventData(prev => ({ ...prev, banner_url: bannerUrl, status: data.status }))
       setNewBanner(null)
       
       toast.success(`Evento salvo! Status: ${data.status === 'active' ? 'Ativo' : data.status === 'draft' ? 'Rascunho' : data.status}`)
     } catch (error: any) {
-      console.error("Erro ao salvar evento:", error)
-      toast.error("Erro ao salvar evento")
+      console.error("🔴 [DEBUG] Erro capturado no catch:", {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+        stack: error?.stack,
+        fullError: error,
+      })
+      
+      // Detectar erro de tipo (migration não executada)
+      if (error?.message?.includes('invalid input syntax for type integer') || 
+          error?.message?.includes('column') && error?.message?.includes('does not exist')) {
+        const errorMsg = "Erro: Migration não executada. Execute a migration 038_add_event_difficulty_and_type_fields.sql no Supabase."
+        console.error("🔴 [DEBUG] ERRO DE MIGRATION:", errorMsg)
+        toast.error(errorMsg, { duration: 10000 })
+      } else {
+        toast.error(`Erro ao salvar evento: ${error?.message || "Erro desconhecido"}`)
+      }
     } finally {
       setSaving(false)
+      console.log("🔵 [DEBUG] Finalizando salvamento (setSaving false)")
     }
   }
 
@@ -953,6 +1037,37 @@ export default function EventSettingsPage() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="language">Idioma do Evento *</Label>
+                  <Select
+                    value={eventData.language}
+                    onValueChange={(value) => setEventData({ ...eventData, language: value as "pt" | "es" | "en" })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o idioma" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pt">
+                        <span className="flex items-center gap-2">
+                          <span>🇧🇷</span> <span>Português</span>
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="es">
+                        <span className="flex items-center gap-2">
+                          <span>🇦🇷</span> <span>Español</span>
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="en">
+                        <span className="flex items-center gap-2">
+                          <span>🇺🇸</span> <span>English</span>
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="space-y-2">
                       <Label htmlFor="status">Status</Label>
                   <Select
                     value={eventData.status}
@@ -970,6 +1085,100 @@ export default function EventSettingsPage() {
                   </Select>
                     </div>
                 </div>
+
+                {/* Dificuldade, Tipo de Prova e Acesso Major */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="difficulty_level">Dificuldade da Prova</Label>
+                    <Select
+                      value={eventData.difficulty_level}
+                      onValueChange={(value) => setEventData({ ...eventData, difficulty_level: value as any })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a dificuldade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Fácil">Fácil</SelectItem>
+                        <SelectItem value="Moderado">Moderado</SelectItem>
+                        <SelectItem value="Difícil">Difícil</SelectItem>
+                        <SelectItem value="Muito Difícil">Muito Difícil</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="race_type">Tipo de Prova</Label>
+                    <Select
+                      value={eventData.race_type}
+                      onValueChange={(value) => setEventData({ ...eventData, race_type: value as any })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="asfalto">Asfalto</SelectItem>
+                        <SelectItem value="trail">Trail</SelectItem>
+                        <SelectItem value="misto">Misto</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Acesso a Prova Major</Label>
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          id="major_access_sim"
+                          name="major_access"
+                          checked={eventData.major_access === true}
+                          onChange={() => setEventData({ ...eventData, major_access: true })}
+                          className="h-4 w-4 text-[#156634]"
+                        />
+                        <Label htmlFor="major_access_sim" className="font-normal cursor-pointer">Sim</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          id="major_access_nao"
+                          name="major_access"
+                          checked={eventData.major_access === false}
+                          onChange={() => setEventData({ ...eventData, major_access: false, major_access_type: "" })}
+                          className="h-4 w-4 text-[#156634]"
+                        />
+                        <Label htmlFor="major_access_nao" className="font-normal cursor-pointer">Não</Label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {eventData.major_access && (
+                  <div className="space-y-2">
+                    <Label htmlFor="major_access_type">Qual prova major? *</Label>
+                    <Select
+                      value={eventData.major_access_type}
+                      onValueChange={(value) => setEventData({ ...eventData, major_access_type: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a prova major" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Boston Marathon">Boston Marathon</SelectItem>
+                        <SelectItem value="New York City Marathon">New York City Marathon</SelectItem>
+                        <SelectItem value="Chicago Marathon">Chicago Marathon</SelectItem>
+                        <SelectItem value="Berlin Marathon">Berlin Marathon</SelectItem>
+                        <SelectItem value="London Marathon">London Marathon</SelectItem>
+                        <SelectItem value="Tokyo Marathon">Tokyo Marathon</SelectItem>
+                        <SelectItem value="Paris Marathon">Paris Marathon</SelectItem>
+                        <SelectItem value="Amsterdam Marathon">Amsterdam Marathon</SelectItem>
+                        <SelectItem value="Dubai Marathon">Dubai Marathon</SelectItem>
+                        <SelectItem value="São Paulo Marathon">São Paulo Marathon</SelectItem>
+                        <SelectItem value="Rio de Janeiro Marathon">Rio de Janeiro Marathon</SelectItem>
+                        <SelectItem value="Outra">Outra</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                   <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -1234,8 +1443,8 @@ export default function EventSettingsPage() {
                             <div className="flex items-center gap-1.5">
                               <Users className="h-4 w-4 text-[#156634]" />
                               <span>
-                                {batch.total_quantity === null || batch.total_quantity === undefined
-                                  ? "Ilimitado"
+                            {batch.total_quantity === null || batch.total_quantity === undefined
+                              ? "Ilimitado"
                                   : `${batch.total_quantity.toLocaleString('pt-BR')} ingressos`}
                               </span>
                             </div>
@@ -1244,8 +1453,8 @@ export default function EventSettingsPage() {
                               <span>{batch.tickets?.length || 0} {batch.tickets?.length === 1 ? 'categoria' : 'categorias'}</span>
                             </div>
                           </div>
-                        </div>
-                      </div>
+                  </div>
+                  </div>
                       <div className="flex items-center gap-2">
                         <Button 
                           variant="ghost" 
@@ -1272,9 +1481,9 @@ export default function EventSettingsPage() {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
-                      </div>
-                    </div>
-                  </CardHeader>
+                </div>
+              </div>
+            </CardHeader>
 
                   {expandedBatches[batch.id] && (
                     <CardContent className="space-y-8 pt-6">
@@ -1285,70 +1494,70 @@ export default function EventSettingsPage() {
                           <h3 className="text-lg font-semibold text-gray-900">Informações do Lote</h3>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                          <div className="space-y-2">
+                        <div className="space-y-2">
                             <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
                               Nome do Lote <span className="text-red-500">*</span>
                             </Label>
-                            <Input
-                              value={batch.name}
-                              onChange={(e) => updateBatch(batch.id, "name", e.target.value)}
+                          <Input
+                            value={batch.name}
+                            onChange={(e) => updateBatch(batch.id, "name", e.target.value)}
                               className="h-10"
                               placeholder="Ex: Lote Promocional"
-                            />
-                          </div>
-                          <div className="space-y-2">
+                          />
+                  </div>
+                        <div className="space-y-2">
                             <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
                               <Calendar className="h-4 w-4" />
                               Data de Início <span className="text-red-500">*</span>
                             </Label>
-                            <Input
-                              type="date"
-                              value={batch.start_date}
-                              onChange={(e) => updateBatch(batch.id, "start_date", e.target.value)}
+                          <Input
+                            type="date"
+                            value={batch.start_date}
+                            onChange={(e) => updateBatch(batch.id, "start_date", e.target.value)}
                               className="h-10"
-                            />
-                          </div>
-                          <div className="space-y-2">
+                  />
+                  </div>
+                    <div className="space-y-2">
                             <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
                               <Clock className="h-4 w-4" />
                               Hora de Início <span className="text-red-500">*</span>
                             </Label>
-                            <Input
-                              type="time"
-                              value={batch.start_time}
-                              onChange={(e) => updateBatch(batch.id, "start_time", e.target.value)}
+                          <Input
+                            type="time"
+                            value={batch.start_time}
+                            onChange={(e) => updateBatch(batch.id, "start_time", e.target.value)}
                               className="h-10"
-                            />
-                          </div>
-                          <div className="space-y-2">
+                  />
+                </div>
+                    <div className="space-y-2">
                             <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
                               <Users className="h-4 w-4" />
                               Quantidade Total
                             </Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={batch.total_quantity ?? ""}
-                              onChange={(e) => {
-                                const valor = e.target.value
-                                if (valor === "") {
-                                  updateBatch(batch.id, "total_quantity", null)
-                                } else {
-                                  const num = parseInt(valor)
-                                  if (!isNaN(num) && num >= 0) {
-                                    updateBatch(batch.id, "total_quantity", num)
-                                  }
+                          <Input
+                            type="number"
+                            min="0"
+                            value={batch.total_quantity ?? ""}
+                            onChange={(e) => {
+                              const valor = e.target.value
+                              if (valor === "") {
+                                updateBatch(batch.id, "total_quantity", null)
+                              } else {
+                                const num = parseInt(valor)
+                                if (!isNaN(num) && num >= 0) {
+                                  updateBatch(batch.id, "total_quantity", num)
                                 }
-                              }}
-                              placeholder="Deixe vazio para ilimitado"
+                              }
+                            }}
+                            placeholder="Deixe vazio para ilimitado"
                               className="h-10"
-                            />
+                        />
                             <p className="text-xs text-gray-500">
-                              Deixe vazio para ilimitado
-                            </p>
+                          Deixe vazio para ilimitado
+                        </p>
                           </div>
-                        </div>
                       </div>
+              </div>
 
                       <Separator className="my-6" />
 
@@ -1372,7 +1581,7 @@ export default function EventSettingsPage() {
                             <Plus className="mr-2 h-4 w-4" />
                             Adicionar Ingresso
                           </Button>
-                        </div>
+                      </div>
                         {batch.tickets && batch.tickets.length > 0 ? (
                           <div className="space-y-4">
                             {batch.tickets.map((ticket: any, ticketIndex: number) => (
@@ -1385,12 +1594,12 @@ export default function EventSettingsPage() {
                                         {ticketIndex + 1}
                                       </div>
                                       <div>
-                                        <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2">
                                           <h4 className="font-semibold text-gray-900 text-lg">{ticket.category || 'Nova Categoria'}</h4>
                                           {ticket.isNew && (
                                             <Badge variant="default" className="bg-blue-600 text-white text-xs">
                                               Novo
-                                            </Badge>
+                                      </Badge>
                                           )}
                                         </div>
                                         <p className="text-sm text-gray-500 mt-0.5">
@@ -1398,7 +1607,7 @@ export default function EventSettingsPage() {
                                           {' '}{ticket.quantity === null || ticket.quantity === undefined ? 'Ilimitado' : `${ticket.quantity} ingressos`}
                                         </p>
                                       </div>
-                                    </div>
+                      </div>
                                     <Button
                                       type="button"
                                       variant="ghost"
@@ -1408,45 +1617,45 @@ export default function EventSettingsPage() {
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
-                                  </div>
+                    </div>
 
                                   {/* Informações Básicas do Ingresso */}
                                   <div className="space-y-4">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                      <div className="space-y-2">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div className="space-y-2">
                                         <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
                                           Categoria <span className="text-red-500">*</span>
                                         </Label>
-                                        <Input
-                                          value={ticket.category}
-                                          onChange={(e) => updateTicket(batch.id, ticket.id, "category", e.target.value)}
-                                          className="h-10"
+                                      <Input
+                                        value={ticket.category}
+                                        onChange={(e) => updateTicket(batch.id, ticket.id, "category", e.target.value)}
+                                        className="h-10"
                                           placeholder="Ex: 5km, 10km, 21km"
-                                        />
-                                      </div>
-                                      <div className="space-y-2">
+                                      />
+                  </div>
+                                    <div className="space-y-2">
                                         <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
                                           <DollarSign className="h-4 w-4" />
                                           Preço (R$)
                                         </Label>
-                                        <Input
-                                          type="number"
-                                          step="0.01"
+                                      <Input
+                                        type="number"
+                                        step="0.01"
                                           min="0"
                                           value={ticket.price || ""}
-                                          onChange={(e) => updateTicket(batch.id, ticket.id, "price", parseFloat(e.target.value) || 0)}
-                                          className="h-10"
-                                          disabled={ticket.is_free}
-                                          placeholder="0.00"
-                                        />
-                                      </div>
-                                      <div className="space-y-2">
+                                        onChange={(e) => updateTicket(batch.id, ticket.id, "price", parseFloat(e.target.value) || 0)}
+                                        className="h-10"
+                                        disabled={ticket.is_free}
+                                        placeholder="0.00"
+                                      />
+              </div>
+                                    <div className="space-y-2">
                                         <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
                                           <Users className="h-4 w-4" />
                                           Quantidade
                                         </Label>
-                                        <Input
-                                          type="number"
+                                      <Input
+                                        type="number"
                                           min="0"
                                           value={ticket.quantity ?? ""}
                                           onChange={(e) => {
@@ -1460,25 +1669,25 @@ export default function EventSettingsPage() {
                                               }
                                             }
                                           }}
-                                          className="h-10"
+                                        className="h-10"
                                           placeholder="Deixe vazio para ilimitado"
-                                        />
+                                      />
                                         <p className="text-xs text-gray-500">Vazio = ilimitado</p>
-                                      </div>
+                  </div>
                                       <div className="space-y-2">
                                         <Label className="text-sm font-medium text-gray-700">Tipo</Label>
                                         <div className="flex items-center space-x-2 h-10 px-3 bg-gray-50 rounded-md border">
-                                          <Checkbox
-                                            id={`free-${ticket.id}`}
-                                            checked={ticket.is_free}
-                                            onCheckedChange={(checked) => updateTicket(batch.id, ticket.id, "is_free", checked)}
-                                          />
+                <Checkbox
+                                          id={`free-${ticket.id}`}
+                                          checked={ticket.is_free}
+                                          onCheckedChange={(checked) => updateTicket(batch.id, ticket.id, "is_free", checked)}
+                                        />
                                           <Label htmlFor={`free-${ticket.id}`} className="text-sm font-medium cursor-pointer">
-                                            Gratuito
-                                          </Label>
+                                          Gratuito
+                      </Label>
                                         </div>
-                                      </div>
-                                    </div>
+                    </div>
+                  </div>
                                   </div>
 
                                   <Separator className="my-5" />
@@ -1490,25 +1699,25 @@ export default function EventSettingsPage() {
                                         <Package className="h-5 w-5 text-[#156634]" />
                                         <h4 className="text-base font-semibold text-gray-900">Kit do Participante</h4>
                                       </div>
-                                      <div className="flex items-center space-x-2">
-                                        <Checkbox
-                                          id={`kit-${ticket.id}`}
-                                          checked={ticket.has_kit || false}
-                                          onCheckedChange={(checked) => {
-                                            updateTicket(batch.id, ticket.id, "has_kit", checked)
-                                            // Se desmarcar, limpa os dados do kit
-                                            if (!checked) {
-                                              updateTicket(batch.id, ticket.id, "kit_items", [])
-                                              updateTicket(batch.id, ticket.id, "shirt_sizes", [])
-                                              updateTicket(batch.id, ticket.id, "shirt_quantities", {})
-                                            }
-                                          }}
-                                        />
+                                    <div className="flex items-center space-x-2">
+                  <Checkbox
+                                        id={`kit-${ticket.id}`}
+                                        checked={ticket.has_kit || false}
+                                        onCheckedChange={(checked) => {
+                                          updateTicket(batch.id, ticket.id, "has_kit", checked)
+                                          // Se desmarcar, limpa os dados do kit
+                                          if (!checked) {
+                                            updateTicket(batch.id, ticket.id, "kit_items", [])
+                                            updateTicket(batch.id, ticket.id, "shirt_sizes", [])
+                                            updateTicket(batch.id, ticket.id, "shirt_quantities", {})
+                                          }
+                                        }}
+                                      />
                                         <Label htmlFor={`kit-${ticket.id}`} className="text-sm font-medium cursor-pointer">
                                           Este ingresso inclui kit
-                                        </Label>
+                                      </Label>
                                       </div>
-                                    </div>
+                </div>
 
                                     {ticket.has_kit && (
                                       <div className="space-y-5 pl-2 border-l-2 border-[#156634]/20">
@@ -1540,11 +1749,11 @@ export default function EventSettingsPage() {
                                                   className="text-sm font-normal cursor-pointer flex-1"
                                                 >
                                                   {item.label}
-                                                </Label>
-                                              </div>
+                      </Label>
+                    </div>
                                             ))}
-                                          </div>
-                                        </div>
+                  </div>
+                    </div>
 
                                         {/* Configuração de camiseta */}
                                         {(ticket.kit_items || []).includes("camiseta") && (
@@ -1559,7 +1768,7 @@ export default function EventSettingsPage() {
                                               <div className="flex flex-wrap gap-2 p-3 bg-white rounded-md border border-gray-200">
                                                 {TAMANHOS_CAMISETA.map((tamanho) => (
                                                   <div key={tamanho.value} className="flex items-center space-x-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-md border border-gray-200 transition-colors">
-                                                    <Checkbox
+                  <Checkbox
                                                       id={`tamanho-${batch.id}-${ticket.id}-${tamanho.value}`}
                                                       checked={(ticket.shirt_sizes || []).includes(tamanho.value)}
                                                       onCheckedChange={(checked) => {
@@ -1583,11 +1792,11 @@ export default function EventSettingsPage() {
                                                       className="text-sm font-medium cursor-pointer"
                                                     >
                                                       {tamanho.label}
-                                                    </Label>
-                                                  </div>
+                        </Label>
+                      </div>
                                                 ))}
                                               </div>
-                                            </div>
+                </div>
 
                                             {/* Quantidade por tamanho */}
                                             {(ticket.shirt_sizes || []).length > 0 && (
@@ -1603,7 +1812,7 @@ export default function EventSettingsPage() {
                                                         <Label htmlFor={`qtd-${tamanho}-${batch.id}-${ticket.id}`} className="text-xs font-medium text-gray-600">
                                                           Tamanho {tamanhoLabel}
                                                         </Label>
-                                                        <Input
+                    <Input
                                                           id={`qtd-${tamanho}-${batch.id}-${ticket.id}`}
                                                           type="number"
                                                           min="0"
@@ -1624,11 +1833,11 @@ export default function EventSettingsPage() {
                                                           }}
                                                           placeholder="Ilimitado"
                                                           className="w-full h-9"
-                                                        />
-                                                      </div>
+                        />
+                      </div>
                                                     )
                                                   })}
-                                                </div>
+                    </div>
                                                 {(ticket.shirt_sizes || []).length > 0 && (
                                                   <div className="flex items-center justify-between p-2 bg-blue-100 rounded-md border border-blue-300">
                                                     <span className="text-sm font-medium text-blue-900">Total de camisetas:</span>
@@ -1638,17 +1847,17 @@ export default function EventSettingsPage() {
                                                     </span>
                                                   </div>
                                                 )}
-                                              </div>
-                                            )}
-                                          </div>
+                  </div>
+                )}
+              </div>
                                         )}
-                                      </div>
+                  </div>
                                     )}
-                                  </div>
+                  </div>
                                 </CardContent>
                               </Card>
                             ))}
-                          </div>
+                </div>
                         ) : (
                           <div className="text-center py-8 border-2 border-dashed rounded-lg">
                             <p className="text-sm text-muted-foreground mb-4">
@@ -1965,13 +2174,13 @@ export default function EventSettingsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="google_tag_manager_id">Google Tag Manager ID (GTM-XXXXXXX)</Label>
-                    <Input
+                      <Input
                       id="google_tag_manager_id"
                       value={pixels.google_tag_manager_id}
                       onChange={(e) => setPixels({ ...pixels, google_tag_manager_id: e.target.value })}
                       placeholder="GTM-XXXXXXX"
-                    />
-                  </div>
+                      />
+                    </div>
                   <div className="space-y-2">
                     <Label htmlFor="facebook_pixel_id">Facebook Pixel ID (opcional)</Label>
                     <Input
@@ -1993,8 +2202,8 @@ export default function EventSettingsPage() {
                       </>
                     ) : (
                       <>
-                        <Save className="mr-2 h-4 w-4" />
-                        Salvar Pixels
+                    <Save className="mr-2 h-4 w-4" />
+                    Salvar Pixels
                       </>
                     )}
                   </Button>
@@ -2066,7 +2275,7 @@ export default function EventSettingsPage() {
                   <p className="text-sm text-gray-600 mt-1">
                     Gerencie cupons de desconto para este evento
                   </p>
-                </div>
+                    </div>
                 <Button 
                   className="bg-[#156634] hover:bg-[#1a7a3e] text-white"
                   onClick={() => {
@@ -2086,11 +2295,11 @@ export default function EventSettingsPage() {
                   <Plus className="mr-2 h-4 w-4" />
                   Criar Cupom
                 </Button>
-              </div>
+                    </div>
 
               {/* Formulário de adicionar/editar cupom */}
               {(showAddCoupon || editingCoupon) && (
-                <Card className="border-2 shadow-sm">
+              <Card className="border-2 shadow-sm">
                   <CardHeader>
                     <CardTitle>{editingCoupon ? "Editar Cupom" : "Adicionar Novo Cupom"}</CardTitle>
                     <CardDescription>
@@ -2349,20 +2558,20 @@ export default function EventSettingsPage() {
                 </CardHeader>
                 <CardContent>
                   {coupons.length === 0 ? (
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Tag className="h-8 w-8 text-gray-400" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum cupom criado</h3>
-                      <p className="text-sm text-gray-600 mb-6">Crie seu primeiro cupom de desconto para este evento</p>
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Tag className="h-8 w-8 text-gray-400" />
+                  </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum cupom criado</h3>
+                    <p className="text-sm text-gray-600 mb-6">Crie seu primeiro cupom de desconto para este evento</p>
                       <Button 
                         className="bg-[#156634] hover:bg-[#1a7a3e]"
                         onClick={() => setShowAddCoupon(true)}
                       >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Criar Primeiro Cupom
-                      </Button>
-                    </div>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Criar Primeiro Cupom
+                    </Button>
+              </div>
                   ) : (
                     <div className="space-y-3">
                       {coupons.map((coupon) => (
@@ -2412,15 +2621,15 @@ export default function EventSettingsPage() {
             {/* Tab: Afiliados */}
             <TabsContent value="afiliados" className="space-y-6">
               <div className="flex items-center justify-between mb-4">
-                <div>
+                  <div>
                   <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                     <UserPlus className="h-6 w-6 text-[#156634]" />
                     Afiliados
                   </h2>
                   <p className="text-sm text-gray-600 mt-1">
                     Cadastre afiliados para promover este evento
-                  </p>
-                </div>
+                    </p>
+                  </div>
                 <Button 
                   className="bg-[#156634] hover:bg-[#1a7a3e] text-white"
                   onClick={() => setShowAddAffiliate(true)}
@@ -2428,11 +2637,11 @@ export default function EventSettingsPage() {
                   <UserPlus className="mr-2 h-4 w-4" />
                   Cadastrar Afiliado
                 </Button>
-              </div>
+                </div>
 
               {/* Formulário de adicionar/editar afiliado */}
               {(showAddAffiliate || editingAffiliate) && (
-                <Card className="border-2 shadow-sm">
+              <Card className="border-2 shadow-sm">
                   <CardHeader>
                     <CardTitle>{editingAffiliate ? "Editar Afiliado" : "Adicionar Novo Afiliado"}</CardTitle>
                     <CardDescription>
@@ -2589,20 +2798,20 @@ export default function EventSettingsPage() {
                 </CardHeader>
                 <CardContent>
                   {affiliates.length === 0 ? (
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <UserPlus className="h-8 w-8 text-gray-400" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum afiliado cadastrado</h3>
-                      <p className="text-sm text-gray-600 mb-6">Cadastre afiliados para promover seu evento e aumentar as vendas</p>
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <UserPlus className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum afiliado cadastrado</h3>
+                    <p className="text-sm text-gray-600 mb-6">Cadastre afiliados para promover seu evento e aumentar as vendas</p>
                       <Button 
                         className="bg-[#156634] hover:bg-[#1a7a3e]"
                         onClick={() => setShowAddAffiliate(true)}
                       >
-                        <UserPlus className="mr-2 h-4 w-4" />
-                        Cadastrar Primeiro Afiliado
-                      </Button>
-                    </div>
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Cadastrar Primeiro Afiliado
+                    </Button>
+                  </div>
                   ) : (
                     <div className="space-y-3">
                       {affiliates.map((affiliate) => (

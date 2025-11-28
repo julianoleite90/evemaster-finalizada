@@ -19,6 +19,7 @@ export async function createEvent(eventData: {
   name: string
   description: string
   category: string
+  language?: "pt" | "es" | "en"
   event_date: string
   start_time: string
   end_time?: string
@@ -32,6 +33,10 @@ export async function createEvent(eventData: {
   distances?: string[]
   custom_distances?: string[]
   total_capacity?: number
+  difficulty_level?: "Fácil" | "Moderado" | "Difícil" | "Muito Difícil"
+  major_access?: boolean
+  major_access_type?: string
+  race_type?: "asfalto" | "trail" | "misto"
   lotes: Array<{
     name: string
     start_date: string
@@ -81,9 +86,7 @@ export async function createEvent(eventData: {
   }
   
   // 2. Criar o evento com slug único
-  const { data: event, error: eventError } = await supabase
-    .from("events")
-    .insert({
+  const insertData: any = {
       organizer_id: eventData.organizer_id,
       name: eventData.name,
       slug: finalSlug,
@@ -103,7 +106,28 @@ export async function createEvent(eventData: {
       custom_distances: eventData.custom_distances,
       total_capacity: eventData.total_capacity,
       status: "draft",
-    })
+    }
+
+    // Adicionar campos novos apenas se existirem (após migration)
+    if (eventData.language) {
+      insertData.language = eventData.language
+    }
+    if (eventData.difficulty_level) {
+      insertData.difficulty_level = eventData.difficulty_level
+    }
+    if (eventData.major_access !== undefined) {
+      insertData.major_access = eventData.major_access
+    }
+    if (eventData.major_access_type) {
+      insertData.major_access_type = eventData.major_access_type
+    }
+    if (eventData.race_type) {
+      insertData.race_type = eventData.race_type
+    }
+
+  const { data: event, error: eventError } = await supabase
+    .from("events")
+    .insert(insertData)
     .select()
     .single()
 
@@ -280,13 +304,13 @@ export async function getEventBySlug(slug: string) {
           .from("organizer_complete_view")
           .select("*")
           .eq("organizer_id", event.organizer_id)
-          .single()
-        
+            .single()
+          
         let organizer: any = null
         
         if (organizerData) {
           // Formatar dados para o formato esperado
-          organizer = {
+              organizer = {
             id: organizerData.organizer_id,
             company_name: organizerData.company_name,
             full_name: organizerData.user_full_name, // Nome do usuário como fallback

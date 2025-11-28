@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { getEventBySlug } from "@/lib/supabase/events"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2, Calendar, MapPin, Clock, Users, Share2, Heart, Minus, Plus, Trophy, Package, Building2, Mail, Phone, Globe, Route, Mountain, Activity, Facebook, Twitter, Linkedin, MessageCircle } from "lucide-react"
+import { Loader2, Calendar, MapPin, Clock, Users, Share2, Heart, Minus, Plus, Trophy, Package, Building2, Mail, Phone, Globe, Route, Mountain, Activity, Facebook, Twitter, Linkedin, MessageCircle, Gauge, Award, Footprints, Map } from "lucide-react"
 import dynamic from "next/dynamic"
 
 const GPXMapViewer = dynamic(() => import("@/components/event/GPXMapViewer"), { ssr: false })
@@ -191,6 +191,11 @@ export default function EventoLandingPage() {
         
         setEventData({ ...event })
         
+        // Usar idioma do evento como padrão, se disponível
+        if (event.language && (event.language === 'pt' || event.language === 'es' || event.language === 'en')) {
+          setLanguage(event.language)
+        }
+        
         // Selecionar primeiro lote ativo por padrão
         if (event.ticket_batches && event.ticket_batches.length > 0) {
           setSelectedBatch(event.ticket_batches[0])
@@ -228,12 +233,12 @@ export default function EventoLandingPage() {
             const currentOrganizer = fullOrganizer || event.organizer
             if (!currentOrganizer.company_email && !currentOrganizer.email && currentOrganizer.user_id) {
               const { data: user } = await supabase
-                .from("users")
-                .select("email")
+              .from("users")
+              .select("email")
                 .eq("id", currentOrganizer.user_id)
-                .single()
-              
-              // VALIDAÇÃO CRÍTICA: Não usar email errado
+              .single()
+            
+            // VALIDAÇÃO CRÍTICA: Não usar email errado
               if (user && user.email && user.email !== "julianodesouzaleite@gmail.com") {
                 setEventData((prev: any) => ({
                   ...prev,
@@ -346,7 +351,7 @@ export default function EventoLandingPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-16">
-          <div className="text-center">
+        <div className="text-center">
             <Loader2 className="h-8 w-8 animate-spin text-[#156634] mx-auto mb-4" />
             <p className="text-muted-foreground">Carregando evento...</p>
           </div>
@@ -409,12 +414,37 @@ export default function EventoLandingPage() {
                   <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
                     {eventData.name}
                   </h1>
-                  {eventData.category && (
-                    <Badge className="bg-[#156634] hover:bg-[#1a7a3e] text-white">
-                      <Trophy className="h-3 w-3 mr-1" />
-                      {eventData.category.charAt(0).toUpperCase() + eventData.category.slice(1)}
-                    </Badge>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {eventData.category && (
+                      <Badge className="bg-[#156634] hover:bg-[#1a7a3e] text-white">
+                        <Footprints className="h-3 w-3 mr-1" />
+                        {eventData.category.charAt(0).toUpperCase() + eventData.category.slice(1)}
+                      </Badge>
+                    )}
+                    {eventData.difficulty_level && (
+                      <Badge className="bg-[#156634] hover:bg-[#1a7a3e] text-white">
+                        <Gauge className="h-3 w-3 mr-1" />
+                        {eventData.difficulty_level}
+                      </Badge>
+                    )}
+                    {eventData.race_type && (
+                      <Badge className="bg-[#156634] hover:bg-[#1a7a3e] text-white">
+                        <Map className="h-3 w-3 mr-1" />
+                        {eventData.race_type === 'asfalto' 
+                          ? (language === 'pt' ? 'Asfalto' : language === 'en' ? 'Asphalt' : 'Asfalto')
+                          : eventData.race_type === 'trail'
+                          ? (language === 'pt' ? 'Trail' : language === 'en' ? 'Trail' : 'Trail')
+                          : (language === 'pt' ? 'Misto' : language === 'en' ? 'Mixed' : 'Mixto')
+                        }
+                      </Badge>
+                    )}
+                    {eventData.major_access && (
+                      <Badge className="bg-[#156634] hover:bg-[#1a7a3e] text-white">
+                        <Award className="h-3 w-3 mr-1" />
+                        {eventData.major_access_type || (language === 'pt' ? 'Prova Major' : language === 'en' ? 'Major Race' : 'Prueba Major')}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
 
                 {/* Informações Principais - Layout Melhorado */}
@@ -461,7 +491,7 @@ export default function EventoLandingPage() {
                     </div>
                   </div>
                 </div>
-              
+
                 <Separator className="my-8" />
 
                 {/* Descrição do Evento */}
@@ -483,57 +513,6 @@ export default function EventoLandingPage() {
                   )}
                   
                   {/* Informações do Ingresso Selecionado */}
-                  {selectedTicketId && selectedBatch && (() => {
-                    const selectedTicket = selectedBatch.tickets?.find((t: any) => t.id === selectedTicketId)
-                    if (!selectedTicket) return null
-                    
-                    return (
-                      <div className="mt-6 p-4 bg-[#156634]/5 border-l-4 border-[#156634] rounded-r-lg">
-                        <h3 className="text-lg font-bold text-gray-900 mb-3">
-                          {language === 'pt' ? 'Particularidades do Ingresso: ' : language === 'en' ? 'Ticket Details: ' : 'Detalles del Boleto: '}
-                          {selectedTicket.category}
-                        </h3>
-                        <div className="space-y-2 text-sm text-gray-700">
-                          {selectedTicket.has_kit && selectedTicket.kit_items && selectedTicket.kit_items.length > 0 && (
-                            <p>
-                              <span className="font-semibold text-gray-900">
-                                {language === 'pt' ? 'Kit Incluído: ' : language === 'en' ? 'Kit Included: ' : 'Kit Incluido: '}
-                              </span>
-                              {selectedTicket.kit_items.join(', ')}
-                            </p>
-                          )}
-                          {selectedTicket.shirt_sizes && selectedTicket.shirt_sizes.length > 0 && (
-                            <p>
-                              <span className="font-semibold text-gray-900">
-                                {language === 'pt' ? 'Tamanhos de Camiseta: ' : language === 'en' ? 'Shirt Sizes: ' : 'Tallas de Camiseta: '}
-                              </span>
-                              {selectedTicket.shirt_sizes.join(', ')}
-                            </p>
-                          )}
-                          {selectedTicket.gpx_file_url && (
-                            <p>
-                              <span className="font-semibold text-gray-900">
-                                {language === 'pt' ? 'Percurso: ' : language === 'en' ? 'Route: ' : 'Recorrido: '}
-                              </span>
-                              {language === 'pt' ? 'Disponível' : language === 'en' ? 'Available' : 'Disponible'}
-                            </p>
-                          )}
-                          {selectedTicket.is_free ? (
-                            <p className="font-semibold text-green-600">
-                              {language === 'pt' ? 'Ingresso Gratuito' : language === 'en' ? 'Free Ticket' : 'Entrada Gratuita'}
-                            </p>
-                          ) : (
-                            <p>
-                              <span className="font-semibold text-gray-900">
-                                {language === 'pt' ? 'Valor: ' : language === 'en' ? 'Price: ' : 'Precio: '}
-                              </span>
-                              R$ {selectedTicket.price.toFixed(2)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })()}
                 </div>
               </CardContent>
             </Card>
@@ -719,7 +698,7 @@ export default function EventoLandingPage() {
                                       {language === 'pt' ? 'Inclui: ' : language === 'en' ? 'Includes: ' : 'Incluye: '}
                                     </span>
                                     {ticket.kit_items.join(', ')}
-                                  </p>
+                                </p>
                                 )}
                 </div>
                               <div className="text-right">
@@ -846,25 +825,25 @@ export default function EventoLandingPage() {
               </div>
               
                       {/* CNPJ */}
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <Building2 className="h-5 w-5 text-[#156634]" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">CNPJ</p>
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <Building2 className="h-5 w-5 text-[#156634]" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">CNPJ</p>
                           <p className="text-sm text-gray-900 font-semibold">
                             {eventData.organizer.company_cnpj || eventData.organizer.cnpj || (language === 'pt' ? 'Não informado' : language === 'en' ? 'Not provided' : 'No proporcionado')}
-                          </p>
+                            </p>
                         </div>
-                      </div>
+              </div>
               
                       {/* Email */}
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <Mail className="h-5 w-5 text-[#156634]" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">{translations[language].email}</p>
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <Mail className="h-5 w-5 text-[#156634]" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">{translations[language].email}</p>
                           {eventData.organizer?.company_email || eventData.organizer?.email ? (
                             <a 
                               href={`mailto:${eventData.organizer.company_email || eventData.organizer.email}`}
@@ -877,16 +856,16 @@ export default function EventoLandingPage() {
                               {language === 'pt' ? 'Não informado' : language === 'en' ? 'Not provided' : 'No proporcionado'}
                             </p>
                           )}
-                        </div>
-                      </div>
+                          </div>
+                </div>
               
                       {/* Telefone */}
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <Phone className="h-5 w-5 text-[#156634]" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">{translations[language].phone}</p>
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <Phone className="h-5 w-5 text-[#156634]" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">{translations[language].phone}</p>
                           {eventData.organizer.company_phone ? (
                             <a 
                               href={`tel:${eventData.organizer.company_phone}`}
@@ -899,8 +878,8 @@ export default function EventoLandingPage() {
                               {language === 'pt' ? 'Não informado' : language === 'en' ? 'Not provided' : 'No proporcionado'}
                             </p>
                           )}
+                          </div>
                         </div>
-                      </div>
               
                       {/* Eventos realizados no último ano */}
                       <div className="flex items-start gap-3">
@@ -1069,9 +1048,9 @@ export default function EventoLandingPage() {
               {/* Coluna 1: Logo e Descrição */}
               <div className="col-span-2 md:col-span-1 space-y-3 flex flex-col items-center md:items-start">
                 <div>
-                  <Image
-                    src="/images/logo/logo.png"
-                    alt="EveMaster"
+              <Image
+                src="/images/logo/logo.png"
+                alt="EveMaster"
                     width={140}
                     height={40}
                     className="h-7 md:h-8 w-auto opacity-80"
@@ -1080,7 +1059,7 @@ export default function EventoLandingPage() {
                 <p className="text-xs text-gray-500 leading-relaxed max-w-xs text-center md:text-left">
                   Plataforma para gestão, compra e venda de ingressos para eventos esportivos.
                 </p>
-              </div>
+            </div>
 
               {/* Coluna 2: Formas de Pagamento */}
               <div className="col-span-2 md:col-span-1 space-y-3 flex flex-col items-center md:items-start">
@@ -1153,14 +1132,14 @@ export default function EventoLandingPage() {
                     href="/termos-de-uso" 
                     className="text-xs text-gray-500 hover:text-[#156634] transition-colors text-center md:text-left"
                   >
-                    {translations[language].footerTerms}
-                  </Link>
+                {translations[language].footerTerms}
+              </Link>
                   <Link 
                     href="/politica-de-privacidade" 
                     className="text-xs text-gray-500 hover:text-[#156634] transition-colors text-center md:text-left"
                   >
-                    {translations[language].footerPolicy}
-                  </Link>
+                {translations[language].footerPolicy}
+              </Link>
                 </div>
               </div>
 
@@ -1207,10 +1186,10 @@ export default function EventoLandingPage() {
             <div className="flex flex-col items-center justify-center gap-2 text-xs text-gray-400 text-center">
               <p>
                 © {new Date().getFullYear()} Evemaster. Todos os direitos reservados.
-              </p>
+                </p>
               <p>
                 Fulsale LTDA - CNPJ: 41.953.551/0001-57
-              </p>
+                </p>
             </div>
           </div>
         </div>

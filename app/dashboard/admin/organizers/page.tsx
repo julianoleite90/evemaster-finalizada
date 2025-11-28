@@ -168,17 +168,17 @@ export default function OrganizersPage() {
                     <Building2 className="h-5 w-5 text-muted-foreground" />
                     <h3 className="font-semibold">{org.company_name || org.user?.full_name}</h3>
                     <Badge variant={org.status === "approved" ? "default" : org.status === "pending" ? "secondary" : "destructive"}>
-                      {org.status === "approved" ? "Aprovado" : org.status === "pending" ? "Pendente" : "Rejeitado"}
-                    </Badge>
+                            {org.status === "approved" ? "Aprovado" : org.status === "pending" ? "Pendente" : "Rejeitado"}
+                          </Badge>
                     <Badge variant={org.is_active ? "default" : "secondary"}>
-                      {org.is_active ? "Ativo" : "Inativo"}
-                    </Badge>
-                  </div>
+                            {org.is_active ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </div>
                   <div className="text-sm text-muted-foreground space-y-1">
                     <div className="flex items-center gap-2">
                       <Mail className="h-3 w-3" />
                       {org.user?.email}
-                    </div>
+                      </div>
                     {org.company_cnpj && (
                       <div>CNPJ: {org.company_cnpj}</div>
                     )}
@@ -194,7 +194,7 @@ export default function OrganizersPage() {
                 <Button variant="outline" size="sm" onClick={() => handleEdit(org)}>
                   <Edit className="h-4 w-4 mr-2" />
                   Editar
-                </Button>
+                          </Button>
               </div>
             ))}
           </div>
@@ -203,15 +203,15 @@ export default function OrganizersPage() {
 
       {/* Dialog de Edição */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Editar Organizador</DialogTitle>
-            <DialogDescription>
+                        <DialogContent className="max-w-2xl">
+                          <DialogHeader>
+                            <DialogTitle>Editar Organizador</DialogTitle>
+                            <DialogDescription>
               Configure taxas, prazo de recebimento e IDs da Barte
-            </DialogDescription>
-          </DialogHeader>
+                            </DialogDescription>
+                          </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="barte_seller_id">ID Seller Barte</Label>
                 <Input
@@ -222,59 +222,59 @@ export default function OrganizersPage() {
                   placeholder="123"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="platform_fee">Taxa da Plataforma (%)</Label>
-                <Input
-                  id="platform_fee"
-                  type="number"
-                  step="0.01"
+                              <div className="space-y-2">
+                                <Label htmlFor="platform_fee">Taxa da Plataforma (%)</Label>
+                                <Input
+                                  id="platform_fee"
+                                  type="number"
+                                  step="0.01"
                   value={editData.platform_fee_percentage}
                   onChange={(e) => setEditData({ ...editData, platform_fee_percentage: e.target.value })}
                   placeholder="10.00"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="payment_term">Prazo de Recebimento (dias)</Label>
-                <Input
-                  id="payment_term"
-                  type="number"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="payment_term">Prazo de Recebimento (dias)</Label>
+                                <Input
+                                  id="payment_term"
+                                  type="number"
                   value={editData.payment_term_days}
                   onChange={(e) => setEditData({ ...editData, payment_term_days: e.target.value })}
                   placeholder="7"
-                />
-              </div>
-              <div className="space-y-2 flex items-center">
+                                />
+                              </div>
+                              <div className="space-y-2 flex items-center">
                 <input
                   type="checkbox"
-                  id="is_active"
+                                    id="is_active"
                   checked={editData.is_active}
                   onChange={(e) => setEditData({ ...editData, is_active: e.target.checked })}
                   className="mr-2"
-                />
+                                  />
                 <Label htmlFor="is_active" className="cursor-pointer">Organizador ativo</Label>
-              </div>
-            </div>
-            <div className="space-y-2">
+                              </div>
+                            </div>
+                            <div className="space-y-2">
               <Label htmlFor="admin_notes">Observações</Label>
-              <Textarea
-                id="admin_notes"
+                              <Textarea
+                                id="admin_notes"
                 value={editData.admin_notes}
                 onChange={(e) => setEditData({ ...editData, admin_notes: e.target.value })}
                 placeholder="Observações internas..."
                 rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
+                              />
+                            </div>
+                          </div>
+                          <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSave}>
-              Salvar Alterações
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                              Cancelar
+                            </Button>
+                            <Button onClick={handleSave}>
+                              Salvar Alterações
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
     </div>
   )
 }

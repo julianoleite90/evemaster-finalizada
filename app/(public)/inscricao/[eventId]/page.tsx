@@ -261,7 +261,11 @@ export default function CheckoutPage() {
         // Definir país do evento e idioma
         const pais = (event.country || "brasil").toLowerCase()
         setPaisEvento(pais)
-        if (pais === "argentina") {
+        
+        // Usar idioma do evento se disponível, senão usar país como fallback
+        if (event.language && (event.language === "pt" || event.language === "es" || event.language === "en")) {
+          setIdioma(event.language)
+        } else if (pais === "argentina") {
           setIdioma("es")
         } else if (pais !== "brasil") {
           setIdioma("en")
@@ -1426,30 +1430,26 @@ export default function CheckoutPage() {
       </div>
 
       {/* Rodapé Profissional */}
-      <footer className="bg-gray-50/50 border-t border-gray-100 mt-auto">
+      <footer className="bg-gray-50/50 border-t border-gray-100 mt-16">
         <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-8 md:pt-10 pb-6">
           <div className="max-w-7xl mx-auto">
             {/* Grid Principal - 2 colunas no mobile, 4 no desktop */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 lg:gap-12 mb-6 md:mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-6 lg:gap-8 mb-6 md:mb-8">
               {/* Coluna 1: Logo e Descrição */}
               <div className="col-span-2 md:col-span-1 space-y-3 flex flex-col items-center md:items-start">
                 <div>
-                  {/* Logo no mobile, texto no desktop */}
-                  <div className="md:hidden">
-                    <Image
-                      src="/images/logo/logo.png"
-                      alt="EveMaster"
-                      width={140}
-                      height={40}
-                      className="h-7 w-auto opacity-80"
-                    />
-                  </div>
-                  <h3 className="hidden md:block text-xs font-medium text-gray-600">EveMaster</h3>
+              <Image
+                src="/images/logo/logo.png"
+                alt="EveMaster"
+                    width={140}
+                    height={40}
+                    className="h-7 md:h-8 w-auto opacity-80"
+                  />
                 </div>
                 <p className="text-xs text-gray-500 leading-relaxed max-w-xs text-center md:text-left">
-                  Corrida, triatlon e ciclismo, e muito mais.
+                  Plataforma para gestão, compra e venda de ingressos para eventos esportivos.
                 </p>
-              </div>
+            </div>
 
               {/* Coluna 2: Formas de Pagamento */}
               <div className="col-span-2 md:col-span-1 space-y-3 flex flex-col items-center md:items-start">
@@ -1508,15 +1508,12 @@ export default function CheckoutPage() {
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1 text-center md:text-left">
-                  <span className="text-[#156634]">
-                    {idioma === "es" ? "Hasta 12 cuotas" : idioma === "en" ? "Up to 12 installments" : "Parcelamento em até 12x"}
-                  </span>{" "}
-                  {idioma === "es" ? "en tarjeta" : idioma === "en" ? "on card" : "no cartão"}
+                  <span className="text-[#156634]">Parcelamento em até 12x</span> no cartão
                 </p>
               </div>
 
               {/* Coluna 3: Links Legais */}
-              <div className="col-span-1 md:col-span-1 space-y-3 flex flex-col items-center md:items-start">
+              <div className="col-span-1 md:col-span-1 space-y-3 flex flex-col items-center md:items-start md:ml-[20%]">
                 <h3 className="text-xs font-medium text-gray-600">
                   Legal
                 </h3>
@@ -1526,13 +1523,13 @@ export default function CheckoutPage() {
                     className="text-xs text-gray-500 hover:text-[#156634] transition-colors text-center md:text-left"
                   >
                     {idioma === "es" ? "Términos de Uso" : idioma === "en" ? "Terms of Use" : "Termos de Uso"}
-                  </Link>
+              </Link>
                   <Link 
                     href="/politica-de-privacidade" 
                     className="text-xs text-gray-500 hover:text-[#156634] transition-colors text-center md:text-left"
                   >
                     {idioma === "es" ? "Política de Privacidad" : idioma === "en" ? "Privacy Policy" : "Política de Privacidade"}
-                  </Link>
+              </Link>
                 </div>
               </div>
 
@@ -1543,12 +1540,13 @@ export default function CheckoutPage() {
                 </h3>
                 <Select value={idioma} onValueChange={(val: "pt" | "es" | "en") => setIdioma(val)}>
                   <SelectTrigger className="w-full max-w-[140px] md:w-[140px] bg-white border-gray-200 text-gray-600 text-xs h-8 md:h-9">
-                    <SelectValue placeholder="" className="hidden" />
-                    <span className="flex items-center gap-1.5 md:gap-2">
-                      <span className="text-sm">{idioma === "pt" ? "🇧🇷" : idioma === "es" ? "🇦🇷" : "🇺🇸"}</span>
-                      <span className="text-xs hidden sm:inline">{idioma === "pt" ? "Português" : idioma === "es" ? "Español" : "English"}</span>
-                      <span className="text-xs sm:hidden">{idioma === "pt" ? "PT" : idioma === "es" ? "ES" : "EN"}</span>
-                    </span>
+                    <SelectValue asChild>
+                      <span className="flex items-center">
+                        <span className="text-sm">{idioma === "pt" ? "🇧🇷" : idioma === "es" ? "🇦🇷" : "🇺🇸"}</span>
+                        <span className="text-xs hidden sm:inline ml-[5px]">{idioma === "pt" ? "Português" : idioma === "es" ? "Español" : "English"}</span>
+                        <span className="text-xs sm:hidden ml-[5px]">{idioma === "pt" ? "PT" : idioma === "es" ? "ES" : "EN"}</span>
+                      </span>
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pt">
@@ -1575,15 +1573,13 @@ export default function CheckoutPage() {
             <Separator className="my-6 opacity-30" />
 
             {/* Rodapé Inferior: CNPJ e Copyright */}
-            <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-gray-400">
-              <div className="text-center md:text-left">
-                <p className="mb-0.5">
-                  © {new Date().getFullYear()} EveMaster. Todos os direitos reservados.
+            <div className="flex flex-col items-center justify-center gap-2 text-xs text-gray-400 text-center">
+              <p>
+                © {new Date().getFullYear()} Evemaster. Todos os direitos reservados.
                 </p>
-                <p className="text-gray-400">
-                  Fulsale LTDA - CNPJ: 41.953.551/0001-57
+              <p>
+                Fulsale LTDA - CNPJ: 41.953.551/0001-57
                 </p>
-              </div>
             </div>
           </div>
         </div>
