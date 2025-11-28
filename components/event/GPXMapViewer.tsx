@@ -9,6 +9,28 @@ const ElevationChart = dynamic(() => import("./ElevationChart"), {
   ssr: false,
 })
 
+// Hook para lazy loading quando componente entra na viewport
+function useIntersectionObserver(ref: React.RefObject<HTMLElement>, options: IntersectionObserverInit = {}) {
+  const [isIntersecting, setIsIntersecting] = useState(false)
+
+  useEffect(() => {
+    if (!ref.current) return
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setIsIntersecting(true)
+        observer.disconnect()
+      }
+    }, { threshold: 0.1, ...options })
+
+    observer.observe(ref.current)
+
+    return () => observer.disconnect()
+  }, [ref, options])
+
+  return isIntersecting
+}
+
 // Importar Leaflet apenas no cliente
 let L: any = null
 if (typeof window !== "undefined") {

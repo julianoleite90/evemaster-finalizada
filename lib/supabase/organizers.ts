@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import { getSupabaseClient } from "@/lib/supabase/client"
+import { createClient as createClientBrowser } from "@/lib/supabase/client"
 
 /**
  * Interface padronizada para dados completos do organizador
@@ -40,7 +40,7 @@ export interface OrganizerCompleteData {
  * @returns Dados completos do organizador ou null se não encontrado
  */
 export async function getOrganizerCompleteData(organizerId: string): Promise<OrganizerCompleteData | null> {
-  const supabase = await getSupabaseClient()
+  const supabase = createClientBrowser()
   
   const { data, error } = await supabase
     .from("organizer_complete_view")
