@@ -84,14 +84,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se affiliate_id é válido (se fornecido)
-    if (affiliate_id) {
-      const { data: affiliate } = await supabase
+    if (affiliate_id && affiliate_id !== "") {
+      const { data: affiliate, error: affiliateError } = await supabase
         .from('affiliates')
         .select('id')
         .eq('id', affiliate_id)
         .single()
 
-      if (!affiliate) {
+      if (affiliateError || !affiliate) {
         return NextResponse.json(
           { error: 'Afiliado não encontrado' },
           { status: 404 }

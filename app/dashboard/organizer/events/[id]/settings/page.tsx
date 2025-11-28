@@ -2264,25 +2264,32 @@ export default function EventSettingsPage() {
                               ? (editingCoupon.discount_percentage || editingCoupon.discount_amount || "")
                               : couponData.discount_value
 
+                            if (!discountValue || isNaN(parseFloat(discountValue))) {
+                              toast.error("Valor do desconto inválido")
+                              return
+                            }
+
+                            const requestBody = {
+                              event_id: eventId,
+                              code: couponData.code,
+                              discount_percentage: isPercentage ? parseFloat(discountValue) : null,
+                              discount_amount: !isPercentage ? parseFloat(discountValue) : null,
+                              affiliate_id: couponData.affiliate_id && couponData.affiliate_id !== "" ? couponData.affiliate_id : null,
+                              max_uses: couponData.max_uses && couponData.max_uses !== "" ? parseInt(couponData.max_uses) : null,
+                              expires_at: couponData.expires_at && couponData.expires_at !== "" ? couponData.expires_at : null,
+                              is_active: couponData.is_active !== false,
+                            }
+
                             const response = await fetch(editingCoupon ? `/api/events/coupon/${editingCoupon.id}` : "/api/events/coupon", {
                               method: editingCoupon ? "PUT" : "POST",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                event_id: eventId,
-                                code: couponData.code,
-                                discount_percentage: isPercentage ? parseFloat(discountValue) : null,
-                                discount_amount: !isPercentage ? parseFloat(discountValue) : null,
-                                affiliate_id: couponData.affiliate_id || null,
-                                max_uses: couponData.max_uses ? parseInt(couponData.max_uses) : null,
-                                expires_at: couponData.expires_at || null,
-                                is_active: couponData.is_active !== false,
-                              }),
+                              body: JSON.stringify(requestBody),
                             })
 
                             const data = await response.json()
 
                             if (!response.ok) {
-                              throw new Error(data.error || "Erro ao salvar cupom")
+                              throw new Error(data.error || data.details || "Erro ao salvar cupom")
                             }
 
                             toast.success(editingCoupon ? "Cupom atualizado com sucesso!" : "Cupom criado com sucesso!")
