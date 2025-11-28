@@ -222,13 +222,38 @@ export async function POST(request: NextRequest) {
       email: authUser.user.email
     })
 
+    // Buscar nome do organizador para o email
+    const { data: organizerData } = await supabase
+      .from("organizers")
+      .select("company_name")
+      .eq("id", organizer.id)
+      .single()
+
+    const organizadorNome = organizerData?.company_name || "Organização"
+
+    // Enviar email com credenciais (não bloqueia se falhar)
+    try {
+      const { enviarEmailCredenciaisUsuario } = await import("@/lib/email/resend")
+      await enviarEmailCredenciaisUsuario({
+        email,
+        nome: full_name,
+        senha: password, // Enviar senha em texto plano apenas no email
+        organizadorNome,
+      })
+      console.log("✅ [CREATE USER API] Email de credenciais enviado")
+    } catch (emailError) {
+      console.error("⚠️ [CREATE USER API] Erro ao enviar email (não crítico):", emailError)
+      // Não falha a criação se o email não for enviado
+    }
+
     return NextResponse.json({
       success: true,
       user: {
         id: authUser.user.id,
         email: authUser.user.email,
         full_name,
-      }
+      },
+      message: "Usuário criado com sucesso. Email com credenciais foi enviado."
     })
   } catch (error: any) {
     console.error("Erro ao criar usuário:", error)

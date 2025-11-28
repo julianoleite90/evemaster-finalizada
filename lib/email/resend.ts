@@ -490,6 +490,110 @@ export async function enviarEmailConviteAfiliado(dados: {
   }
 }
 
+// Função para enviar email com credenciais do usuário criado
+export async function enviarEmailCredenciaisUsuario(dados: {
+  email: string
+  nome: string
+  senha: string
+  organizadorNome: string
+}) {
+  console.log('📧 [Resend] Enviando email com credenciais para:', dados.email)
+  
+  if (!resendApiKey) {
+    console.error('❌ [Resend] RESEND_API_KEY não configurada')
+    return { success: false, error: 'RESEND_API_KEY não configurada' }
+  }
+
+  if (!resendClient) {
+    console.error('❌ [Resend] Cliente Resend não inicializado')
+    return { success: false, error: 'Cliente Resend não inicializado' }
+  }
+
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://evemaster.app'
+  const loginUrl = `${baseUrl}/login/organizer`
+
+  const emailHtml = gerarTemplateEmailCredenciaisUsuario(dados, loginUrl)
+
+  try {
+    const response = await resendClient.emails.send({
+      from: resendFromEmail,
+      to: dados.email,
+      subject: `Bem-vindo(a) ao ${dados.organizadorNome} - Suas credenciais de acesso`,
+      html: emailHtml,
+    })
+
+    if (response.error) {
+      console.error('❌ [Resend] Erro ao enviar email de credenciais:', response.error)
+      return { success: false, error: response.error.message || 'Erro ao enviar email' }
+    }
+
+    console.log('✅ [Resend] Email de credenciais enviado com sucesso:', response.data?.id)
+    return { success: true, messageId: response.data?.id }
+  } catch (error: any) {
+    console.error('❌ [Resend] Erro ao enviar email de credenciais:', error)
+    return { success: false, error: error.message || 'Erro ao enviar email' }
+  }
+}
+
+function gerarTemplateEmailCredenciaisUsuario(
+  dados: {
+    email: string
+    nome: string
+    senha: string
+    organizadorNome: string
+  },
+  loginUrl: string
+): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Bem-vindo(a) ao ${dados.organizadorNome}</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: linear-gradient(135deg, #156634 0%, #0d4a1f 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">Bem-vindo(a) ao ${dados.organizadorNome}!</h1>
+      </div>
+      
+      <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
+        <p style="font-size: 16px; margin-bottom: 20px;">Olá <strong>${dados.nome}</strong>,</p>
+        
+        <p style="font-size: 16px; margin-bottom: 20px;">
+          Sua conta foi criada com sucesso! Abaixo estão suas credenciais de acesso:
+        </p>
+        
+        <div style="background: white; padding: 20px; border-radius: 8px; border: 2px solid #156634; margin: 20px 0;">
+          <p style="margin: 10px 0;"><strong>Email:</strong> ${dados.email}</p>
+          <p style="margin: 10px 0;"><strong>Senha:</strong> <code style="background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-family: monospace;">${dados.senha}</code></p>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${loginUrl}" style="display: inline-block; background: #156634; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">
+            Acessar Dashboard
+          </a>
+        </div>
+        
+        <p style="font-size: 14px; color: #666; margin-top: 30px;">
+          <strong>Importante:</strong> Por segurança, recomendamos que você altere sua senha após o primeiro acesso.
+        </p>
+        
+        <p style="font-size: 14px; color: #666; margin-top: 20px;">
+          Se você não solicitou esta conta, por favor, ignore este email.
+        </p>
+      </div>
+      
+      <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+        <p style="font-size: 12px; color: #999;">
+          Este é um email automático, por favor não responda.
+        </p>
+      </div>
+    </body>
+    </html>
+  `
+}
+
 function gerarTemplateEmailConviteAfiliado(
   dados: {
     email: string

@@ -49,10 +49,20 @@ export default function OrganizerLoginPage() {
           status: error.status,
           name: error.name
         })
-        if (error.message.includes("Invalid login credentials")) {
-          toast.error("Email ou senha incorretos")
+        
+        // Mensagens de erro mais específicas
+        if (error.message.includes("Invalid login credentials") || error.message.includes("email") || error.message.includes("password")) {
+          console.error("❌ [LOGIN ORGANIZADOR] Credenciais inválidas. Verifique:")
+          console.error("  - Email está correto?")
+          console.error("  - Senha está correta?")
+          console.error("  - Email está confirmado no Supabase?")
+          toast.error("Email ou senha incorretos. Verifique suas credenciais ou redefina a senha.")
+        } else if (error.message.includes("Email not confirmed")) {
+          console.error("❌ [LOGIN ORGANIZADOR] Email não confirmado")
+          toast.error("Email não confirmado. Verifique sua caixa de entrada e confirme o email.")
         } else {
-          toast.error(error.message || "Erro ao fazer login")
+          console.error("❌ [LOGIN ORGANIZADOR] Erro desconhecido:", error)
+          toast.error(error.message || "Erro ao fazer login. Tente novamente.")
         }
         return
       }

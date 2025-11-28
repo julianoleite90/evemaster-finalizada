@@ -42,6 +42,13 @@ export default function OrganizerSettingsPage() {
   // Usuários da organização
   const [organizationUsers, setOrganizationUsers] = useState<any[]>([])
   const [showAddUserDialog, setShowAddUserDialog] = useState(false)
+  const [editingUser, setEditingUser] = useState<any | null>(null)
+  const [editUserPermissions, setEditUserPermissions] = useState({
+    can_view: true,
+    can_edit: false,
+    can_create: false,
+    can_delete: false,
+  })
   const [newUserEmail, setNewUserEmail] = useState("")
   const [newUserName, setNewUserName] = useState("")
   const [newUserPassword, setNewUserPassword] = useState("")
@@ -274,7 +281,27 @@ export default function OrganizerSettingsPage() {
         }
 
         userId = data.user.id
-        toast.success("Usuário criado com sucesso!")
+        
+        // Enviar email com credenciais (não bloqueia se falhar)
+        try {
+          const response = await fetch("/api/organizer/send-credentials", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: newUserEmail,
+              password: newUserPassword,
+              full_name: newUserName,
+            }),
+          })
+          if (response.ok) {
+            toast.success("Usuário criado e email enviado com sucesso!")
+          } else {
+            toast.success("Usuário criado com sucesso! (Email não foi enviado)")
+          }
+        } catch (emailError) {
+          console.error("Erro ao enviar email:", emailError)
+          toast.success("Usuário criado com sucesso! (Email não foi enviado)")
+        }
       } else {
         // Buscar usuário existente
         const { data: user } = await supabase
@@ -885,6 +912,22 @@ export default function OrganizerSettingsPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditingUser(orgUser)
+                                setEditUserPermissions({
+                                  can_view: orgUser.can_view || false,
+                                  can_edit: orgUser.can_edit || false,
+                                  can_create: orgUser.can_create || false,
+                                  can_delete: orgUser.can_delete || false,
+                                })
+                              }}
+                              title="Editar usuário"
+                            >
+                              <Edit className="h-4 w-4 text-blue-600" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
