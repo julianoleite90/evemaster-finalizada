@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import { getOrganizerAccess } from "@/lib/supabase/organizer-access"
 import { Loader2, DollarSign, TrendingUp, Wallet, ArrowDown, Filter, Plus } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -47,28 +48,27 @@ export default function OrganizerFinancialPage() {
         return
       }
 
-      // Buscar organizador
-      const { data: organizer } = await supabase
-        .from("organizers")
-        .select("id")
-        .eq("user_id", user.id)
-        .single()
-
-      if (!organizer) {
-        toast.error("Organizador não encontrado")
+      // Verificar acesso (organizador principal OU membro de organização)
+      const access = await getOrganizerAccess(supabase, user.id)
+      
+      if (!access) {
+        console.error("❌ [FINANCIAL] Usuário não tem acesso ao dashboard do organizador")
+        toast.error("Você não tem permissão para acessar este dashboard")
+        setLoading(false)
         return
       }
 
-      setOrganizerId(organizer.id)
+      const organizerId = access.organizerId
+      setOrganizerId(organizerId)
 
       // Garantir que existe saldo
-      await supabase.rpc("ensure_organizer_balance", { p_organizer_id: organizer.id })
+      await supabase.rpc("ensure_organizer_balance", { p_organizer_id: organizerId })
 
       // Buscar saldo
       const { data: balanceData } = await supabase
         .from("organizer_balances")
         .select("*")
-        .eq("organizer_id", organizer.id)
+        .eq("organizer_id", organizerId)
         .single()
 
       if (balanceData) {
@@ -83,7 +83,7 @@ export default function OrganizerFinancialPage() {
       const { data: eventsData } = await supabase
         .from("events")
         .select("id, name, event_date")
-        .eq("organizer_id", organizer.id)
+        .eq("organizer_id", organizerId)
         .order("event_date", { ascending: false })
 
       setEvents(eventsData || [])
@@ -96,7 +96,7 @@ export default function OrganizerFinancialPage() {
           event:events(id, name),
           payment:payments(id, amount)
         `)
-        .eq("organizer_id", organizer.id)
+        .eq("organizer_id", organizerId)
         .order("created_at", { ascending: false })
         .limit(50)
 
@@ -111,7 +111,7 @@ export default function OrganizerFinancialPage() {
       const { data: withdrawalsData } = await supabase
         .from("withdrawals")
         .select("*")
-        .eq("organizer_id", organizer.id)
+        .eq("organizer_id", organizerId)
         .order("requested_at", { ascending: false })
 
       setWithdrawals(withdrawalsData || [])

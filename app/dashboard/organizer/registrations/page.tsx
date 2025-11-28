@@ -18,6 +18,7 @@ import { useState, useEffect } from "react"
 import { format } from "date-fns"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import { getOrganizerAccess } from "@/lib/supabase/organizer-access"
 
 interface Registration {
   id: string
@@ -56,50 +57,24 @@ export default function RegistrationsPage() {
           return
         }
 
-        // Buscar organizador
-        let { data: organizer } = await supabase
-          .from("organizers")
-          .select("id")
-          .eq("user_id", user.id)
-          .maybeSingle()
-
-        // Se não encontrou, tentar criar automaticamente
-        if (!organizer) {
-          const { data: userData } = await supabase
-            .from("users")
-            .select("role, full_name")
-            .eq("id", user.id)
-            .maybeSingle()
-
-          const userRole = userData?.role || user.user_metadata?.role
-          if (userRole && (userRole.toUpperCase() === "ORGANIZADOR" || userRole.toUpperCase() === "ORGANIZER")) {
-            const companyName = userData?.full_name || user.user_metadata?.full_name || "Organizador"
-            const { data: newOrganizer } = await supabase
-              .from("organizers")
-              .insert({
-                user_id: user.id,
-                company_name: companyName,
-                legal_responsible: companyName,
-              })
-              .select("id")
-              .single()
-
-            if (newOrganizer) {
-              organizer = newOrganizer
-            }
-          }
-        }
-
-        if (!organizer) {
+        // Verificar acesso (organizador principal OU membro de organização)
+        const access = await getOrganizerAccess(supabase, user.id)
+        
+        if (!access) {
+          console.error("❌ [REGISTRATIONS] Usuário não tem acesso ao dashboard do organizador")
+          toast.error("Você não tem permissão para acessar este dashboard")
+          setRegistrations([])
           setLoading(false)
           return
         }
+
+        const organizerId = access.organizerId
 
         // Buscar eventos do organizador
         const { data: events } = await supabase
           .from("events")
           .select("id, name")
-          .eq("organizer_id", organizer.id)
+          .eq("organizer_id", organizerId)
 
         const eventIds = events?.map(e => e.id) || []
         const eventNames = events?.map(e => e.name) || []

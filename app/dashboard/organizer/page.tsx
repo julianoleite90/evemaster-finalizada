@@ -8,6 +8,7 @@ import { StatsCard } from "@/components/dashboard/stats-card"
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import { getOrganizerAccess } from "@/lib/supabase/organizer-access"
 
 export default function OrganizerDashboard() {
   const [loading, setLoading] = useState(true)
@@ -38,51 +39,24 @@ export default function OrganizerDashboard() {
           return
         }
 
-        // Buscar organizador
-        let { data: organizer } = await supabase
-          .from("organizers")
-          .select("id")
-          .eq("user_id", user.id)
-          .maybeSingle()
-
-        // Se não encontrou, tentar criar automaticamente
-        if (!organizer) {
-          const { data: userData } = await supabase
-            .from("users")
-            .select("role, full_name")
-            .eq("id", user.id)
-            .maybeSingle()
-
-          const userRole = userData?.role || user.user_metadata?.role
-          if (userRole && (userRole.toUpperCase() === "ORGANIZADOR" || userRole.toUpperCase() === "ORGANIZER")) {
-            const companyName = userData?.full_name || user.user_metadata?.full_name || "Organizador"
-            const { data: newOrganizer } = await supabase
-              .from("organizers")
-              .insert({
-                user_id: user.id,
-                company_name: companyName,
-                legal_responsible: companyName,
-              })
-              .select("id")
-              .single()
-
-            if (newOrganizer) {
-              organizer = newOrganizer
-            }
-          }
-        }
-
-        if (!organizer) {
-          // Se ainda não tem perfil, apenas mostrar dados vazios sem erro
+        // Verificar acesso (organizador principal OU membro de organização)
+        const access = await getOrganizerAccess(supabase, user.id)
+        
+        if (!access) {
+          console.error("❌ [DASHBOARD] Usuário não tem acesso ao dashboard do organizador")
+          toast.error("Você não tem permissão para acessar este dashboard")
           setLoading(false)
           return
         }
+
+        const organizerId = access.organizerId
+        console.log("✅ [DASHBOARD] Acesso autorizado. Organizer ID:", organizerId, "É principal:", access.isPrimary)
 
         // Buscar eventos do organizador
         const { data: events } = await supabase
           .from("events")
           .select("id")
-          .eq("organizer_id", organizer.id)
+          .eq("organizer_id", organizerId)
 
         const eventIds = events?.map(e => e.id) || []
 

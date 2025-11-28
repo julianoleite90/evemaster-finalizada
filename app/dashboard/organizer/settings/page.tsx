@@ -13,6 +13,7 @@ import { Building2, MapPin, FileText, Mail, Phone, User, CreditCard, Percent, Al
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
+import { getOrganizerAccess } from "@/lib/supabase/organizer-access"
 
 export default function OrganizerSettingsPage() {
   const [isEditingBank, setIsEditingBank] = useState(false)
@@ -72,19 +73,31 @@ export default function OrganizerSettingsPage() {
         return
       }
 
-      // Buscar organizador
-      const { data: organizer } = await supabase
-        .from("organizers")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle()
-
-      if (!organizer) {
-        toast.error("Organizador não encontrado")
+      // Verificar acesso (organizador principal OU membro de organização)
+      const access = await getOrganizerAccess(supabase, user.id)
+      
+      if (!access) {
+        console.error("❌ [SETTINGS] Usuário não tem acesso ao dashboard do organizador")
+        toast.error("Você não tem permissão para acessar este dashboard")
+        setLoading(false)
         return
       }
 
-      setOrganizerId(organizer.id)
+      const organizerId = access.organizerId
+      setOrganizerId(organizerId)
+
+      // Buscar dados completos do organizador
+      const { data: organizer } = await supabase
+        .from("organizers")
+        .select("*")
+        .eq("id", organizerId)
+        .single()
+
+      if (!organizer) {
+        toast.error("Organizador não encontrado")
+        setLoading(false)
+        return
+      }
 
       // Buscar dados do usuário
       const { data: userData } = await supabase
@@ -117,7 +130,7 @@ export default function OrganizerSettingsPage() {
       const { data: orgUsers, error: orgUsersError } = await supabase
         .from("organization_users")
         .select("*")
-        .eq("organizer_id", organizer.id)
+        .eq("organizer_id", organizerId)
         .order("created_at", { ascending: false })
 
       if (orgUsersError) {
