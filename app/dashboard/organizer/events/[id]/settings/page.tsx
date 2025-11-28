@@ -2184,11 +2184,14 @@ export default function EventSettingsPage() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">Nenhum afiliado</SelectItem>
-                            {acceptedAffiliates.map((aff) => (
-                              <SelectItem key={aff.affiliate?.id} value={aff.affiliate?.id || ""}>
-                                {aff.affiliate?.user?.full_name || aff.affiliate?.user?.email || "Afiliado"}
-                              </SelectItem>
-                            ))}
+                            {acceptedAffiliates.map((aff) => {
+                              if (!aff.affiliate?.id) return null
+                              return (
+                                <SelectItem key={aff.affiliate.id} value={aff.affiliate.id}>
+                                  {aff.affiliate.user?.full_name || aff.affiliate.user?.email || "Afiliado"}
+                                </SelectItem>
+                              )
+                            })}
                           </SelectContent>
                         </Select>
                       </div>
