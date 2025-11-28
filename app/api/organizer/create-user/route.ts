@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       user_metadata: {
         full_name,
         phone: phone?.replace(/\D/g, '') || null,
-        role: 'ATLETA',
+        role: 'ORGANIZADOR',
       }
     })
 
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
         email,
         full_name,
         phone: phone?.replace(/\D/g, '') || null,
-        role: 'ATLETA',
+        role: 'ORGANIZADOR', // Usuários criados por organizadores são organizadores
         is_active: true,
       })
 

@@ -628,44 +628,61 @@ export default function OrganizerSettingsPage() {
                         )}
                       </div>
 
-                      {/* Campos para novo usuário */}
-                      {userExists === false && (
-                        <>
-                          <div className="space-y-2">
-                            <Label htmlFor="name">Nome Completo *</Label>
-                            <Input
-                              id="name"
-                              type="text"
-                              value={newUserName}
-                              onChange={(e) => setNewUserName(e.target.value)}
-                              placeholder="Nome completo do usuário"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="password">Senha *</Label>
-                            <Input
-                              id="password"
-                              type="password"
-                              value={newUserPassword}
-                              onChange={(e) => setNewUserPassword(e.target.value)}
-                              placeholder="Senha do usuário"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Mínimo de 6 caracteres
-                            </p>
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="phone">Telefone (opcional)</Label>
-                            <Input
-                              id="phone"
-                              type="tel"
-                              value={newUserPhone}
-                              onChange={(e) => setNewUserPhone(e.target.value)}
-                              placeholder="(00) 00000-0000"
-                            />
-                          </div>
-                        </>
-                      )}
+                      {/* Campos para cadastro de novo usuário */}
+                      <div className="space-y-2">
+                        <Label htmlFor="name">
+                          Nome Completo {userExists === false && "*"}
+                        </Label>
+                        <Input
+                          id="name"
+                          type="text"
+                          value={newUserName}
+                          onChange={(e) => setNewUserName(e.target.value)}
+                          placeholder="Nome completo do usuário"
+                          disabled={userExists === true}
+                        />
+                        {userExists === true && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Nome não pode ser alterado para usuários existentes
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="password">
+                          Senha {userExists === false && "*"}
+                        </Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          value={newUserPassword}
+                          onChange={(e) => setNewUserPassword(e.target.value)}
+                          placeholder="Senha do usuário"
+                          disabled={userExists === true}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {userExists === false 
+                            ? "Mínimo de 6 caracteres (obrigatório para novo usuário)"
+                            : userExists === true
+                            ? "Usuário existente já possui senha cadastrada"
+                            : "Defina uma senha para criar novo usuário (mínimo 6 caracteres)"}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">Telefone (opcional)</Label>
+                        <Input
+                          id="phone"
+                          type="tel"
+                          value={newUserPhone}
+                          onChange={(e) => setNewUserPhone(e.target.value)}
+                          placeholder="(00) 00000-0000"
+                          disabled={userExists === true}
+                        />
+                        {userExists === true && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Telefone não pode ser alterado para usuários existentes
+                          </p>
+                        )}
+                      </div>
 
                       <div className="space-y-3">
                         <Label>Permissões</Label>

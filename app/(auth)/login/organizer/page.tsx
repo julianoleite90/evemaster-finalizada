@@ -47,14 +47,46 @@ export default function OrganizerLoginPage() {
         await new Promise(resolve => setTimeout(resolve, 1500))
 
         // Verificar se é organizador
-        const { data: organizer } = await supabase
+        let { data: organizer } = await supabase
           .from("organizers")
           .select("id")
           .eq("user_id", data.user.id)
           .maybeSingle()
 
+        // Se não encontrou, tentar criar automaticamente
         if (!organizer) {
-          toast.error("Esta conta não possui perfil de organizador")
+          const { data: userData } = await supabase
+            .from("users")
+            .select("role, full_name")
+            .eq("id", data.user.id)
+            .maybeSingle()
+
+          const userRole = userData?.role || data.user.user_metadata?.role
+          if (userRole && (userRole.toUpperCase() === "ORGANIZADOR" || userRole.toUpperCase() === "ORGANIZER")) {
+            const companyName = userData?.full_name || data.user.user_metadata?.full_name || "Organizador"
+            const { data: newOrganizer, error: createError } = await supabase
+              .from("organizers")
+              .insert({
+                user_id: data.user.id,
+                company_name: companyName,
+                legal_responsible: companyName,
+                status: "approved",
+                is_active: true,
+              })
+              .select("id")
+              .single()
+
+            if (newOrganizer && !createError) {
+              organizer = newOrganizer
+              toast.success("Perfil de organizador criado automaticamente!")
+            } else {
+              console.error("Erro ao criar perfil de organizador:", createError)
+            }
+          }
+        }
+
+        if (!organizer) {
+          toast.error("Esta conta não possui perfil de organizador. Entre em contato com o suporte.")
           await supabase.auth.signOut()
           return
         }
