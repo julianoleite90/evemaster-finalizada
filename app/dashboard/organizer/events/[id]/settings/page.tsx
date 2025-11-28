@@ -2304,7 +2304,7 @@ export default function EventSettingsPage() {
                               expires_at: "",
                               is_active: true,
                             })
-                            fetchCoupons()
+                            await fetchCoupons()
                           } catch (error: any) {
                             toast.error(error.message || "Erro ao salvar cupom")
                           }
