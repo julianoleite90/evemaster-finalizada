@@ -2169,12 +2169,13 @@ export default function EventSettingsPage() {
                       <div className="space-y-2">
                         <Label htmlFor="coupon-affiliate">Vincular a Afiliado (opcional)</Label>
                         <Select
-                          value={editingCoupon?.affiliate_id || newCoupon.affiliate_id}
+                          value={editingCoupon?.affiliate_id || newCoupon.affiliate_id || "none"}
                           onValueChange={(value) => {
+                            const finalValue = value === "none" ? null : value
                             if (editingCoupon) {
-                              setEditingCoupon({ ...editingCoupon, affiliate_id: value || null })
+                              setEditingCoupon({ ...editingCoupon, affiliate_id: finalValue })
                             } else {
-                              setNewCoupon({ ...newCoupon, affiliate_id: value })
+                              setNewCoupon({ ...newCoupon, affiliate_id: finalValue || "" })
                             }
                           }}
                         >
@@ -2182,9 +2183,9 @@ export default function EventSettingsPage() {
                             <SelectValue placeholder="Nenhum afiliado" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Nenhum afiliado</SelectItem>
+                            <SelectItem value="none">Nenhum afiliado</SelectItem>
                             {acceptedAffiliates.map((aff) => (
-                              <SelectItem key={aff.affiliate?.id} value={aff.affiliate?.id}>
+                              <SelectItem key={aff.affiliate?.id} value={aff.affiliate?.id || ""}>
                                 {aff.affiliate?.user?.full_name || aff.affiliate?.user?.email || "Afiliado"}
                               </SelectItem>
                             ))}
@@ -2274,7 +2275,7 @@ export default function EventSettingsPage() {
                               code: couponData.code,
                               discount_percentage: isPercentage ? parseFloat(discountValue) : null,
                               discount_amount: !isPercentage ? parseFloat(discountValue) : null,
-                              affiliate_id: couponData.affiliate_id && couponData.affiliate_id !== "" ? couponData.affiliate_id : null,
+                                affiliate_id: couponData.affiliate_id && couponData.affiliate_id !== "" && couponData.affiliate_id !== "none" ? couponData.affiliate_id : null,
                               max_uses: couponData.max_uses && couponData.max_uses !== "" ? parseInt(couponData.max_uses) : null,
                               expires_at: couponData.expires_at && couponData.expires_at !== "" ? couponData.expires_at : null,
                               is_active: couponData.is_active !== false,
