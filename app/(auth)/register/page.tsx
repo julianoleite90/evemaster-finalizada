@@ -18,7 +18,7 @@ import {
   CheckCircle2,
   Search,
 } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { buscarCNPJ } from "@/lib/api/receita-federal"
 import { createClient } from "@/lib/supabase/client"
@@ -27,10 +27,46 @@ import Link from "next/link"
 
 export default function RegisterPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const affiliateToken = searchParams.get("affiliate_token")
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [loadingCNPJ, setLoadingCNPJ] = useState(false)
+  const [inviteData, setInviteData] = useState<any>(null)
   const cnpjSearchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Buscar dados do convite se houver token
+  useEffect(() => {
+    const fetchInvite = async () => {
+      if (!affiliateToken) return
+
+      try {
+        const supabase = createClient()
+        const { data: invite } = await supabase
+          .from("event_affiliate_invites")
+          .select(`
+            *,
+            event:events(
+              id,
+              name
+            )
+          `)
+          .eq("token", affiliateToken)
+          .eq("status", "pending")
+          .single()
+
+        if (invite) {
+          setInviteData(invite)
+          // Forçar tipo de cadastro para afiliado
+          setFormData(prev => ({ ...prev, tipoCadastro: "afiliado" }))
+        }
+      } catch (error) {
+        console.error("Erro ao buscar convite:", error)
+      }
+    }
+
+    fetchInvite()
+  }, [affiliateToken])
 
   const [formData, setFormData] = useState({
     // Step 1: Dados Básicos
@@ -388,6 +424,89 @@ export default function RegisterPage() {
         }
       }
 
+      // 6. Se houver affiliate_token, aceitar o convite automaticamente
+      if (affiliateToken) {
+        try {
+          // Buscar convite pelo token
+          const { data: invite, error: inviteError } = await supabase
+            .from("event_affiliate_invites")
+            .select("*")
+            .eq("token", affiliateToken)
+            .eq("email", formData.email.toLowerCase())
+            .eq("status", "pending")
+            .single()
+
+          if (!inviteError && invite) {
+            // Verificar se expirou
+            if (new Date(invite.expires_at) >= new Date()) {
+              // Verificar se o usuário já tem perfil de afiliado
+              let affiliateId: string | null = null
+              const { data: existingAffiliate } = await supabase
+                .from("affiliates")
+                .select("id")
+                .eq("user_id", authData.user.id)
+                .maybeSingle()
+
+              if (existingAffiliate) {
+                affiliateId = existingAffiliate.id
+              } else {
+                // Criar perfil de afiliado se não existir
+                const referralCode = `AFF-${authData.user.id.substring(0, 8).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`
+                const { data: newAffiliate, error: affiliateError } = await supabase
+                  .from("affiliates")
+                  .insert({
+                    user_id: authData.user.id,
+                    referral_code: referralCode,
+                  })
+                  .select("id")
+                  .single()
+
+                if (!affiliateError && newAffiliate) {
+                  affiliateId = newAffiliate.id
+                  
+                  // Atualizar role do usuário
+                  await supabase
+                    .from("users")
+                    .update({ role: "AFILIADO" })
+                    .eq("id", authData.user.id)
+                }
+              }
+
+              if (affiliateId) {
+                // Atualizar convite
+                await supabase
+                  .from("event_affiliate_invites")
+                  .update({
+                    status: "accepted",
+                    affiliate_id: affiliateId,
+                    accepted_at: new Date().toISOString(),
+                  })
+                  .eq("id", invite.id)
+
+                // Criar comissão do evento
+                await supabase
+                  .from("event_affiliate_commissions")
+                  .insert({
+                    event_id: invite.event_id,
+                    affiliate_id: affiliateId,
+                    commission_type: invite.commission_type,
+                    commission_value: invite.commission_value,
+                  })
+                  .select()
+                  .single()
+
+                toast.success("Convite de afiliação aceito automaticamente!")
+              }
+            } else {
+              toast.error("Este convite expirou")
+            }
+          }
+        } catch (affiliateInviteError) {
+          console.error("Erro ao aceitar convite de afiliado:", affiliateInviteError)
+          // Não bloquear o cadastro se houver erro ao aceitar convite
+        }
+      }
+
       toast.success("Cadastro realizado com sucesso! Verifique seu email para confirmar a conta.")
       router.push("/login")
     } catch (error: any) {
@@ -570,12 +689,18 @@ export default function RegisterPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
                   <div className="space-y-3">
                     <Label className="text-sm font-medium">Tipo de Cadastro *</Label>
+                    {inviteData && (
+                      <p className="text-xs text-gray-500 mb-2">
+                        Você está se cadastrando como afiliado devido ao convite recebido.
+                      </p>
+                    )}
                     <RadioGroup
                       value={formData.tipoCadastro}
                       onValueChange={(value) =>
                         setFormData({ ...formData, tipoCadastro: value as "organizador" | "afiliado" })
                       }
                       className="space-y-3"
+                      disabled={!!inviteData}
                     >
                       <div className="flex items-center space-x-3 p-3 border-2 rounded-lg hover:border-[#156634] transition-colors cursor-pointer">
                         <RadioGroupItem value="organizador" id="organizador" />

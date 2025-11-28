@@ -441,5 +441,178 @@ export async function gerarPDFInscricao(dados: EmailInscricao): Promise<Buffer> 
   })
 }
 
+// Função para enviar email de convite de afiliado
+export async function enviarEmailConviteAfiliado(dados: {
+  email: string
+  nomeEvento: string
+  dataEvento?: string
+  comissao: string
+  tipoComissao: 'percentage' | 'fixed'
+  token: string
+  usuarioExiste: boolean
+}) {
+  console.log('📧 [Resend] Enviando email de convite de afiliado para:', dados.email)
+  
+  if (!resendApiKey) {
+    console.error('❌ [Resend] RESEND_API_KEY não configurada')
+    return { success: false, error: 'RESEND_API_KEY não configurada' }
+  }
 
+  if (!resendClient) {
+    console.error('❌ [Resend] Cliente Resend não inicializado')
+    return { success: false, error: 'Cliente Resend não inicializado' }
+  }
 
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://evemaster.app'
+  const acceptUrl = `${baseUrl}/affiliate/accept?token=${dados.token}`
+  const registerUrl = `${baseUrl}/register?affiliate_token=${dados.token}`
+
+  const emailHtml = gerarTemplateEmailConviteAfiliado(dados, acceptUrl, registerUrl)
+
+  try {
+    const response = await resendClient.emails.send({
+      from: resendFromEmail,
+      to: dados.email,
+      subject: `Convite para ser Afiliado - ${dados.nomeEvento}`,
+      html: emailHtml,
+    })
+
+    if (response.error) {
+      console.error('❌ [Resend] Erro ao enviar email de convite:', response.error)
+      return { success: false, error: response.error.message || 'Erro ao enviar email' }
+    }
+
+    console.log('✅ [Resend] Email de convite enviado com sucesso:', response.data?.id)
+    return { success: true, messageId: response.data?.id }
+  } catch (error: any) {
+    console.error('❌ [Resend] Erro ao enviar email de convite:', error)
+    return { success: false, error: error.message || 'Erro ao enviar email' }
+  }
+}
+
+function gerarTemplateEmailConviteAfiliado(
+  dados: {
+    email: string
+    nomeEvento: string
+    dataEvento?: string
+    comissao: string
+    tipoComissao: 'percentage' | 'fixed'
+    usuarioExiste: boolean
+  },
+  acceptUrl: string,
+  registerUrl: string
+): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Convite de Afiliação - Evemaster</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #156634 0%, #1a7a3e 100%); padding: 40px 30px; text-align: center;">
+              <div style="margin-bottom: 20px;">
+                <img src="https://evemaster.app/images/logo/logo.png" alt="Evemaster" height="50" style="background: white; padding: 10px; border-radius: 8px; display: inline-block;">
+              </div>
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">
+                Convite de Afiliação
+              </h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 16px;">
+                Você foi convidado para ser afiliado
+              </p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+                Olá,
+              </p>
+              
+              <p style="color: #666666; font-size: 15px; line-height: 1.6; margin: 0 0 20px;">
+                Você foi convidado para ser afiliado do evento <strong>${dados.nomeEvento}</strong>${dados.dataEvento ? ` que acontecerá em ${dados.dataEvento}` : ''}.
+              </p>
+
+              <!-- Detalhes do Convite -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; border-radius: 8px; margin-bottom: 30px; border-left: 4px solid #156634;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <p style="color: #333333; margin: 0 0 10px; font-size: 14px; font-weight: 600;">
+                      Detalhes da Comissão:
+                    </p>
+                    <p style="color: #156634; margin: 0; font-size: 24px; font-weight: bold;">
+                      ${dados.comissao}
+                    </p>
+                    <p style="color: #666666; margin: 5px 0 0; font-size: 13px;">
+                      ${dados.tipoComissao === 'percentage' ? 'Por cada venda realizada através do seu link' : 'Valor fixo por cada venda realizada'}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              ${!dados.usuarioExiste ? `
+              <!-- Aviso para criar conta -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; margin-bottom: 30px;">
+                <tr>
+                  <td style="padding: 15px;">
+                    <p style="color: #856404; margin: 0; font-size: 14px; line-height: 1.6;">
+                      <strong>📝 Primeiro passo:</strong> Você precisa criar uma conta na Evemaster para aceitar este convite. Clique no botão abaixo para criar sua conta.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              ` : ''}
+
+              <!-- CTA Button -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="padding: 10px 0 30px;">
+                    ${!dados.usuarioExiste ? `
+                    <a href="${registerUrl}" 
+                       style="display: inline-block; background-color: #156634; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-size: 16px; font-weight: 600; margin-bottom: 10px;">
+                      Criar Conta e Aceitar Convite
+                    </a>
+                    ` : `
+                    <a href="${acceptUrl}" 
+                       style="display: inline-block; background-color: #156634; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-size: 16px; font-weight: 600;">
+                      Aceitar Convite
+                    </a>
+                    `}
+                  </td>
+                </tr>
+              </table>
+
+              <p style="color: #999999; font-size: 13px; line-height: 1.6; margin: 0; text-align: center;">
+                Este convite expira em 30 dias. Se você não deseja ser afiliado, pode ignorar este email.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f9fa; padding: 25px 30px; text-align: center; border-top: 1px solid #eeeeee;">
+              <p style="color: #999999; font-size: 12px; margin: 0 0 10px;">
+                © ${new Date().getFullYear()} Evemaster. Todos os direitos reservados.
+              </p>
+              <p style="color: #999999; font-size: 12px; margin: 0;">
+                Este é um email automático, por favor não responda.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `
+}

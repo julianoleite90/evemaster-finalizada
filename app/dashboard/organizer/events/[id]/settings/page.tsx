@@ -123,11 +123,66 @@ export default function EventSettingsPage() {
   // Lotes e ingressos
   const [batches, setBatches] = useState<any[]>([])
 
+  // Pixels de rastreamento
+  const [pixels, setPixels] = useState({
+    google_analytics_id: "",
+    google_tag_manager_id: "",
+    facebook_pixel_id: "",
+  })
+
+  // Afiliados
+  const [affiliates, setAffiliates] = useState<any[]>([])
+  const [showAddAffiliate, setShowAddAffiliate] = useState(false)
+  const [newAffiliate, setNewAffiliate] = useState({
+    email: "",
+    commission_type: "percentage" as "percentage" | "fixed",
+    commission_value: "",
+  })
+  const [organizerId, setOrganizerId] = useState<string | null>(null)
+
+  // Buscar afiliados do evento
+  const fetchAffiliates = async () => {
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Buscar organizador
+      const { data: organizer } = await supabase
+        .from("organizers")
+        .select("id")
+        .eq("user_id", user.id)
+        .single()
+
+      if (!organizer) return
+
+      setOrganizerId(organizer.id)
+
+      // Buscar convites de afiliados
+      const { data: invites, error } = await supabase
+        .from("event_affiliate_invites")
+        .select("*")
+        .eq("event_id", eventId)
+        .eq("organizer_id", organizer.id)
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        console.error("Erro ao buscar afiliados:", error)
+        return
+      }
+
+      setAffiliates(invites || [])
+    } catch (error) {
+      console.error("Erro ao buscar afiliados:", error)
+    }
+  }
+
   // Carregar dados do evento
   useEffect(() => {
     const fetchEvent = async () => {
       try {
         setLoading(true)
+        const supabase = createClient()
         const event = await getEventById(eventId)
         if (event) {
           setEventData({
@@ -157,6 +212,31 @@ export default function EventSettingsPage() {
               setExpandedBatches({ [event.ticket_batches[0].id]: true })
             }
           }
+
+          // Carregar configurações do evento (incluindo pixels)
+          if (event.event_settings) {
+            const settings = event.event_settings[0] || {}
+            setPixels({
+              google_analytics_id: settings.analytics_google_analytics_id || "",
+              google_tag_manager_id: settings.analytics_gtm_container_id || "",
+              facebook_pixel_id: settings.analytics_facebook_pixel_id || "",
+            })
+          } else {
+            // Se não tem settings, buscar separadamente
+            const { data: settingsData } = await supabase
+              .from("event_settings")
+              .select("*")
+              .eq("event_id", eventId)
+              .maybeSingle()
+            
+            if (settingsData) {
+              setPixels({
+                google_analytics_id: settingsData.analytics_google_analytics_id || "",
+                google_tag_manager_id: settingsData.analytics_gtm_container_id || "",
+                facebook_pixel_id: settingsData.analytics_facebook_pixel_id || "",
+              })
+            }
+          }
         }
       } catch (error) {
         console.error("Erro ao carregar evento:", error)
@@ -168,8 +248,16 @@ export default function EventSettingsPage() {
 
     if (eventId) {
       fetchEvent()
+      fetchAffiliates()
     }
   }, [eventId])
+
+  // Buscar afiliados quando a tab de afiliados for selecionada
+  useEffect(() => {
+    if (subMenu === "afiliados" && eventId) {
+      fetchAffiliates()
+    }
+  }, [subMenu, eventId])
 
   const toggleBatch = (batchId: string) => {
     setExpandedBatches(prev => ({
@@ -464,6 +552,57 @@ export default function EventSettingsPage() {
     setExpandedBatches(prev => ({ ...prev, [newBatch.id]: true }))
   }
 
+  const handleSavePixels = async () => {
+    try {
+      setSaving(true)
+      const supabase = createClient()
+
+      // Verificar se já existe event_settings para este evento
+      const { data: existingSettings } = await supabase
+        .from("event_settings")
+        .select("id")
+        .eq("event_id", eventId)
+        .maybeSingle()
+
+      const pixelsData = {
+        analytics_google_analytics_id: pixels.google_analytics_id || null,
+        analytics_google_analytics_enabled: !!pixels.google_analytics_id,
+        analytics_gtm_container_id: pixels.google_tag_manager_id || null,
+        analytics_gtm_enabled: !!pixels.google_tag_manager_id,
+        analytics_facebook_pixel_id: pixels.facebook_pixel_id || null,
+        analytics_facebook_pixel_enabled: !!pixels.facebook_pixel_id,
+        updated_at: new Date().toISOString(),
+      }
+
+      if (existingSettings) {
+        // Atualizar settings existente
+        const { error } = await supabase
+          .from("event_settings")
+          .update(pixelsData)
+          .eq("event_id", eventId)
+
+        if (error) throw error
+      } else {
+        // Criar novo settings
+        const { error } = await supabase
+          .from("event_settings")
+          .insert({
+            event_id: eventId,
+            ...pixelsData,
+          })
+
+        if (error) throw error
+      }
+
+      toast.success("Pixels salvos com sucesso!")
+    } catch (error: any) {
+      console.error("Erro ao salvar pixels:", error)
+      toast.error("Erro ao salvar pixels")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const removeBatch = (batchId: string) => {
     setBatches(prev => prev.filter((batch: any) => batch.id !== batchId))
     setExpandedBatches(prev => {
@@ -621,7 +760,7 @@ export default function EventSettingsPage() {
       {mainMenu === "edicao" && (
         <div className="mb-6">
           <Tabs value={subMenu} onValueChange={setSubMenu} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-2 bg-gray-100 p-1 rounded-lg">
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 gap-2 bg-gray-100 p-1 rounded-lg">
               <TabsTrigger 
                 value="basico" 
                 className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
@@ -650,6 +789,13 @@ export default function EventSettingsPage() {
               >
                 <CreditCard className="h-4 w-4" />
                 <span className="hidden sm:inline">Pagamento</span>
+          </TabsTrigger>
+              <TabsTrigger 
+                value="afiliados" 
+                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span className="hidden sm:inline">Afiliados</span>
           </TabsTrigger>
               <TabsTrigger 
                 value="outros" 
@@ -1710,26 +1856,48 @@ export default function EventSettingsPage() {
                     <Label htmlFor="google_analytics_id">Google Analytics ID (G-XXXXXXXXXX)</Label>
                     <Input
                       id="google_analytics_id"
+                      value={pixels.google_analytics_id}
+                      onChange={(e) => setPixels({ ...pixels, google_analytics_id: e.target.value })}
                       placeholder="G-XXXXXXXXXX"
                     />
+                    <p className="text-xs text-gray-500">
+                      Os pixels serão executados na landing page e na página de checkout
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="google_tag_manager_id">Google Tag Manager ID (GTM-XXXXXXX)</Label>
-                      <Input
+                    <Input
                       id="google_tag_manager_id"
+                      value={pixels.google_tag_manager_id}
+                      onChange={(e) => setPixels({ ...pixels, google_tag_manager_id: e.target.value })}
                       placeholder="GTM-XXXXXXX"
-                      />
-                    </div>
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="facebook_pixel_id">Facebook Pixel ID (opcional)</Label>
                     <Input
                       id="facebook_pixel_id"
+                      value={pixels.facebook_pixel_id}
+                      onChange={(e) => setPixels({ ...pixels, facebook_pixel_id: e.target.value })}
                       placeholder="123456789012345"
                     />
                   </div>
-                  <Button className="bg-[#156634] hover:bg-[#1a7a3e] text-white">
-                    <Save className="mr-2 h-4 w-4" />
-                    Salvar Pixels
+                  <Button 
+                    onClick={handleSavePixels}
+                    disabled={saving}
+                    className="bg-[#156634] hover:bg-[#1a7a3e] text-white"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Salvar Pixels
+                      </>
+                    )}
                   </Button>
             </CardContent>
           </Card>
@@ -1825,33 +1993,175 @@ export default function EventSettingsPage() {
             {/* Tab: Afiliados */}
             <TabsContent value="afiliados" className="space-y-6">
               <div className="flex items-center justify-between mb-4">
-                  <div>
+                <div>
                   <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                     <UserPlus className="h-6 w-6 text-[#156634]" />
                     Afiliados
                   </h2>
                   <p className="text-sm text-gray-600 mt-1">
                     Cadastre afiliados para promover este evento
-                    </p>
-                  </div>
-                <Button className="bg-[#156634] hover:bg-[#1a7a3e] text-white">
+                  </p>
+                </div>
+                <Button 
+                  className="bg-[#156634] hover:bg-[#1a7a3e] text-white"
+                  onClick={() => setShowAddAffiliate(true)}
+                >
                   <UserPlus className="mr-2 h-4 w-4" />
                   Cadastrar Afiliado
                 </Button>
-                </div>
-              <Card className="border-2 shadow-sm">
-                <CardContent className="pt-6">
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <UserPlus className="h-8 w-8 text-gray-400" />
+              </div>
+
+              {/* Formulário de adicionar afiliado */}
+              {showAddAffiliate && (
+                <Card className="border-2 shadow-sm">
+                  <CardHeader>
+                    <CardTitle>Adicionar Novo Afiliado</CardTitle>
+                    <CardDescription>
+                      Envie um convite de afiliação para este evento
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="affiliate-email">Email do Afiliado *</Label>
+                      <Input
+                        id="affiliate-email"
+                        type="email"
+                        placeholder="afiliado@exemplo.com"
+                        value={newAffiliate.email}
+                        onChange={(e) => setNewAffiliate({ ...newAffiliate, email: e.target.value })}
+                      />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum afiliado cadastrado</h3>
-                    <p className="text-sm text-gray-600 mb-6">Cadastre afiliados para promover seu evento e aumentar as vendas</p>
-                    <Button className="bg-[#156634] hover:bg-[#1a7a3e]">
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Cadastrar Primeiro Afiliado
-                    </Button>
-                  </div>
+
+                    <div className="space-y-2">
+                      <Label>Tipo de Comissão *</Label>
+                      <Select
+                        value={newAffiliate.commission_type}
+                        onValueChange={(value: "percentage" | "fixed") => 
+                          setNewAffiliate({ ...newAffiliate, commission_type: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="percentage">Percentual (%)</SelectItem>
+                          <SelectItem value="fixed">Valor Fixo (R$)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="commission-value">
+                        {newAffiliate.commission_type === "percentage" ? "Percentual (%) *" : "Valor Fixo (R$) *"}
+                      </Label>
+                      <Input
+                        id="commission-value"
+                        type="number"
+                        step={newAffiliate.commission_type === "percentage" ? "0.01" : "0.01"}
+                        min="0"
+                        placeholder={newAffiliate.commission_type === "percentage" ? "10.00" : "50.00"}
+                        value={newAffiliate.commission_value}
+                        onChange={(e) => setNewAffiliate({ ...newAffiliate, commission_value: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="flex gap-2 pt-4">
+                      <Button
+                        className="flex-1 bg-[#156634] hover:bg-[#1a7a3e]"
+                        onClick={async () => {
+                          if (!newAffiliate.email || !newAffiliate.commission_value) {
+                            toast.error("Preencha todos os campos")
+                            return
+                          }
+
+                          try {
+                            const response = await fetch("/api/events/affiliate-invite", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                event_id: eventId,
+                                email: newAffiliate.email,
+                                commission_type: newAffiliate.commission_type,
+                                commission_value: parseFloat(newAffiliate.commission_value),
+                              }),
+                            })
+
+                            const data = await response.json()
+
+                            if (!response.ok) {
+                              throw new Error(data.error || "Erro ao enviar convite")
+                            }
+
+                            toast.success("Convite enviado com sucesso!")
+                            setShowAddAffiliate(false)
+                            setNewAffiliate({ email: "", commission_type: "percentage", commission_value: "" })
+                            // Recarregar lista de afiliados
+                            fetchAffiliates()
+                          } catch (error: any) {
+                            toast.error(error.message || "Erro ao enviar convite")
+                          }
+                        }}
+                      >
+                        Enviar Convite
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowAddAffiliate(false)
+                          setNewAffiliate({ email: "", commission_type: "percentage", commission_value: "" })
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Lista de afiliados */}
+              <Card className="border-2 shadow-sm">
+                <CardHeader>
+                  <CardTitle>Afiliados Cadastrados</CardTitle>
+                  <CardDescription>
+                    Lista de afiliados convidados para este evento
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {affiliates.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <UserPlus className="h-8 w-8 text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum afiliado cadastrado</h3>
+                      <p className="text-sm text-gray-600 mb-6">Cadastre afiliados para promover seu evento e aumentar as vendas</p>
+                      <Button 
+                        className="bg-[#156634] hover:bg-[#1a7a3e]"
+                        onClick={() => setShowAddAffiliate(true)}
+                      >
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Cadastrar Primeiro Afiliado
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {affiliates.map((affiliate) => (
+                        <div
+                          key={affiliate.id}
+                          className="flex items-center justify-between p-4 border rounded-lg"
+                        >
+                          <div className="flex-1">
+                            <p className="font-medium">{affiliate.email}</p>
+                            <p className="text-sm text-gray-500">
+                              Comissão: {affiliate.commission_type === "percentage" ? `${affiliate.commission_value}%` : `R$ ${affiliate.commission_value}`}
+                            </p>
+                            <Badge variant={affiliate.status === "accepted" ? "default" : affiliate.status === "pending" ? "secondary" : "destructive"}>
+                              {affiliate.status === "accepted" ? "Aceito" : affiliate.status === "pending" ? "Pendente" : "Rejeitado"}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
