@@ -63,7 +63,7 @@ export default function MyAccountPage() {
                 price,
                 is_free
               ),
-              athletes(full_name, email, category)
+              athletes(full_name, email)
             `)
             .or(`athlete_id.eq.${user.id},buyer_id.eq.${user.id}`)
             .order("created_at", { ascending: false })
@@ -94,7 +94,7 @@ export default function MyAccountPage() {
           try {
             const { data: athletes, error: athletesError } = await supabase
               .from("athletes")
-              .select("id, registration_id, full_name, email, category")
+              .select("id, registration_id, full_name, email")
               .ilike("email", user.email) // Case-insensitive
 
             if (athletesError) {
@@ -133,7 +133,7 @@ export default function MyAccountPage() {
                       price,
                       is_free
                     ),
-                    athletes(full_name, email, category)
+                    athletes(full_name, email)
                   `)
                   .in("id", registrationIds)
                   .order("created_at", { ascending: false })
