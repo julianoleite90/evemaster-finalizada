@@ -75,33 +75,38 @@ export async function getEventBySlug(slug: string) {
       event = eventsBySlug[0] // Pegar o primeiro (mais recente)
       error = null
       
-      // Buscar organizador separadamente
+      // Buscar organizador separadamente usando view padronizada
       if (event.organizer_id) {
-        const { data: organizer } = await supabase
-          .from("organizers")
-          .select("id, company_name, full_name, company_cnpj, company_phone, user_id")
-          .eq("id", event.organizer_id)
+        const { data: organizerData, error: organizerError } = await supabase
+          .from("organizer_complete_view")
+          .select("*")
+          .eq("organizer_id", event.organizer_id)
           .single()
         
-        // Buscar email do usuário relacionado
-        if (organizer && organizer.user_id) {
-          const { data: user } = await supabase
-            .from("users")
-            .select("email")
-            .eq("id", organizer.user_id)
-            .single()
-          
-          if (user && organizer) {
-            event.organizer = {
-              ...organizer,
-              email: user.email,
-              company_email: user.email
-            }
-          } else if (organizer) {
-            event.organizer = organizer
+        if (organizerData) {
+          // Formatar dados para o formato esperado
+          event.organizer = {
+            id: organizerData.organizer_id,
+            company_name: organizerData.company_name,
+            full_name: organizerData.user_full_name, // Nome do usuário como fallback
+            company_cnpj: organizerData.company_cnpj,
+            company_phone: organizerData.company_phone,
+            user_id: organizerData.user_id,
+            email: organizerData.user_email,
+            company_email: organizerData.user_email,
+            events_last_year: organizerData.events_last_year || 0
           }
-        } else if (organizer) {
-          event.organizer = organizer
+          
+          console.log("📋 [DEBUG ORGANIZADOR SERVER] Dados do organizador (view padronizada):", {
+            organizer_id: event.organizer_id,
+            company_name: event.organizer.company_name,
+            company_cnpj: event.organizer.company_cnpj,
+            company_phone: event.organizer.company_phone,
+            email: event.organizer.email,
+            events_last_year: event.organizer.events_last_year
+          })
+        } else {
+          console.log("⚠️ [DEBUG ORGANIZADOR SERVER] Organizador não encontrado:", organizerError?.message)
         }
       }
     } else {

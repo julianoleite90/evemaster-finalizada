@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { getEventBySlug } from "@/lib/supabase/events"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2, Calendar, MapPin, Clock, Users, Share2, Heart, Minus, Plus, Trophy, Package, Building2, Mail, Phone, Globe, Route, Mountain, Activity } from "lucide-react"
+import { Loader2, Calendar, MapPin, Clock, Users, Share2, Heart, Minus, Plus, Trophy, Package, Building2, Mail, Phone, Globe, Route, Mountain, Activity, Facebook, Twitter, Linkedin, MessageCircle } from "lucide-react"
 import dynamic from "next/dynamic"
 
 const GPXMapViewer = dynamic(() => import("@/components/event/GPXMapViewer"), { ssr: false })
@@ -23,11 +23,12 @@ export default function EventoLandingPage() {
   const slug = params.slug as string
 
   const [eventData, setEventData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedBatch, setSelectedBatch] = useState<any>(null)
   const [selectedTickets, setSelectedTickets] = useState<{ [key: string]: number }>({})
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
   const [language, setLanguage] = useState<"pt" | "es" | "en">("pt")
+  const [showShareMenu, setShowShareMenu] = useState(false)
   const translations = {
     pt: {
       eventInfo: "Informações do Evento",
@@ -151,92 +152,103 @@ export default function EventoLandingPage() {
     })
   }
 
+  // Fechar menu de compartilhamento ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showShareMenu) {
+        const target = event.target as HTMLElement
+        if (!target.closest('.share-menu-container')) {
+          setShowShareMenu(false)
+        }
+      }
+    }
+
+    if (showShareMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+      }
+    }
+  }, [showShareMenu])
+
   useEffect(() => {
     const fetchEvent = async () => {
       if (!slug) return
       
       try {
-        setLoading(true)
         setError(null)
         const event = await getEventBySlug(slug)
 
         if (!event) {
           setError("Evento não encontrado")
-          setLoading(false)
           return
         }
         
-        // Garantir que o email esteja presente no organizador antes de setar o estado
+        // Criar uma cópia do objeto para garantir reatividade
         if (event.organizer) {
-          console.log("🔍 Organizador recebido no componente:", {
-            company_name: event.organizer.company_name,
-            user_id: event.organizer.user_id,
-            company_email: event.organizer.company_email,
-            email: event.organizer.email
-          })
-          
-          // Se não tiver email, tentar buscar novamente APENAS da tabela users
-          if (!event.organizer.company_email && !event.organizer.email && event.organizer.user_id) {
-            console.log("⚠️ Organizador sem email, tentando buscar novamente do user_id:", event.organizer.user_id)
-            const supabase = createClient()
-            const { data: user, error: userError } = await supabase
-              .from("users")
-              .select("email")
-              .eq("id", event.organizer.user_id)
-              .single()
-            
-            console.log("📧 Resultado busca email no componente:", { user, error: userError?.message })
-            
-            // VALIDAÇÃO CRÍTICA: Não usar email errado
-            if (user && user.email === "julianodesouzaleite@gmail.com") {
-              console.log("❌ [CRÍTICO] Email errado encontrado! O user_id do organizador está apontando para o usuário errado.")
-              console.log("❌ [CRÍTICO] user_id do organizador:", event.organizer.user_id)
-              console.log("❌ [CRÍTICO] Email encontrado (ERRADO):", user.email)
-              console.log("❌ [CRÍTICO] Email esperado: fabianobraun@gmail.com")
-              console.log("❌ [CRÍTICO] NÃO vamos adicionar este email ao organizador")
-              // Não adicionar o email errado
-            } else if (user && user.email) {
-              event.organizer.email = user.email
-              event.organizer.company_email = user.email
-              console.log("✅ Email adicionado no componente:", user.email)
-            } else {
-              console.log("⚠️ Email não encontrado para user_id:", event.organizer.user_id, "Erro:", userError?.message)
-            }
-          }
-          
-          // Criar uma cópia do objeto para garantir reatividade
           event.organizer = { ...event.organizer }
-          console.log("📋 Organizador após processamento:", {
-            company_email: event.organizer.company_email,
-            email: event.organizer.email
-          })
         }
         
         setEventData({ ...event })
-        
-        // Debug: verificar dados do organizador
-        if (event.organizer) {
-          console.log("📋 Dados do organizador (no componente):", {
-            company_name: event.organizer.company_name,
-            full_name: event.organizer.full_name,
-            company_cnpj: event.organizer.company_cnpj,
-            company_email: event.organizer.company_email,
-            email: event.organizer.email,
-            company_phone: event.organizer.company_phone,
-            user_id: event.organizer.user_id,
-            organizer_completo: event.organizer
-          })
-        }
         
         // Selecionar primeiro lote ativo por padrão
         if (event.ticket_batches && event.ticket_batches.length > 0) {
           setSelectedBatch(event.ticket_batches[0])
         }
+        
+        // Carregar dados completos do organizador de forma não-bloqueante (após renderizar)
+        if (event.organizer && ((!event.organizer.company_cnpj && !event.organizer.cnpj) || 
+            !event.organizer.company_phone || 
+            (!event.organizer.company_email && !event.organizer.email && event.organizer.user_id))) {
+          // Fazer em background, sem bloquear a renderização
+          setTimeout(async () => {
+            const supabase = createClient()
+            
+            // Buscar organizador completo novamente
+            const { data: fullOrganizer } = await supabase
+              .from("organizers")
+              .select("id, company_name, full_name, company_cnpj, company_phone, user_id")
+              .eq("id", event.organizer.id || event.organizer_id)
+              .single()
+            
+            if (fullOrganizer) {
+              // Atualizar estado sem bloquear
+              setEventData((prev: any) => ({
+                ...prev,
+                organizer: {
+                  ...prev.organizer,
+                  company_cnpj: fullOrganizer.company_cnpj || prev.organizer.company_cnpj,
+                  company_phone: fullOrganizer.company_phone || prev.organizer.company_phone,
+                  user_id: fullOrganizer.user_id || prev.organizer.user_id
+                }
+              }))
+            }
+            
+            // Se não tiver email, tentar buscar novamente APENAS da tabela users
+            const currentOrganizer = fullOrganizer || event.organizer
+            if (!currentOrganizer.company_email && !currentOrganizer.email && currentOrganizer.user_id) {
+              const { data: user } = await supabase
+                .from("users")
+                .select("email")
+                .eq("id", currentOrganizer.user_id)
+                .single()
+              
+              // VALIDAÇÃO CRÍTICA: Não usar email errado
+              if (user && user.email && user.email !== "julianodesouzaleite@gmail.com") {
+                setEventData((prev: any) => ({
+                  ...prev,
+                  organizer: {
+                    ...prev.organizer,
+                    email: user.email,
+                    company_email: user.email
+                  }
+                }))
+              }
+            }
+          }, 0)
+        }
       } catch (error: any) {
-        console.error("Erro ao buscar evento:", error)
         setError(error.message || "Erro ao carregar evento")
-      } finally {
-        setLoading(false)
       }
     }
 
@@ -317,24 +329,27 @@ export default function EventoLandingPage() {
     router.push(`/inscricao/${eventData.id}?lote=${selectedBatch.id}&ingressos=${ticketsParam}`)
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-[#156634] mx-auto mb-4" />
-          <p className="text-muted-foreground">Carregando evento...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error || !eventData) {
+  if (error && !eventData) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Evento não encontrado</h1>
           <p className="text-muted-foreground mb-6">{error}</p>
           <Button onClick={() => router.push("/")}>Voltar para a página inicial</Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Se não tem dados ainda, mostrar página vazia (será preenchida quando carregar)
+  if (!eventData) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="container mx-auto px-4 py-16">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-[#156634] mx-auto mb-4" />
+            <p className="text-muted-foreground">Carregando evento...</p>
+          </div>
         </div>
       </div>
     )
@@ -369,7 +384,8 @@ export default function EventoLandingPage() {
             alt={eventData.name}
             fill
             className="object-cover object-center"
-            sizes="100vw"
+            sizes="(max-width: 768px) 100vw, 1920px"
+            quality={90}
             priority
           />
         ) : (
@@ -465,6 +481,59 @@ export default function EventoLandingPage() {
                         : "Informações detalhadas sobre o evento em breve."}
                     </p>
                   )}
+                  
+                  {/* Informações do Ingresso Selecionado */}
+                  {selectedTicketId && selectedBatch && (() => {
+                    const selectedTicket = selectedBatch.tickets?.find((t: any) => t.id === selectedTicketId)
+                    if (!selectedTicket) return null
+                    
+                    return (
+                      <div className="mt-6 p-4 bg-[#156634]/5 border-l-4 border-[#156634] rounded-r-lg">
+                        <h3 className="text-lg font-bold text-gray-900 mb-3">
+                          {language === 'pt' ? 'Particularidades do Ingresso: ' : language === 'en' ? 'Ticket Details: ' : 'Detalles del Boleto: '}
+                          {selectedTicket.category}
+                        </h3>
+                        <div className="space-y-2 text-sm text-gray-700">
+                          {selectedTicket.has_kit && selectedTicket.kit_items && selectedTicket.kit_items.length > 0 && (
+                            <p>
+                              <span className="font-semibold text-gray-900">
+                                {language === 'pt' ? 'Kit Incluído: ' : language === 'en' ? 'Kit Included: ' : 'Kit Incluido: '}
+                              </span>
+                              {selectedTicket.kit_items.join(', ')}
+                            </p>
+                          )}
+                          {selectedTicket.shirt_sizes && selectedTicket.shirt_sizes.length > 0 && (
+                            <p>
+                              <span className="font-semibold text-gray-900">
+                                {language === 'pt' ? 'Tamanhos de Camiseta: ' : language === 'en' ? 'Shirt Sizes: ' : 'Tallas de Camiseta: '}
+                              </span>
+                              {selectedTicket.shirt_sizes.join(', ')}
+                            </p>
+                          )}
+                          {selectedTicket.gpx_file_url && (
+                            <p>
+                              <span className="font-semibold text-gray-900">
+                                {language === 'pt' ? 'Percurso: ' : language === 'en' ? 'Route: ' : 'Recorrido: '}
+                              </span>
+                              {language === 'pt' ? 'Disponível' : language === 'en' ? 'Available' : 'Disponible'}
+                            </p>
+                          )}
+                          {selectedTicket.is_free ? (
+                            <p className="font-semibold text-green-600">
+                              {language === 'pt' ? 'Ingresso Gratuito' : language === 'en' ? 'Free Ticket' : 'Entrada Gratuita'}
+                            </p>
+                          ) : (
+                            <p>
+                              <span className="font-semibold text-gray-900">
+                                {language === 'pt' ? 'Valor: ' : language === 'en' ? 'Price: ' : 'Precio: '}
+                              </span>
+                              R$ {selectedTicket.price.toFixed(2)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               </CardContent>
             </Card>
@@ -580,21 +649,23 @@ export default function EventoLandingPage() {
             <div className="sticky top-4">
               <Card className="border-2 border-[#156634]/20 shadow-lg bg-gradient-to-br from-white to-gray-50/50">
                 <CardContent className="p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-1 h-6 bg-[#156634] rounded-full"></div>
+                  <div className="mb-4">
                     <h2 className="text-2xl font-bold text-gray-900">{translations[language].ticketsTitle}</h2>
                   </div>
                   
                   {selectedBatch && (
                     <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-sm text-gray-700">
+                      <p className="text-sm text-gray-700 mb-1.5">
                         <span className="font-semibold text-gray-900">{translations[language].batchLabel}:</span> {selectedBatch.name}
                       </p>
                       {selectedBatch.tickets && (
-                        <p className="text-xs text-gray-600 mt-1.5">
+                        <p className="text-xs text-gray-600">
+                          <span className="font-medium text-gray-700">
+                            {language === 'pt' ? 'Disponíveis: ' : language === 'en' ? 'Available: ' : 'Disponibles: '}
+                          </span>
                           {selectedBatch.total_quantity === null || selectedBatch.total_quantity === undefined
                             ? translations[language].unlimited || "Ilimitado"
-                            : `${selectedBatch.total_quantity} ${translations[language].available}`}
+                            : selectedBatch.total_quantity}
                         </p>
                       )}
                 </div>
@@ -627,23 +698,29 @@ export default function EventoLandingPage() {
                       {/* Lista de Ingressos */}
                       <div className="space-y-3 mb-6">
                         {selectedBatch.tickets.map((ticket: any) => (
-                          <div key={ticket.id} className="border-2 border-gray-200 rounded-lg p-4 bg-white hover:border-[#156634] hover:shadow-md transition-all">
+                          <div 
+                            key={ticket.id} 
+                            onClick={() => setSelectedTicketId(ticket.id === selectedTicketId ? null : ticket.id)}
+                            className={`border-2 rounded-lg p-4 bg-white hover:shadow-md transition-all cursor-pointer ${
+                              selectedTicketId === ticket.id 
+                                ? 'border-[#156634] bg-green-50/30 shadow-md' 
+                                : 'border-gray-200 hover:border-[#156634]'
+                            }`}
+                          >
                             <div className="flex justify-between items-start mb-2">
                               <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <h3 className="font-semibold text-sm">{ticket.category}</h3>
-                                  {ticket.has_kit && (
-                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-green-50 border-green-300 text-green-700">
-                                      <Package className="h-2.5 w-2.5 mr-0.5" />
-                                      {translations[language].includeKit}
-                                    </Badge>
-                                  )}
-                    </div>
-                                <p className="text-xs text-muted-foreground">
-                                  {ticket.quantity === null || ticket.quantity === undefined || ticket.quantity === 0
-                                    ? translations[language].unlimited
-                                    : `${ticket.quantity} ${translations[language].available}`}
-                                </p>
+                                <h3 className="font-semibold text-sm mb-1.5">
+                                  {language === 'pt' ? 'Ingresso: ' : language === 'en' ? 'Ticket: ' : 'Entrada: '}
+                                  {ticket.category}
+                                </h3>
+                                {ticket.has_kit && ticket.kit_items && ticket.kit_items.length > 0 && (
+                                  <p className="text-xs text-gray-600 mb-1.5">
+                                    <span className="font-medium text-gray-700">
+                                      {language === 'pt' ? 'Inclui: ' : language === 'en' ? 'Includes: ' : 'Incluye: '}
+                                    </span>
+                                    {ticket.kit_items.join(', ')}
+                                  </p>
+                                )}
                 </div>
                               <div className="text-right">
                                 {ticket.is_free ? (
@@ -769,55 +846,84 @@ export default function EventoLandingPage() {
               </div>
               
                       {/* CNPJ */}
-                      {(eventData.organizer.company_cnpj || eventData.organizer.cnpj) && (
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <Building2 className="h-5 w-5 text-[#156634]" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">CNPJ</p>
-                            <p className="text-sm text-gray-900 font-medium">
-                              {eventData.organizer.company_cnpj || eventData.organizer.cnpj}
-                            </p>
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                          <Building2 className="h-5 w-5 text-[#156634]" />
                         </div>
-              </div>
-                      )}
+                        <div className="flex-1">
+                          <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">CNPJ</p>
+                          <p className="text-sm text-gray-900 font-semibold">
+                            {eventData.organizer.company_cnpj || eventData.organizer.cnpj || (language === 'pt' ? 'Não informado' : language === 'en' ? 'Not provided' : 'No proporcionado')}
+                          </p>
+                        </div>
+                      </div>
               
                       {/* Email */}
-                      {(eventData.organizer?.company_email || eventData.organizer?.email) && (
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <Mail className="h-5 w-5 text-[#156634]" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">{translations[language].email}</p>
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                          <Mail className="h-5 w-5 text-[#156634]" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">{translations[language].email}</p>
+                          {eventData.organizer?.company_email || eventData.organizer?.email ? (
                             <a 
                               href={`mailto:${eventData.organizer.company_email || eventData.organizer.email}`}
-                              className="text-sm text-[#156634] hover:underline break-all font-medium"
+                              className="text-sm text-gray-900 hover:text-[#156634] hover:underline break-all font-semibold"
                             >
                               {eventData.organizer.company_email || eventData.organizer.email}
                             </a>
-                          </div>
-                </div>
-              )}
+                          ) : (
+                            <p className="text-sm text-gray-900 font-semibold">
+                              {language === 'pt' ? 'Não informado' : language === 'en' ? 'Not provided' : 'No proporcionado'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
               
                       {/* Telefone */}
-                      {eventData.organizer.company_phone && (
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <Phone className="h-5 w-5 text-[#156634]" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">{translations[language].phone}</p>
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                          <Phone className="h-5 w-5 text-[#156634]" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">{translations[language].phone}</p>
+                          {eventData.organizer.company_phone ? (
                             <a 
                               href={`tel:${eventData.organizer.company_phone}`}
-                              className="text-sm text-[#156634] hover:underline font-medium"
+                              className="text-sm text-gray-900 hover:text-[#156634] hover:underline font-semibold"
                             >
                               {eventData.organizer.company_phone}
                             </a>
-                          </div>
+                          ) : (
+                            <p className="text-sm text-gray-900 font-semibold">
+                              {language === 'pt' ? 'Não informado' : language === 'en' ? 'Not provided' : 'No proporcionado'}
+                            </p>
+                          )}
                         </div>
-                      )}
+                      </div>
+              
+                      {/* Eventos realizados no último ano */}
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                          <Trophy className="h-5 w-5 text-[#156634]" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">
+                            {language === 'pt' ? 'Eventos Realizados' : language === 'en' ? 'Events Held' : 'Eventos Realizados'}
+                          </p>
+                          <p className="text-sm text-gray-900 font-semibold">
+                            {eventData.organizer.events_last_year !== undefined 
+                              ? (language === 'pt' 
+                                  ? `${eventData.organizer.events_last_year} evento${eventData.organizer.events_last_year !== 1 ? 's' : ''} no último ano`
+                                  : language === 'en'
+                                  ? `${eventData.organizer.events_last_year} event${eventData.organizer.events_last_year !== 1 ? 's' : ''} in the last year`
+                                  : `${eventData.organizer.events_last_year} evento${eventData.organizer.events_last_year !== 1 ? 's' : ''} en el último año`
+                                )
+                              : (language === 'pt' ? 'Não informado' : language === 'en' ? 'Not provided' : 'No proporcionado')
+                            }
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground text-center py-4">
@@ -831,12 +937,135 @@ export default function EventoLandingPage() {
         </div>
       </div>
 
+      {/* Seção de Compartilhamento */}
+      <div className="bg-white py-8 md:py-16 border-t border-gray-100">
+        <div className="container mx-auto px-4 md:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8">
+              {/* Texto */}
+              <p className="text-sm md:text-lg lg:text-xl text-gray-800 leading-relaxed text-center md:text-left flex-1">
+                {language === 'pt' 
+                  ? (
+                      <>
+                        <span className="text-gray-900 tracking-tight font-semibold">Compartilhe esse evento</span>
+                        {' '}e{' '}
+                        <span className="text-[#156634] tracking-tight font-semibold">estimule o movimento</span>
+                        {' '}com outras pessoas
+                      </>
+                    )
+                  : language === 'en'
+                  ? (
+                      <>
+                        <span className="text-gray-900 tracking-tight font-semibold">Share this event</span>
+                        {' '}and{' '}
+                        <span className="text-[#156634] tracking-tight font-semibold">encourage movement</span>
+                        {' '}with others
+                      </>
+                    )
+                  : (
+                      <>
+                        <span className="text-gray-900 tracking-tight font-semibold">Comparte este evento</span>
+                        {' '}y{' '}
+                        <span className="text-[#156634] tracking-tight font-semibold">fomenta el movimiento</span>
+                        {' '}con otras personas
+                      </>
+                    )
+                }
+              </p>
+              
+              {/* Botão */}
+              <div className="relative inline-block share-menu-container w-full md:w-auto">
+                <Button
+                  onClick={() => setShowShareMenu(!showShareMenu)}
+                  className="bg-[#156634] hover:bg-[#1a7a3e] text-white w-full md:w-auto px-6 md:px-8 py-4 md:py-6 text-sm md:text-base font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                >
+                  <Share2 className="h-4 w-4 md:h-5 md:w-5" />
+                  {language === 'pt' ? 'Compartilhar' : language === 'en' ? 'Share' : 'Compartir'}
+                </Button>
+                
+                {/* Menu de Redes Sociais */}
+                {showShareMenu && (
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 bg-white rounded-lg shadow-xl border border-gray-200 p-4 min-w-[220px] z-50 share-menu-container">
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Facebook */}
+                      <a
+                        href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(typeof window !== 'undefined' ? window.location.href : '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex flex-col items-center gap-1.5 p-3 rounded-md hover:bg-gray-50 transition-colors"
+                        onClick={() => setShowShareMenu(false)}
+                      >
+                        <Facebook className="h-5 w-5 text-[#1877F2]" />
+                        <span className="text-xs font-medium text-gray-700">Facebook</span>
+                      </a>
+                      
+                      {/* Twitter/X */}
+                      <a
+                        href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(typeof window !== 'undefined' ? window.location.href : '')}&text=${encodeURIComponent(eventData?.name || '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex flex-col items-center gap-1.5 p-3 rounded-md hover:bg-gray-50 transition-colors"
+                        onClick={() => setShowShareMenu(false)}
+                      >
+                        <Twitter className="h-5 w-5 text-[#1DA1F2]" />
+                        <span className="text-xs font-medium text-gray-700">Twitter</span>
+                      </a>
+                      
+                      {/* WhatsApp */}
+                      <a
+                        href={`https://wa.me/?text=${encodeURIComponent((eventData?.name || '') + ' ' + (typeof window !== 'undefined' ? window.location.href : ''))}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex flex-col items-center gap-1.5 p-3 rounded-md hover:bg-gray-50 transition-colors"
+                        onClick={() => setShowShareMenu(false)}
+                      >
+                        <MessageCircle className="h-5 w-5 text-[#25D366]" />
+                        <span className="text-xs font-medium text-gray-700">WhatsApp</span>
+                      </a>
+                      
+                      {/* LinkedIn */}
+                      <a
+                        href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(typeof window !== 'undefined' ? window.location.href : '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex flex-col items-center gap-1.5 p-3 rounded-md hover:bg-gray-50 transition-colors"
+                        onClick={() => setShowShareMenu(false)}
+                      >
+                        <Linkedin className="h-5 w-5 text-[#0077B5]" />
+                        <span className="text-xs font-medium text-gray-700">LinkedIn</span>
+                      </a>
+                    </div>
+                    
+                    {/* Botão Copiar Link */}
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-xs"
+                        onClick={() => {
+                          if (typeof window !== 'undefined') {
+                            navigator.clipboard.writeText(window.location.href)
+                            setShowShareMenu(false)
+                          }
+                        }}
+                      >
+                        {language === 'pt' ? 'Copiar Link' : language === 'en' ? 'Copy Link' : 'Copiar Enlace'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Rodapé Profissional */}
       <footer className="bg-gray-50/50 border-t border-gray-100 mt-16">
         <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-8 md:pt-10 pb-6">
           <div className="max-w-7xl mx-auto">
             {/* Grid Principal - 2 colunas no mobile, 4 no desktop */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 lg:gap-12 mb-6 md:mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-6 lg:gap-8 mb-6 md:mb-8">
               {/* Coluna 1: Logo e Descrição */}
               <div className="col-span-2 md:col-span-1 space-y-3 flex flex-col items-center md:items-start">
                 <div>
@@ -849,7 +1078,7 @@ export default function EventoLandingPage() {
                   />
                 </div>
                 <p className="text-xs text-gray-500 leading-relaxed max-w-xs text-center md:text-left">
-                  Corrida, triatlon e ciclismo, e muito mais.
+                  Plataforma para gestão, compra e venda de ingressos para eventos esportivos.
                 </p>
               </div>
 
@@ -915,7 +1144,7 @@ export default function EventoLandingPage() {
               </div>
 
               {/* Coluna 3: Links Legais */}
-              <div className="col-span-1 md:col-span-1 space-y-3 flex flex-col items-center md:items-start">
+              <div className="col-span-1 md:col-span-1 space-y-3 flex flex-col items-center md:items-start md:ml-[20%]">
                 <h3 className="text-xs font-medium text-gray-600">
                   Legal
                 </h3>
@@ -942,12 +1171,13 @@ export default function EventoLandingPage() {
                 </h3>
                 <Select value={language} onValueChange={(val: "pt" | "es" | "en") => setLanguage(val)}>
                   <SelectTrigger className="w-full max-w-[140px] md:w-[140px] bg-white border-gray-200 text-gray-600 text-xs h-8 md:h-9">
-                    <SelectValue placeholder="" className="hidden" />
-                    <span className="flex items-center gap-1.5 md:gap-2">
-                      <span className="text-sm">{language === "pt" ? "🇧🇷" : language === "es" ? "🇦🇷" : "🇺🇸"}</span>
-                      <span className="text-xs hidden sm:inline">{language === "pt" ? "Português" : language === "es" ? "Español" : "English"}</span>
-                      <span className="text-xs sm:hidden">{language === "pt" ? "PT" : language === "es" ? "ES" : "EN"}</span>
-                    </span>
+                    <SelectValue asChild>
+                      <span className="flex items-center">
+                        <span className="text-sm">{language === "pt" ? "🇧🇷" : language === "es" ? "🇦🇷" : "🇺🇸"}</span>
+                        <span className="text-xs hidden sm:inline ml-[5px]">{language === "pt" ? "Português" : language === "es" ? "Español" : "English"}</span>
+                        <span className="text-xs sm:hidden ml-[5px]">{language === "pt" ? "PT" : language === "es" ? "ES" : "EN"}</span>
+                      </span>
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pt">
@@ -974,15 +1204,13 @@ export default function EventoLandingPage() {
             <Separator className="my-6 opacity-30" />
 
             {/* Rodapé Inferior: CNPJ e Copyright */}
-            <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-gray-400">
-              <div className="text-center md:text-left">
-                <p className="mb-0.5">
-                  © {new Date().getFullYear()} EveMaster. Todos os direitos reservados.
-                </p>
-                <p className="text-gray-400">
-                  Fulsale LTDA - CNPJ: 41.953.551/0001-57
-                </p>
-              </div>
+            <div className="flex flex-col items-center justify-center gap-2 text-xs text-gray-400 text-center">
+              <p>
+                © {new Date().getFullYear()} Evemaster. Todos os direitos reservados.
+              </p>
+              <p>
+                Fulsale LTDA - CNPJ: 41.953.551/0001-57
+              </p>
             </div>
           </div>
         </div>

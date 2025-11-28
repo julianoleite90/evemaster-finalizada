@@ -271,111 +271,61 @@ export async function getEventBySlug(slug: string) {
         console.log(`⚠️ ATENÇÃO: ${eventsBySlug.length} eventos com mesmo slug! Usando o mais recente.`)
       }
       
-      // Buscar organizador separadamente para evitar problemas de JOIN
+      // Buscar organizador separadamente usando função padronizada
       if (event.organizer_id) {
         console.log("🔍 Buscando organizador separadamente...")
-        let { data: organizer } = await supabase
-          .from("organizers")
-          .select(`
-            id, 
-            company_name, 
-            full_name, 
-            company_cnpj, 
-            company_phone,
-            user_id
-          `)
-          .eq("id", event.organizer_id)
-          .maybeSingle()
         
-        // Buscar email do usuário relacionado SEPARADAMENTE para garantir que pegue o email correto
-        if (organizer && organizer.user_id) {
-          console.log("🔍 [DEBUG EMAIL] Buscando email do usuário do organizador")
-          console.log("🔍 [DEBUG EMAIL] Organizer ID:", event.organizer_id)
-          console.log("🔍 [DEBUG EMAIL] Organizer user_id:", organizer.user_id)
-          console.log("🔍 [DEBUG EMAIL] Organizer company_name:", organizer.company_name)
-          
-          // Verificar qual usuário está logado (se houver)
-          const { data: { user: loggedUser } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }))
-          console.log("🔍 [DEBUG EMAIL] Usuário logado (se houver):", loggedUser?.id, loggedUser?.email)
-          console.log("🔍 [DEBUG EMAIL] user_id do organizador é diferente do usuário logado?", organizer.user_id !== loggedUser?.id)
-          
-          const { data: user, error: userError } = await supabase
-            .from("users")
-            .select("id, email")
-            .eq("id", organizer.user_id)
-            .single()
-          
-          console.log("📧 [DEBUG EMAIL] Resultado busca email (user_id específico):", { 
-            user_id_buscado: organizer.user_id,
-            user_id_encontrado: user?.id,
-            email_encontrado: user?.email,
-            email_esperado: "fabianobraun@gmail.com",
-            email_errado: "julianodesouzaleite@gmail.com",
-            email_coincide_esperado: user?.email === "fabianobraun@gmail.com",
-            email_coincide_errado: user?.email === "julianodesouzaleite@gmail.com",
-            error: userError?.message 
-          })
-          
-          // VALIDAÇÃO CRÍTICA: Se o email encontrado for o errado, não usar
-          if (user && user.email === "julianodesouzaleite@gmail.com") {
-            console.log("❌ [DEBUG EMAIL] ERRO CRÍTICO: Email errado encontrado! O user_id do organizador está apontando para o usuário errado.")
-            console.log("❌ [DEBUG EMAIL] user_id do organizador:", organizer.user_id)
-            console.log("❌ [DEBUG EMAIL] Email encontrado (ERRADO):", user.email)
-            console.log("❌ [DEBUG EMAIL] Tentando buscar email correto pelo nome do organizador...")
-            
-            // Tentar buscar o email correto pelo nome do organizador (FABIANO BRAUN DE MORAES)
-            const { data: usersByName, error: nameError } = await supabase
-              .from("users")
-              .select("id, email, full_name")
-              .or("full_name.ilike.%fabiano%,full_name.ilike.%braun%,full_name.ilike.%moraes%")
-              .limit(5)
-            
-            console.log("🔍 [DEBUG EMAIL] Usuários encontrados pelo nome:", usersByName)
-            
-            // Procurar usuário que tenha o nome do Fabiano
-            const fabianoUser = usersByName?.find(u => 
-              u.full_name && (
-                u.full_name.toLowerCase().includes("fabiano") && 
-                u.full_name.toLowerCase().includes("braun")
-              )
-            )
-            
-            if (fabianoUser && fabianoUser.email && fabianoUser.email !== "julianodesouzaleite@gmail.com") {
-              console.log("✅ [DEBUG EMAIL] Email correto encontrado pelo nome:", fabianoUser.email)
-              organizer = {
-                ...organizer,
-                email: fabianoUser.email,
-                company_email: fabianoUser.email
-              } as any
-            } else {
-              console.log("⚠️ [DEBUG EMAIL] Não foi possível encontrar o email correto. Email não será exibido.")
-              console.log("⚠️ [DEBUG EMAIL] Execute o script SQL 019_diagnose_fabiano_user.sql para encontrar o user_id correto.")
-            }
-          } else if (user && user.email) {
-            organizer = {
-              ...organizer,
-              email: user.email,
-              company_email: user.email
-            } as any
-            console.log("✅ [DEBUG EMAIL] Email adicionado ao organizador:", user.email)
-          } else if (userError) {
-            console.log("❌ [DEBUG EMAIL] Erro ao buscar usuário da tabela users:", userError.message)
-            console.log("⚠️ [DEBUG EMAIL] NÃO vamos buscar do auth.getUser() para evitar pegar email do usuário logado")
-            console.log("⚠️ [DEBUG EMAIL] Email não será exibido para este organizador")
-          } else {
-            console.log("⚠️ [DEBUG EMAIL] Usuário não encontrado na tabela users para user_id:", organizer.user_id)
+        // Usar a view padronizada para buscar todos os dados
+        const { data: organizerData, error: organizerError } = await supabase
+          .from("organizer_complete_view")
+          .select("*")
+          .eq("organizer_id", event.organizer_id)
+          .single()
+        
+        let organizer: any = null
+        
+        if (organizerData) {
+          // Formatar dados para o formato esperado
+          organizer = {
+            id: organizerData.organizer_id,
+            company_name: organizerData.company_name,
+            full_name: organizerData.user_full_name, // Nome do usuário como fallback
+            company_cnpj: organizerData.company_cnpj,
+            company_phone: organizerData.company_phone,
+            user_id: organizerData.user_id,
+            email: organizerData.user_email,
+            company_email: organizerData.user_email,
+            events_last_year: organizerData.events_last_year || 0
           }
         }
         
+        console.log("📋 [DEBUG ORGANIZADOR] Resultado da busca (view padronizada):", {
+          organizer_id: event.organizer_id,
+          organizer_found: !!organizer,
+          company_name: organizer?.company_name,
+          company_cnpj: organizer?.company_cnpj,
+          company_phone: organizer?.company_phone,
+          email: organizer?.email,
+          events_last_year: organizer?.events_last_year,
+          error: organizerError?.message
+        })
+        
         if (organizer) {
-          event.organizer = organizer
-          console.log("✅ Organizador encontrado:", organizer.company_name)
-          console.log("📋 Dados completos do organizador:", {
-            company_name: organizer.company_name,
-            company_cnpj: organizer.company_cnpj,
-            company_email: (organizer as any).company_email,
-            company_phone: organizer.company_phone,
-            email: (organizer as any).email
+          // Garantir que todos os campos estejam presentes
+          event.organizer = {
+            ...organizer,
+            company_cnpj: organizer.company_cnpj || null,
+            company_phone: organizer.company_phone || null,
+            events_last_year: (organizer as any).events_last_year ?? 0
+          }
+          console.log("✅ Organizador encontrado:", event.organizer.company_name)
+          console.log("📋 Dados FINAIS do organizador antes de retornar:", {
+            company_name: event.organizer.company_name,
+            company_cnpj: event.organizer.company_cnpj,
+            company_phone: event.organizer.company_phone,
+            email: (event.organizer as any).email,
+            company_email: (event.organizer as any).company_email,
+            events_last_year: (event.organizer as any).events_last_year
           })
         } else {
           console.log("⚠️ Organizador não encontrado para organizer_id:", event.organizer_id)

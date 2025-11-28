@@ -42,12 +42,17 @@ interface GPXData {
 }
 
 export default function GPXMapViewer({ gpxUrl, category, showRoute = true, showElevation = true }: GPXMapViewerProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
   const [gpxData, setGpxData] = useState<GPXData | null>(null)
   const [loading, setLoading] = useState(true)
+  const isVisible = useIntersectionObserver(containerRef)
 
   useEffect(() => {
+    // Só carregar GPX quando o componente estiver visível
+    if (!isVisible || !gpxUrl) return
+
     const fetchAndParseGPX = async () => {
       try {
         setLoading(true)
@@ -62,7 +67,10 @@ export default function GPXMapViewer({ gpxUrl, category, showRoute = true, showE
         const trkpts = xmlDoc.getElementsByTagName("trkpt")
         const points: Array<{ lat: number; lon: number; ele: number }> = []
         
-        for (let i = 0; i < trkpts.length; i++) {
+        // Otimizar: processar apenas a cada N pontos se houver muitos
+        const step = trkpts.length > 5000 ? Math.ceil(trkpts.length / 2000) : 1
+        
+        for (let i = 0; i < trkpts.length; i += step) {
           const trkpt = trkpts[i]
           const lat = parseFloat(trkpt.getAttribute("lat") || "0")
           const lon = parseFloat(trkpt.getAttribute("lon") || "0")
@@ -126,10 +134,8 @@ export default function GPXMapViewer({ gpxUrl, category, showRoute = true, showE
       }
     }
 
-    if (gpxUrl) {
-      fetchAndParseGPX()
-    }
-  }, [gpxUrl])
+    fetchAndParseGPX()
+  }, [gpxUrl, isVisible])
 
   useEffect(() => {
     if (!mapRef.current || !gpxData || !showRoute || typeof window === "undefined" || !L) return
@@ -219,9 +225,16 @@ export default function GPXMapViewer({ gpxUrl, category, showRoute = true, showE
     : ""
 
   return (
-    <div className="space-y-4">
-      {/* Informações do Percurso */}
-      {!loading && gpxData && (
+    <div ref={containerRef} className="space-y-4">
+      {!isVisible && (
+        <div className="w-full h-[300px] md:h-[500px] rounded-lg bg-gray-100 border flex items-center justify-center">
+          <p className="text-gray-500 text-sm">Carregando mapa...</p>
+        </div>
+      )}
+      {isVisible && (
+        <>
+          {/* Informações do Percurso */}
+          {!loading && gpxData && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 p-3 md:p-4 bg-gradient-to-r from-[#156634]/10 to-[#156634]/5 rounded-lg border border-[#156634]/20">
           <div className="text-center">
             <div className="flex items-center justify-center gap-1.5 md:gap-2 mb-0.5 md:mb-1">
@@ -269,9 +282,11 @@ export default function GPXMapViewer({ gpxUrl, category, showRoute = true, showE
         </div>
       )}
 
-      {/* Gráfico de Altimetria Profissional */}
-      {showElevation && gpxData && (
-        <ElevationChart points={gpxData.points} distance={gpxData.distance * 1000} />
+          {/* Gráfico de Altimetria Profissional */}
+          {showElevation && gpxData && (
+            <ElevationChart points={gpxData.points} distance={gpxData.distance * 1000} />
+          )}
+        </>
       )}
     </div>
   )
