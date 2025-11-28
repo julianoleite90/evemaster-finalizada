@@ -987,6 +987,110 @@ export default function OrganizerSettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Dialog de Editar Usuário */}
+      <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+            <DialogDescription>
+              Atualize as permissões do usuário {editingUser?.user?.full_name || editingUser?.user?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-base font-semibold">Permissões</Label>
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit_can_view"
+                    checked={editUserPermissions.can_view}
+                    onCheckedChange={(checked) =>
+                      setEditUserPermissions({ ...editUserPermissions, can_view: !!checked })
+                    }
+                  />
+                  <Label htmlFor="edit_can_view" className="flex items-center gap-2 cursor-pointer font-normal">
+                    Visualizar
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit_can_edit"
+                    checked={editUserPermissions.can_edit}
+                    onCheckedChange={(checked) =>
+                      setEditUserPermissions({ ...editUserPermissions, can_edit: !!checked })
+                    }
+                  />
+                  <Label htmlFor="edit_can_edit" className="flex items-center gap-2 cursor-pointer font-normal">
+                    Editar
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit_can_create"
+                    checked={editUserPermissions.can_create}
+                    onCheckedChange={(checked) =>
+                      setEditUserPermissions({ ...editUserPermissions, can_create: !!checked })
+                    }
+                  />
+                  <Label htmlFor="edit_can_create" className="flex items-center gap-2 cursor-pointer font-normal">
+                    Criar
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit_can_delete"
+                    checked={editUserPermissions.can_delete}
+                    onCheckedChange={(checked) =>
+                      setEditUserPermissions({ ...editUserPermissions, can_delete: !!checked })
+                    }
+                  />
+                  <Label htmlFor="edit_can_delete" className="flex items-center gap-2 cursor-pointer font-normal">
+                    Deletar
+                  </Label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingUser(null)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!editingUser || !organizerId) return
+
+                try {
+                  const supabase = createClient()
+                  const { error } = await supabase
+                    .from("organization_users")
+                    .update({
+                      can_view: editUserPermissions.can_view,
+                      can_edit: editUserPermissions.can_edit,
+                      can_create: editUserPermissions.can_create,
+                      can_delete: editUserPermissions.can_delete,
+                    })
+                    .eq("id", editingUser.id)
+
+                  if (error) {
+                    console.error("Erro ao atualizar permissões:", error)
+                    toast.error("Erro ao atualizar permissões")
+                  } else {
+                    toast.success("Permissões atualizadas com sucesso!")
+                    setEditingUser(null)
+                    fetchProfile()
+                  }
+                } catch (error: any) {
+                  console.error("Erro ao atualizar permissões:", error)
+                  toast.error("Erro ao atualizar permissões")
+                }
+              }}
+            >
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
