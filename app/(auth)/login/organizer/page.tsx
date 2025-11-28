@@ -105,7 +105,7 @@ export default function OrganizerLoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      <div className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-20 xl:px-24">
+      <div className="flex-[0.4] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-12 xl:px-16">
         <div className="mx-auto w-full max-w-sm lg:w-96">
           <div className="mb-8 flex justify-center">
             <Link href="/" className="inline-block">
@@ -222,17 +222,18 @@ export default function OrganizerLoginPage() {
         </div>
       </div>
 
-      <div className="hidden lg:block relative w-0 flex-1">
+      <div className="hidden lg:block relative w-0 flex-[0.6]">
         <div className="absolute inset-0 bg-gradient-to-br from-[#156634] to-[#0d4a1f]">
           {/* Imagem de fundo com opacidade */}
           <div 
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30"
+            className="absolute inset-0 bg-center bg-no-repeat opacity-50"
             style={{
-              backgroundImage: 'url(/images/banenr-login-min.png)'
+              backgroundImage: 'url(/images/organizador-banner.png)',
+              backgroundSize: 'cover'
             }}
           />
-          {/* Overlay verde com opacidade */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#156634]/80 to-[#0d4a1f]/80" />
+          {/* Overlay verde com opacidade reduzida */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#156634]/50 to-[#0d4a1f]/50" />
           <div className="relative flex items-center justify-center h-full p-12 z-10">
             <div className="text-center text-white">
               <h3 className="text-4xl font-bold mb-4">Painel do Organizador</h3>

@@ -114,16 +114,42 @@ export default function OrganizerSettingsPage() {
       })
 
       // Buscar usuários da organização (ativos e inativos)
-      const { data: orgUsers } = await supabase
+      const { data: orgUsers, error: orgUsersError } = await supabase
         .from("organization_users")
-        .select(`
-          *,
-          user:users(id, email, full_name, is_active)
-        `)
+        .select("*")
         .eq("organizer_id", organizer.id)
         .order("created_at", { ascending: false })
 
-      setOrganizationUsers(orgUsers || [])
+      if (orgUsersError) {
+        console.error("Erro ao buscar usuários da organização:", orgUsersError)
+        toast.error("Erro ao carregar usuários: " + orgUsersError.message)
+        setOrganizationUsers([])
+        return
+      }
+
+      // Buscar dados dos usuários separadamente
+      if (orgUsers && orgUsers.length > 0) {
+        const userIds = orgUsers.map(ou => ou.user_id).filter(Boolean)
+        const { data: usersData, error: usersError } = await supabase
+          .from("users")
+          .select("id, email, full_name, is_active")
+          .in("id", userIds)
+
+        if (usersError) {
+          console.error("Erro ao buscar dados dos usuários:", usersError)
+        } else {
+          // Combinar dados
+          const orgUsersWithUserData = orgUsers.map(orgUser => ({
+            ...orgUser,
+            user: usersData?.find(u => u.id === orgUser.user_id) || null
+          }))
+          console.log("Usuários encontrados:", orgUsersWithUserData.length, orgUsersWithUserData)
+          setOrganizationUsers(orgUsersWithUserData)
+        }
+      } else {
+        console.log("Nenhum usuário encontrado na organização")
+        setOrganizationUsers([])
+      }
     } catch (error: any) {
       console.error("Erro ao buscar perfil:", error)
       toast.error("Erro ao carregar dados")
@@ -291,7 +317,10 @@ export default function OrganizerSettingsPage() {
         can_create: false,
         can_delete: false,
       })
-      fetchProfile()
+      // Aguardar um pouco antes de recarregar para garantir que o banco foi atualizado
+      setTimeout(() => {
+        fetchProfile()
+      }, 500)
     } catch (error: any) {
       console.error("Erro ao adicionar usuário:", error)
       toast.error("Erro ao adicionar usuário: " + (error.message || "Erro desconhecido"))
@@ -584,9 +613,21 @@ export default function OrganizerSettingsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Usuários da Organização</CardTitle>
-                  <CardDescription>Gerencie permissões dos usuários</CardDescription>
+                  <CardDescription>
+                    Gerencie permissões dos usuários ({organizationUsers.length} usuário{organizationUsers.length !== 1 ? 's' : ''})
+                  </CardDescription>
                 </div>
-                <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchProfile()}
+                    disabled={loading}
+                  >
+                    <Loader2 className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                    Atualizar
+                  </Button>
+                  <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
                   <DialogTrigger asChild>
                     <Button>
                       <Plus className="h-4 w-4 mr-2" />
@@ -762,7 +803,8 @@ export default function OrganizerSettingsPage() {
                       </Button>
                     </DialogFooter>
                   </DialogContent>
-                </Dialog>
+                  </Dialog>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
