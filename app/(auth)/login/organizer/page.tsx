@@ -46,15 +46,30 @@ export default function OrganizerLoginPage() {
         // Aguardar para garantir que o middleware criou o registro em users
         await new Promise(resolve => setTimeout(resolve, 1500))
 
-        // Verificar se é organizador
+        // Verificar se é organizador principal (tem perfil próprio)
         let { data: organizer } = await supabase
           .from("organizers")
           .select("id")
           .eq("user_id", data.user.id)
           .maybeSingle()
 
-        // Se não encontrou, tentar criar automaticamente
+        // Se não encontrou, verificar se é membro de uma organização
         if (!organizer) {
+          const { data: orgMembership } = await supabase
+            .from("organization_users")
+            .select("organizer_id, is_active")
+            .eq("user_id", data.user.id)
+            .eq("is_active", true)
+            .maybeSingle()
+
+          if (orgMembership) {
+            // Usuário é membro de uma organização, permitir login
+            toast.success("Login realizado com sucesso!")
+            window.location.href = "/dashboard/organizer"
+            return
+          }
+
+          // Se não é membro, tentar criar perfil de organizador automaticamente
           const { data: userData } = await supabase
             .from("users")
             .select("role, full_name")
@@ -86,7 +101,7 @@ export default function OrganizerLoginPage() {
         }
 
         if (!organizer) {
-          toast.error("Esta conta não possui perfil de organizador. Entre em contato com o suporte.")
+          toast.error("Esta conta não possui perfil de organizador ou não é membro de nenhuma organização. Entre em contato com o suporte.")
           await supabase.auth.signOut()
           return
         }
