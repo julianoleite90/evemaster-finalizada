@@ -13,6 +13,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Search, Download, Filter, X, Calendar, CheckCircle, Clock, XCircle, Loader2, User, Mail, MapPin, DollarSign } from "lucide-react"
 import { useState, useEffect } from "react"
 import { format } from "date-fns"
@@ -25,12 +35,25 @@ interface Registration {
   numeroInscricao: string
   nome: string
   email: string
+  telefone?: string
+  cpf?: string
+  dataNascimento?: string
+  idade?: number | null
+  genero?: string
   evento: string
   categoria: string
   dataInscricao: string
   statusPagamento: "paid" | "pending" | "cancelled"
   valor: number
   metodoPagamento?: string
+  endereco?: string
+  numero?: string
+  complemento?: string
+  bairro?: string
+  cidade?: string
+  estado?: string
+  cep?: string
+  tamanhoCamiseta?: string
 }
 
 export default function RegistrationsPage() {
@@ -40,9 +63,40 @@ export default function RegistrationsPage() {
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
   const [showFilters, setShowFilters] = useState(false)
+  const [showExportDialog, setShowExportDialog] = useState(false)
   const [loading, setLoading] = useState(true)
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [eventos, setEventos] = useState<string[]>([])
+  
+  // Campos disponíveis para exportação
+  const availableFields = [
+    { key: 'numeroInscricao', label: 'Número de Inscrição', default: true },
+    { key: 'nome', label: 'Nome', default: true },
+    { key: 'email', label: 'Email', default: true },
+    { key: 'telefone', label: 'Telefone', default: false },
+    { key: 'cpf', label: 'CPF', default: false },
+    { key: 'dataNascimento', label: 'Data de Nascimento', default: false },
+    { key: 'idade', label: 'Idade', default: false },
+    { key: 'genero', label: 'Gênero', default: false },
+    { key: 'evento', label: 'Evento', default: true },
+    { key: 'categoria', label: 'Categoria', default: true },
+    { key: 'dataInscricao', label: 'Data de Inscrição', default: true },
+    { key: 'statusPagamento', label: 'Status de Pagamento', default: true },
+    { key: 'valor', label: 'Valor', default: true },
+    { key: 'metodoPagamento', label: 'Método de Pagamento', default: false },
+    { key: 'endereco', label: 'Endereço', default: false },
+    { key: 'numero', label: 'Número', default: false },
+    { key: 'complemento', label: 'Complemento', default: false },
+    { key: 'bairro', label: 'Bairro', default: false },
+    { key: 'cidade', label: 'Cidade', default: false },
+    { key: 'estado', label: 'Estado', default: false },
+    { key: 'cep', label: 'CEP', default: false },
+    { key: 'tamanhoCamiseta', label: 'Tamanho da Camiseta', default: false },
+  ]
+  
+  const [selectedFields, setSelectedFields] = useState<Set<string>>(
+    new Set(availableFields.filter(f => f.default).map(f => f.key))
+  )
 
   useEffect(() => {
     const fetchRegistrations = async () => {
@@ -96,6 +150,7 @@ export default function RegistrationsPage() {
             event_id,
             ticket_id,
             status,
+            shirt_size,
             events:event_id (
               name
             )
@@ -115,7 +170,7 @@ export default function RegistrationsPage() {
         const [athletesData, paymentsData, ticketsData] = await Promise.all([
           supabase
             .from("athletes")
-            .select("registration_id, full_name, email")
+            .select("registration_id, full_name, email, phone, cpf, birth_date, gender, address, address_number, address_complement, neighborhood, city, state, zip_code")
             .in("registration_id", registrationIds),
           supabase
             .from("payments")
@@ -132,6 +187,23 @@ export default function RegistrationsPage() {
         const paymentsMap = new Map((paymentsData.data || []).map(p => [p.registration_id, p]))
         const ticketsMap = new Map((ticketsData.data || []).map(t => [t.id, t]))
 
+        // Função auxiliar para calcular idade
+        const calculateAge = (birthDate: string) => {
+          if (!birthDate) return null
+          try {
+            const birth = new Date(birthDate)
+            const today = new Date()
+            let age = today.getFullYear() - birth.getFullYear()
+            const monthDiff = today.getMonth() - birth.getMonth()
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+              age--
+            }
+            return age
+          } catch {
+            return null
+          }
+        }
+
         // Formatar dados
         const formattedRegistrations: Registration[] = (allRegistrations || []).map((reg: any) => {
           const athlete = athletesMap.get(reg.id)
@@ -143,6 +215,11 @@ export default function RegistrationsPage() {
             numeroInscricao: reg.registration_number || `INS-${reg.id.substring(0, 8).toUpperCase()}`,
             nome: athlete?.full_name || "N/A",
             email: athlete?.email || "N/A",
+            telefone: athlete?.phone || undefined,
+            cpf: athlete?.cpf || undefined,
+            dataNascimento: athlete?.birth_date || undefined,
+            idade: athlete?.birth_date ? calculateAge(athlete.birth_date) : undefined,
+            genero: athlete?.gender === "male" ? "Masculino" : athlete?.gender === "female" ? "Feminino" : athlete?.gender || undefined,
             evento: reg.events?.name || "N/A",
             categoria: ticket?.category || "N/A",
             dataInscricao: reg.created_at,
@@ -150,7 +227,15 @@ export default function RegistrationsPage() {
             valor: Number(payment?.total_amount || ticket?.price || 0),
             metodoPagamento: payment?.payment_method === "pix" ? "PIX" : 
                             payment?.payment_method === "credit_card" ? "Cartão de Crédito" :
-                            payment?.payment_method === "boleto" ? "Boleto" : undefined
+                            payment?.payment_method === "boleto" ? "Boleto" : undefined,
+            endereco: athlete?.address || undefined,
+            numero: athlete?.address_number || undefined,
+            complemento: athlete?.address_complement || undefined,
+            bairro: athlete?.neighborhood || undefined,
+            cidade: athlete?.city || undefined,
+            estado: athlete?.state || undefined,
+            cep: athlete?.zip_code || undefined,
+            tamanhoCamiseta: reg.shirt_size || undefined
           }
         })
 
@@ -275,6 +360,97 @@ export default function RegistrationsPage() {
     dateFrom !== "" ||
     dateTo !== ""
 
+  const exportToCSV = () => {
+    if (selectedFields.size === 0) {
+      toast.error("Selecione pelo menos um campo para exportar")
+      return
+    }
+
+    if (filteredRegistrations.length === 0) {
+      toast.error("Não há inscrições para exportar")
+      return
+    }
+
+    // Mapear campos para labels
+    const fieldLabels: Record<string, string> = {}
+    availableFields.forEach(field => {
+      fieldLabels[field.key] = field.label
+    })
+
+    // Criar cabeçalho CSV
+    const headers = Array.from(selectedFields).map(key => fieldLabels[key] || key)
+    const csvRows = [headers.join(',')]
+
+    // Adicionar dados
+    filteredRegistrations.forEach(reg => {
+      const row: string[] = []
+      selectedFields.forEach(key => {
+        let value: any = reg[key as keyof Registration]
+        
+        // Formatar valores específicos
+        if (key === 'dataInscricao' && value) {
+          value = formatDate(value)
+        } else if (key === 'dataNascimento' && value) {
+          value = formatDate(value)
+        } else if (key === 'statusPagamento') {
+          value = value === 'paid' ? 'Pago' : value === 'pending' ? 'Pendente' : 'Cancelado'
+        } else if (key === 'valor' && value) {
+          value = formatCurrency(Number(value) || 0)
+        } else if (key === 'cpf' && value) {
+          // Formatar CPF
+          const cleanCPF = String(value).replace(/\D/g, '')
+          if (cleanCPF.length === 11) {
+            value = cleanCPF.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+          }
+        } else if (key === 'cep' && value) {
+          // Formatar CEP
+          const cleanCEP = String(value).replace(/\D/g, '')
+          if (cleanCEP.length === 8) {
+            value = cleanCEP.replace(/(\d{5})(\d{3})/, '$1-$2')
+          }
+        } else if (key === 'telefone' && value) {
+          // Formatar telefone
+          const cleanPhone = String(value).replace(/\D/g, '')
+          if (cleanPhone.length === 11) {
+            value = cleanPhone.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3')
+          } else if (cleanPhone.length === 10) {
+            value = cleanPhone.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3')
+          }
+        }
+        
+        // Se valor for undefined/null, usar 'N/A'
+        if (value === undefined || value === null || value === '') {
+          value = 'N/A'
+        }
+        
+        // Escapar vírgulas e aspas no CSV
+        if (typeof value === 'string') {
+          value = value.replace(/"/g, '""')
+          if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+            value = `"${value}"`
+          }
+        }
+        
+        row.push(value || '')
+      })
+      csvRows.push(row.join(','))
+    })
+
+    // Criar arquivo e fazer download
+    const csvContent = csvRows.join('\n')
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `inscricoes_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    toast.success(`Exportação realizada com sucesso! ${filteredRegistrations.length} inscrição(ões) exportada(s)`)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -300,10 +476,101 @@ export default function RegistrationsPage() {
               <span className="ml-2 h-1.5 w-1.5 bg-[#156634] rounded-full" />
             )}
           </Button>
-          <Button variant="outline" size="sm">
-            <Download className="mr-2 h-4 w-4" />
-            Exportar
-          </Button>
+          <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Download className="mr-2 h-4 w-4" />
+                Exportar
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Exportar Inscrições</DialogTitle>
+                <DialogDescription>
+                  Selecione os campos que deseja incluir na exportação
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedFields(new Set(availableFields.map(f => f.key)))
+                    }}
+                    className="h-8 text-xs"
+                  >
+                    Selecionar Todos
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedFields(new Set(availableFields.filter(f => f.default).map(f => f.key)))
+                    }}
+                    className="h-8 text-xs"
+                  >
+                    Padrão
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedFields(new Set())}
+                    className="h-8 text-xs"
+                  >
+                    Limpar
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto">
+                  {availableFields.map((field) => (
+                    <div key={field.key} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={field.key}
+                        checked={selectedFields.has(field.key)}
+                        onCheckedChange={(checked) => {
+                          const newSet = new Set(selectedFields)
+                          if (checked) {
+                            newSet.add(field.key)
+                          } else {
+                            newSet.delete(field.key)
+                          }
+                          setSelectedFields(newSet)
+                        }}
+                      />
+                      <label
+                        htmlFor={field.key}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        {field.label}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-xs text-muted-foreground pt-2 border-t">
+                  {selectedFields.size} campo(s) selecionado(s) de {filteredRegistrations.length} inscrição(ões)
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowExportDialog(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (selectedFields.size === 0) {
+                      toast.error("Selecione pelo menos um campo para exportar")
+                      return
+                    }
+                    exportToCSV()
+                    setShowExportDialog(false)
+                  }}
+                  disabled={selectedFields.size === 0}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Exportar CSV
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
