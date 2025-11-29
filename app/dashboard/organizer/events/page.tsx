@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar, MapPin, Users, Eye, Settings, Plus, Search } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { getOrganizerEvents } from "@/lib/supabase/events"
@@ -232,8 +233,40 @@ export default function EventsPage() {
 
   const EventCard = ({ event }: { event: Event }) => {
     return (
-    <Card className="hover:shadow-lg transition-all duration-200 flex flex-col h-full border-2 hover:border-[#156634]/20">
-      <CardHeader className="pb-4">
+    <Card className="hover:shadow-lg transition-all duration-200 flex flex-col h-full border-2 hover:border-[#156634]/20 overflow-hidden">
+      {/* Cabeçalho com Banner */}
+      <div className="relative w-full h-48 bg-gray-100 overflow-hidden">
+        {event.imagem ? (
+          <Image
+            src={event.imagem}
+            alt={event.name}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-r from-[#156634] to-[#1a7a3e]" />
+        )}
+        {/* Overlay escuro para melhor legibilidade */}
+        <div className="absolute inset-0 bg-black/30" />
+        {/* Título com fundo branco e texto verde */}
+        <div className="absolute bottom-0 left-0 right-0 p-4">
+          <div className="bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <CardTitle className="text-xl font-bold leading-tight text-[#156634] pr-2">
+                {event.name}
+              </CardTitle>
+              {getStatusBadge(event.status)}
+            </div>
+            {event.description && (
+              <CardDescription className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
+                {stripHtml(event.description)}
+              </CardDescription>
+            )}
+          </div>
+        </div>
+      </div>
+      <CardHeader className="pb-4 hidden">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -248,7 +281,7 @@ export default function EventsPage() {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex flex-col flex-1 pt-0">
+      <CardContent className="flex flex-col flex-1 pt-4">
         <div className="space-y-3 flex-1 mb-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground py-1">
             <Calendar className="h-4 w-4 flex-shrink-0 text-[#156634]" />
