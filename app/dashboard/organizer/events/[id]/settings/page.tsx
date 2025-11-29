@@ -1164,37 +1164,38 @@ export default function EventSettingsPage() {
             {/* Coluna Principal */}
             <div className="lg:col-span-2 space-y-6">
               {/* Informações Básicas */}
-          <Card className="border-2 shadow-sm">
-            <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
-              <CardTitle className="text-xl flex items-center gap-2">
-                <FileText className="h-5 w-5 text-[#156634]" />
+          <Card className="border border-gray-200 shadow-sm">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <FileText className="h-4 w-4 text-[#156634]" />
                 Informações Básicas
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs mt-1">
                     Dados principais do evento
               </CardDescription>
             </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-5 pt-0">
                   <div className="space-y-2">
-                  <Label htmlFor="name">Nome do Evento *</Label>
+                  <Label htmlFor="name" className="text-sm font-medium">Nome do Evento *</Label>
                   <Input
                     id="name"
                     value={eventData.name}
                     onChange={(e) => setEventData({ ...eventData, name: e.target.value })}
                     placeholder="Nome do evento"
                     disabled={fieldDisabled}
+                    className="h-10"
                   />
                 </div>
 
                   <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="category">Categoria *</Label>
+                  <Label htmlFor="category" className="text-sm font-medium">Categoria *</Label>
                   <Select
                     value={eventData.category}
                     onValueChange={(value) => setEventData({ ...eventData, category: value })}
                     disabled={fieldDisabled}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-10">
                           <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1208,13 +1209,13 @@ export default function EventSettingsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="language">Idioma do Evento *</Label>
+                  <Label htmlFor="language" className="text-sm font-medium">Idioma do Evento *</Label>
                   <Select
                     value={eventData.language}
                     onValueChange={(value) => setEventData({ ...eventData, language: value as "pt" | "es" | "en" })}
                     disabled={fieldDisabled}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-10">
                       <SelectValue placeholder="Selecione o idioma" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1240,13 +1241,13 @@ export default function EventSettingsPage() {
 
                 <div className="grid grid-cols-2 gap-4 mt-4">
                 <div className="space-y-2">
-                      <Label htmlFor="status">Status</Label>
+                      <Label htmlFor="status" className="text-sm font-medium">Status</Label>
                   <Select
                     value={eventData.status}
                         onValueChange={(value) => setEventData({ ...eventData, status: value })}
                     disabled={fieldDisabled}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-10">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1258,8 +1259,8 @@ export default function EventSettingsPage() {
                   </Select>
                     </div>
                   <div className="space-y-2">
-                    <Label>Exibir na Vitrine</Label>
-                    <div className="flex items-center space-x-4">
+                    <Label className="text-sm font-medium">Exibir na Vitrine</Label>
+                    <div className="flex items-center space-x-4 pt-1">
                       <div className="flex items-center space-x-2">
                         <input
                           type="radio"
@@ -1294,13 +1295,13 @@ export default function EventSettingsPage() {
                 {/* Dificuldade, Tipo de Prova e Acesso Major */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="difficulty_level">Dificuldade da Prova</Label>
+                    <Label htmlFor="difficulty_level" className="text-sm font-medium">Dificuldade da Prova</Label>
                     <Select
                       value={eventData.difficulty_level}
                       onValueChange={(value) => setEventData({ ...eventData, difficulty_level: value as any })}
                       disabled={fieldDisabled}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10">
                         <SelectValue placeholder="Selecione a dificuldade" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1313,13 +1314,13 @@ export default function EventSettingsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="race_type">Tipo de Prova</Label>
+                    <Label htmlFor="race_type" className="text-sm font-medium">Tipo de Prova</Label>
                     <Select
                       value={eventData.race_type}
                       onValueChange={(value) => setEventData({ ...eventData, race_type: value as any })}
                       disabled={fieldDisabled}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10">
                         <SelectValue placeholder="Selecione o tipo" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1331,8 +1332,8 @@ export default function EventSettingsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Acesso a Prova Major</Label>
-                    <div className="flex items-center space-x-4">
+                    <Label className="text-sm font-medium">Acesso a Prova Major</Label>
+                    <div className="flex items-center space-x-4 pt-1">
                       <div className="flex items-center space-x-2">
                         <input
                           type="radio"
@@ -1363,13 +1364,13 @@ export default function EventSettingsPage() {
 
                 {eventData.major_access && (
                   <div className="space-y-2">
-                    <Label htmlFor="major_access_type">Qual prova major? *</Label>
+                    <Label htmlFor="major_access_type" className="text-sm font-medium">Qual prova major? *</Label>
                     <Select
                       value={eventData.major_access_type}
                       onValueChange={(value) => setEventData({ ...eventData, major_access_type: value })}
                       disabled={fieldDisabled}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10">
                         <SelectValue placeholder="Selecione a prova major" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1392,24 +1393,26 @@ export default function EventSettingsPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="event_date">Data do Evento *</Label>
+                  <Label htmlFor="event_date" className="text-sm font-medium">Data do Evento *</Label>
                   <Input
                     id="event_date"
                     type="date"
                     value={eventData.event_date}
                     onChange={(e) => setEventData({ ...eventData, event_date: e.target.value })}
                     disabled={fieldDisabled}
+                    className="h-10"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="start_time">Horário de Início *</Label>
+                  <Label htmlFor="start_time" className="text-sm font-medium">Horário de Início *</Label>
                   <Input
                     id="start_time"
                     type="time"
                     value={eventData.start_time}
                     onChange={(e) => setEventData({ ...eventData, start_time: e.target.value })}
                     disabled={fieldDisabled}
+                    className="h-10"
                   />
                 </div>
               </div>
@@ -1417,83 +1420,89 @@ export default function EventSettingsPage() {
           </Card>
 
               {/* Localização */}
-          <Card className="border-2 shadow-sm">
-            <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
-                  <CardTitle className="text-xl flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-[#156634]" />
+          <Card className="border border-gray-200 shadow-sm">
+            <CardHeader className="pb-4">
+                  <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-[#156634]" />
                     Localização
                   </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs mt-1">
                     Onde o evento será realizado
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pt-0">
                   <div className="space-y-2">
-                  <Label htmlFor="location">Local / Nome do Estabelecimento</Label>
+                  <Label htmlFor="location" className="text-sm font-medium">Local / Nome do Estabelecimento</Label>
                   <Input
                     id="location"
                     value={eventData.location}
                     onChange={(e) => setEventData({ ...eventData, location: e.target.value })}
                     placeholder="Ex: Praça da Liberdade"
                     disabled={fieldDisabled}
+                    className="h-10"
                   />
                 </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-2 space-y-2">
-                  <Label htmlFor="address">Endereço</Label>
+                  <Label htmlFor="address" className="text-sm font-medium">Endereço</Label>
                   <Input
                     id="address"
                     value={eventData.address}
                     onChange={(e) => setEventData({ ...eventData, address: e.target.value })}
                     placeholder="Ex: Av. Beira Mar"
                     disabled={fieldDisabled}
+                    className="h-10"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="address_number">Número</Label>
+                  <Label htmlFor="address_number" className="text-sm font-medium">Número</Label>
                   <Input
                     id="address_number"
                     value={eventData.address_number}
                     onChange={(e) => setEventData({ ...eventData, address_number: e.target.value })}
                     placeholder="Ex: 1000"
                     disabled={fieldDisabled}
+                    className="h-10"
                   />
                 </div>
               </div>
 
                   <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="city">Cidade</Label>
+                  <Label htmlFor="city" className="text-sm font-medium">Cidade</Label>
                   <Input
                     id="city"
                     value={eventData.city}
                     onChange={(e) => setEventData({ ...eventData, city: e.target.value })}
                     placeholder="Ex: Florianópolis"
                     disabled={fieldDisabled}
+                    className="h-10"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="state">Estado</Label>
+                  <Label htmlFor="state" className="text-sm font-medium">Estado</Label>
                   <Input
                     id="state"
                     value={eventData.state}
                     onChange={(e) => setEventData({ ...eventData, state: e.target.value })}
                     placeholder="Ex: SC"
                     disabled={fieldDisabled}
+                    className="h-10"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="zip_code">CEP</Label>
+                  <Label htmlFor="zip_code" className="text-sm font-medium">CEP</Label>
                   <Input
                     id="zip_code"
                     value={eventData.zip_code}
                     onChange={(e) => setEventData({ ...eventData, zip_code: e.target.value })}
                     placeholder="00000-000"
                     disabled={fieldDisabled}
+                    className="h-10"
                   />
                 </div>
               </div>
@@ -1501,17 +1510,17 @@ export default function EventSettingsPage() {
           </Card>
 
               {/* Descrição */}
-              <Card className="border-2 shadow-sm">
-                <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
-                  <CardTitle className="text-xl flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-[#156634]" />
+              <Card className="border border-gray-200 shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-[#156634]" />
                     Descrição do Evento
                   </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs mt-1">
                     Texto que será exibido na página do evento
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0">
                   <div className="border rounded-lg overflow-hidden">
                     <ReactQuill
                       theme="snow"
@@ -1536,21 +1545,21 @@ export default function EventSettingsPage() {
             </div>
 
             {/* Sidebar */}
-            <div className="space-y-6">
+            <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
               {/* Banner */}
-          <Card className="border-2 shadow-sm">
-            <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Upload className="h-5 w-5 text-[#156634]" />
+          <Card className="border border-gray-200 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Upload className="h-4 w-4 text-[#156634]" />
                 Banner do Evento
               </CardTitle>
-              <CardDescription>
-                    Imagem principal do evento. Proporção recomendada: 21:9 (ex: 1920x823px ou 1680x720px)
+              <CardDescription className="text-xs mt-1">
+                    Imagem principal do evento. Proporção recomendada: 21:9
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pt-0">
               {eventData.banner_url && (
-                    <div className="relative w-full h-32 bg-gray-100 rounded-lg overflow-hidden">
+                    <div className="relative w-full h-28 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 mb-4">
                   <Image
                     src={eventData.banner_url}
                     alt="Banner atual"
@@ -1561,8 +1570,8 @@ export default function EventSettingsPage() {
                 </div>
               )}
               
-              <div className="space-y-2">
-                <Label htmlFor="newBanner">
+              <div className="space-y-2.5">
+                <Label htmlFor="newBanner" className="text-sm font-medium">
                   {eventData.banner_url ? "Trocar Banner" : "Adicionar Banner"}
                 </Label>
                 <div className="relative">
@@ -1577,43 +1586,50 @@ export default function EventSettingsPage() {
                         toast.success(`Banner "${file.name}" selecionado. Clique em "Salvar" para aplicar.`)
                       }
                     }}
-                    className={`cursor-pointer file:hidden ${newBanner ? 'border-dashed border-2 border-[#156634]' : 'border-dashed border-2 border-gray-300 hover:border-[#156634]/50 transition-colors'}`}
+                    className={`h-24 cursor-pointer file:hidden ${newBanner ? 'border-dashed border-2 border-[#156634] bg-[#156634]/5' : 'border-dashed border-2 border-gray-300 hover:border-[#156634]/50 transition-colors bg-gray-50/50'}`}
                     disabled={fieldDisabled}
                   />
                   {!newBanner && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="text-center">
-                        <Upload className="h-5 w-5 text-gray-400 mx-auto mb-1" />
-                        <p className="text-xs text-gray-500">Clique para escolher arquivo</p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">Nenhum arquivo escolhido</p>
+                      <div className="text-center space-y-1">
+                        <Upload className="h-6 w-6 text-gray-400 mx-auto" />
+                        <p className="text-xs font-medium text-gray-600">Clique para escolher arquivo</p>
+                        <p className="text-[10px] text-gray-400">ou arraste e solte aqui</p>
+                      </div>
+                    </div>
+                  )}
+                  {newBanner && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="text-center space-y-1">
+                        <div className="h-6 w-6 rounded-full bg-[#156634] flex items-center justify-center mx-auto">
+                          <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <p className="text-xs font-medium text-[#156634]">{newBanner.name}</p>
                       </div>
                     </div>
                   )}
                 </div>
-                {newBanner && (
-                  <p className="text-sm text-green-600 font-medium">
-                        ✓ Novo banner selecionado: {newBanner.name}
-                  </p>
-                )}
               </div>
             </CardContent>
           </Card>
 
               {/* Galeria de Imagens */}
-              <Card className="border-2 shadow-sm">
-                <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Package className="h-5 w-5 text-[#156634]" />
+              <Card className="border border-gray-200 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Package className="h-4 w-4 text-[#156634]" />
                     Galeria de Imagens
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-xs mt-1">
                     Imagens adicionais que serão exibidas na página do evento
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 pt-0">
                   {/* Imagens existentes */}
                   {eventImages.length > 0 && (
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3 mb-4">
                       {eventImages.map((img, index) => (
                         <div key={img.id} className="relative group">
                           <div className="relative aspect-video rounded-lg overflow-hidden border">
@@ -1657,8 +1673,8 @@ export default function EventSettingsPage() {
                   )}
 
                   {/* Upload de novas imagens */}
-                  <div className="space-y-2">
-                    <Label htmlFor="eventImages">Adicionar Imagens</Label>
+                  <div className="space-y-3">
+                    <Label htmlFor="eventImages" className="text-sm font-medium">Adicionar Imagens</Label>
                     <div className="relative">
                       <Input
                         id="eventImages"
@@ -1669,33 +1685,43 @@ export default function EventSettingsPage() {
                           const files = Array.from(e.target.files || [])
                           setNewImages(prev => [...prev, ...files])
                         }}
-                        className={`cursor-pointer file:hidden ${newImages.length === 0 ? 'border-dashed border-2 border-gray-300 hover:border-[#156634]/50 transition-colors' : 'border-dashed border-2 border-[#156634]'}`}
+                        className={`h-24 cursor-pointer file:hidden ${newImages.length === 0 ? 'border-dashed border-2 border-gray-300 hover:border-[#156634]/50 transition-colors bg-gray-50/50' : 'border-dashed border-2 border-[#156634] bg-[#156634]/5'}`}
                         disabled={fieldDisabled || uploadingImages}
                       />
                       {newImages.length === 0 && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="text-center">
-                            <Upload className="h-5 w-5 text-gray-400 mx-auto mb-1" />
-                            <p className="text-xs text-gray-500">Clique para escolher arquivos</p>
-                            <p className="text-[10px] text-gray-400 mt-0.5">Nenhum arquivo escolhido</p>
+                          <div className="text-center space-y-1">
+                            <Upload className="h-6 w-6 text-gray-400 mx-auto" />
+                            <p className="text-xs font-medium text-gray-600">Clique para escolher arquivos</p>
+                            <p className="text-[10px] text-gray-400">ou arraste e solte aqui</p>
+                          </div>
+                        </div>
+                      )}
+                      {newImages.length > 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="text-center space-y-1">
+                            <div className="h-6 w-6 rounded-full bg-[#156634] flex items-center justify-center mx-auto">
+                              <span className="text-xs font-bold text-white">{newImages.length}</span>
+                            </div>
+                            <p className="text-xs font-medium text-[#156634]">{newImages.length} arquivo(s) selecionado(s)</p>
                           </div>
                         </div>
                       )}
                     </div>
                     {newImages.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-sm text-green-600 font-medium">
-                          ✓ {newImages.length} imagem(ns) selecionada(s). Clique em &quot;Salvar&quot; para fazer upload.
+                      <div className="space-y-2 pt-2 border-t">
+                        <p className="text-xs text-muted-foreground">
+                          Clique em &quot;Salvar&quot; para fazer upload das imagens
                         </p>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                           {newImages.map((file, index) => (
-                            <div key={index} className="flex items-center gap-2 px-2 py-1 bg-gray-100 rounded text-sm">
-                              <span className="truncate max-w-[150px]">{file.name}</span>
+                            <div key={index} className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 rounded-md text-xs border border-gray-200">
+                              <span className="truncate max-w-[120px] text-gray-700">{file.name}</span>
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="h-5 w-5"
+                                className="h-4 w-4 hover:bg-red-100 hover:text-red-600"
                                 onClick={() => setNewImages(prev => prev.filter((_, i) => i !== index))}
                               >
                                 <X className="h-3 w-3" />
