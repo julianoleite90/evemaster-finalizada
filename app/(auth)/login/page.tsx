@@ -38,10 +38,18 @@ export default function LoginPage() {
       })
 
       if (error) {
-        if (error.message.includes("Invalid login credentials")) {
+        console.error("❌ [LOGIN] Erro do Supabase:", {
+          message: error.message,
+          status: error.status,
+          name: error.name
+        })
+
+        if (error.message.includes("Invalid login credentials") || error.message.includes("Invalid")) {
           toast.error("Email ou senha incorretos")
         } else if (error.message.includes("Email not confirmed")) {
           toast.error("Por favor, confirme seu email antes de fazer login")
+        } else if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
+          toast.error("Erro de conexão. Verifique sua internet e tente novamente.")
         } else {
           toast.error(error.message || "Erro ao fazer login")
         }
@@ -59,8 +67,21 @@ export default function LoginPage() {
         window.location.href = "/my-account"
       }
     } catch (error: any) {
-      console.error("Erro ao fazer login:", error)
-      toast.error(error.message || "Erro ao fazer login. Tente novamente.")
+      console.error("❌ [LOGIN] Erro capturado:", {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack
+      })
+
+      // Tratar erros de rede especificamente
+      if (error?.message?.includes("Failed to fetch") || 
+          error?.message?.includes("NetworkError") ||
+          error?.name === "TypeError" ||
+          error?.message?.includes("fetch")) {
+        toast.error("Erro de conexão com o servidor. Verifique sua internet e tente novamente.")
+      } else {
+        toast.error(error?.message || "Erro ao fazer login. Tente novamente.")
+      }
     } finally {
       setLoading(false)
     }

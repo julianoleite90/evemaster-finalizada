@@ -36,6 +36,8 @@ export default function AffiliateLoginPage() {
       if (error) {
         if (error.message.includes("Invalid login credentials")) {
           toast.error("Email ou senha incorretos")
+        } else if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
+          toast.error("Erro de conexão. Verifique sua internet e tente novamente.")
         } else {
           toast.error(error.message || "Erro ao fazer login")
         }
@@ -61,8 +63,20 @@ export default function AffiliateLoginPage() {
         window.location.href = "/dashboard/affiliate"
       }
     } catch (error: any) {
-      console.error("Erro ao fazer login:", error)
-      toast.error(error.message || "Erro ao fazer login. Tente novamente.")
+      console.error("❌ [LOGIN AFILIADO] Erro capturado:", {
+        message: error?.message,
+        name: error?.name
+      })
+
+      // Tratar erros de rede especificamente
+      if (error?.message?.includes("Failed to fetch") || 
+          error?.message?.includes("NetworkError") ||
+          error?.name === "TypeError" ||
+          error?.message?.includes("fetch")) {
+        toast.error("Erro de conexão com o servidor. Verifique sua internet e tente novamente.")
+      } else {
+        toast.error(error?.message || "Erro ao fazer login. Tente novamente.")
+      }
     } finally {
       setLoading(false)
     }

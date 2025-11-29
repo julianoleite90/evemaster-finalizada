@@ -198,8 +198,21 @@ export default function OrganizerLoginPage() {
         console.error("❌ [LOGIN ORGANIZADOR] data.user é null/undefined")
       }
     } catch (error: any) {
-      console.error("Erro ao fazer login:", error)
-      toast.error(error.message || "Erro ao fazer login. Tente novamente.")
+      console.error("❌ [LOGIN ORGANIZADOR] Erro capturado:", {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack
+      })
+
+      // Tratar erros de rede especificamente
+      if (error?.message?.includes("Failed to fetch") || 
+          error?.message?.includes("NetworkError") ||
+          error?.name === "TypeError" ||
+          error?.message?.includes("fetch")) {
+        toast.error("Erro de conexão com o servidor. Verifique sua internet e tente novamente.")
+      } else {
+        toast.error(error?.message || "Erro ao fazer login. Tente novamente.")
+      }
     } finally {
       setLoading(false)
     }
