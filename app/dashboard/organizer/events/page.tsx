@@ -12,6 +12,7 @@ import { getOrganizerEvents } from "@/lib/supabase/events"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { getOrganizerAccess } from "@/lib/supabase/organizer-access"
+import { usePermissions } from "@/hooks/use-permissions"
 
 interface Event {
   id: string
@@ -31,6 +32,7 @@ export default function EventsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [eventos, setEventos] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
+  const { canView, canEdit, canCreate, canDelete, isPrimary } = usePermissions()
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -228,7 +230,11 @@ export default function EventsPage() {
     return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim()
   }
 
-  const EventCard = ({ event }: { event: Event }) => (
+  const EventCard = ({ event }: { event: Event }) => {
+    // Verificar permissões para este componente
+    const { canView, canEdit, isPrimary } = usePermissions()
+    
+    return (
     <Card className="hover:shadow-lg transition-all duration-200 flex flex-col h-full border-2 hover:border-[#156634]/20">
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between gap-3">
@@ -286,17 +292,20 @@ export default function EventsPage() {
               <span className="sm:hidden">Ver</span>
             </Link>
           </Button>
-          <Button variant="outline" size="sm" asChild className="flex-1 hover:bg-[#156634]/5 hover:border-[#156634]/30">
-            <Link href={`/dashboard/organizer/events/${event.id}/settings`} className="flex items-center justify-center gap-2">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Configurações</span>
-              <span className="sm:hidden">Config</span>
-            </Link>
-          </Button>
+          {(canEdit || isPrimary) && (
+            <Button variant="outline" size="sm" asChild className="flex-1 hover:bg-[#156634]/5 hover:border-[#156634]/30">
+              <Link href={`/dashboard/organizer/events/${event.id}/settings`} className="flex items-center justify-center gap-2">
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Configurações</span>
+                <span className="sm:hidden">Config</span>
+              </Link>
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
-  )
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -307,14 +316,16 @@ export default function EventsPage() {
             Gerencie todos os seus eventos esportivos
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button asChild>
-            <Link href="/dashboard/organizer/events/new" className="flex items-center">
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Evento
-            </Link>
-          </Button>
-        </div>
+        {(canCreate || isPrimary) && (
+          <div className="flex gap-2">
+            <Button asChild>
+              <Link href="/dashboard/organizer/events/new" className="flex items-center">
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Evento
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Barra de busca */}
@@ -361,12 +372,14 @@ export default function EventsPage() {
                 <p className="text-muted-foreground mb-4">
                   {searchTerm ? "Nenhum evento encontrado" : "Nenhum evento criado"}
                 </p>
-                <Button asChild>
-                  <Link href="/dashboard/organizer/events/new">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Criar Primeiro Evento
-                  </Link>
-                </Button>
+                {(canCreate || isPrimary) && (
+                  <Button asChild>
+                    <Link href="/dashboard/organizer/events/new">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Criar Primeiro Evento
+                    </Link>
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}

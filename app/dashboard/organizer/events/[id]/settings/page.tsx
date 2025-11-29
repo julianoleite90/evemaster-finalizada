@@ -51,6 +51,7 @@ import { getEventById } from "@/lib/supabase/events"
 import { uploadEventBanner, uploadTicketGPX } from "@/lib/supabase/storage"
 import dynamic from "next/dynamic"
 import Image from "next/image"
+import { usePermissions } from "@/hooks/use-permissions"
 
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false })
 import "react-quill/dist/quill.snow.css"
@@ -96,6 +97,8 @@ export default function EventSettingsPage() {
   const params = useParams()
   const router = useRouter()
   const eventId = params.id as string
+  const { canView, canEdit, canCreate, canDelete, isPrimary } = usePermissions()
+  const fieldDisabled = !canEdit && !isPrimary
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [newBanner, setNewBanner] = useState<File | null>(null)
@@ -376,6 +379,11 @@ export default function EventSettingsPage() {
   }
 
   const handleSaveEventData = async () => {
+    // Verificar permissões antes de salvar
+    if (!canEdit && !isPrimary) {
+      toast.error("Você não tem permissão para editar eventos")
+      return
+    }
     try {
       console.log("🔵 [DEBUG] Iniciando salvamento do evento...")
       console.log("🔵 [DEBUG] Event ID:", eventId)
@@ -861,23 +869,29 @@ export default function EventSettingsPage() {
             </p>
           </div>
         </div>
-            <Button 
-              onClick={handleSaveEventData} 
-              disabled={saving} 
-              className="bg-[#156634] hover:bg-[#1a7a3e] text-white shadow-md"
-            >
-          {saving ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Salvando...
-            </>
-          ) : (
-            <>
-              <Save className="mr-2 h-4 w-4" />
-                  Salvar Evento
-            </>
-          )}
-        </Button>
+            {(canEdit || isPrimary) ? (
+              <Button 
+                onClick={handleSaveEventData} 
+                disabled={saving} 
+                className="bg-[#156634] hover:bg-[#1a7a3e] text-white shadow-md"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Salvar Evento
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Badge variant="outline" className="text-sm px-3 py-1.5">
+                Apenas visualização
+              </Badge>
+            )}
           </div>
         </div>
       </div>
@@ -1013,6 +1027,7 @@ export default function EventSettingsPage() {
                     value={eventData.name}
                     onChange={(e) => setEventData({ ...eventData, name: e.target.value })}
                     placeholder="Nome do evento"
+                    disabled={fieldDisabled}
                   />
                 </div>
 
@@ -1022,6 +1037,7 @@ export default function EventSettingsPage() {
                   <Select
                     value={eventData.category}
                     onValueChange={(value) => setEventData({ ...eventData, category: value })}
+                    disabled={fieldDisabled}
                   >
                     <SelectTrigger>
                           <SelectValue placeholder="Selecione" />

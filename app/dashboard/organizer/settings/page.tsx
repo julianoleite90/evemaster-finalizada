@@ -14,8 +14,10 @@ import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { getOrganizerAccess } from "@/lib/supabase/organizer-access"
+import { usePermissions } from "@/hooks/use-permissions"
 
 export default function OrganizerSettingsPage() {
+  const { canView, canEdit, canCreate, canDelete, isPrimary } = usePermissions()
   const [isEditingBank, setIsEditingBank] = useState(false)
   const [loading, setLoading] = useState(true)
   const [organizerId, setOrganizerId] = useState<string | null>(null)
@@ -938,11 +940,12 @@ export default function OrganizerSettingsPage() {
                             >
                               <Edit className="h-4 w-4 text-blue-600" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={async () => {
-                                if (confirm(`Tem certeza que deseja ${orgUser.is_active ? "inativar" : "ativar"} este usuário?`)) {
+                            {(canEdit || isPrimary) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => {
+                                  if (confirm(`Tem certeza que deseja ${orgUser.is_active ? "inativar" : "ativar"} este usuário?`)) {
                                   const supabase = createClient()
                                   const { error } = await supabase
                                     .from("organization_users")
@@ -956,19 +959,21 @@ export default function OrganizerSettingsPage() {
                                   }
                                 }
                               }}
-                              title={orgUser.is_active ? "Inativar usuário" : "Ativar usuário"}
-                            >
-                              {orgUser.is_active ? (
-                                <XCircle className="h-4 w-4 text-yellow-600" />
-                              ) : (
-                                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                  title={orgUser.is_active ? "Inativar usuário" : "Ativar usuário"}
+                                >
+                                  {orgUser.is_active ? (
+                                    <XCircle className="h-4 w-4 text-yellow-600" />
+                                  ) : (
+                                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                  )}
+                                </Button>
                               )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={async () => {
-                                if (confirm("Tem certeza que deseja remover este usuário da organização? Esta ação não pode ser desfeita.")) {
+                            {(canDelete || isPrimary) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => {
+                                  if (confirm("Tem certeza que deseja remover este usuário da organização? Esta ação não pode ser desfeita.")) {
                                   const supabase = createClient()
                                   const { error } = await supabase
                                     .from("organization_users")
@@ -982,10 +987,11 @@ export default function OrganizerSettingsPage() {
                                   }
                                 }
                               }}
-                              title="Remover usuário"
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
+                                  title="Remover usuário"
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-600" />
+                                </Button>
+                              )}
                           </div>
                         </TableCell>
                       </TableRow>
