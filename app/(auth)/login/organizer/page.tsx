@@ -60,6 +60,9 @@ export default function OrganizerLoginPage() {
         } else if (error.message.includes("Email not confirmed")) {
           console.error("❌ [LOGIN ORGANIZADOR] Email não confirmado")
           toast.error("Email não confirmado. Verifique sua caixa de entrada e confirme o email.")
+        } else if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
+          console.error("❌ [LOGIN ORGANIZADOR] Erro de conexão")
+          toast.error("Erro de conexão. Verifique sua internet e tente novamente.")
         } else {
           console.error("❌ [LOGIN ORGANIZADOR] Erro desconhecido:", error)
           toast.error(error.message || "Erro ao fazer login. Tente novamente.")
