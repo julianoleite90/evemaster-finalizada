@@ -139,36 +139,38 @@ export default function EventsPage() {
         // Se algum lote tiver quantidade, será a soma
         // Se não houver lotes, verifica o total_capacity do evento
 
-        // Converter para o formato esperado
-        const eventosFormatados: Event[] = events.map((event: any) => {
-          const stats = statsByEvent[event.id] || { inscritos: 0, receita: 0 }
-          
-          // Usar capacidade calculada dos lotes, ou fallback para total_capacity do evento
-          let capacidade = capacidadeByEvent[event.id]
-          if (capacidade === undefined) {
-            // Se não há lotes, usar total_capacity do evento
-            capacidade = event.total_capacity && event.total_capacity > 0 
-              ? event.total_capacity 
-              : null
-          } else if (capacidade === 0) {
-            // Se a soma for 0, considerar ilimitado
-            capacidade = null
-          }
-          
-          return {
-            id: event.id,
-            slug: event.slug,
-            name: event.name,
-            description: event.description || "",
-            date: event.event_date,
-            location: event.location || event.address || "Local a definir",
-            status: event.status as "draft" | "active" | "finished" | "cancelled",
-            inscritos: stats.inscritos,
-            capacidade: capacidade,
-            receita: stats.receita,
-            imagem: event.banner_url,
-          }
-        })
+        // Converter para o formato esperado - filtrar eventos cancelados (soft delete)
+        const eventosFormatados: Event[] = events
+          .filter((event: any) => event.status !== "cancelled") // Não mostrar eventos deletados
+          .map((event: any) => {
+            const stats = statsByEvent[event.id] || { inscritos: 0, receita: 0 }
+            
+            // Usar capacidade calculada dos lotes, ou fallback para total_capacity do evento
+            let capacidade = capacidadeByEvent[event.id]
+            if (capacidade === undefined) {
+              // Se não há lotes, usar total_capacity do evento
+              capacidade = event.total_capacity && event.total_capacity > 0 
+                ? event.total_capacity 
+                : null
+            } else if (capacidade === 0) {
+              // Se a soma for 0, considerar ilimitado
+              capacidade = null
+            }
+            
+            return {
+              id: event.id,
+              slug: event.slug,
+              name: event.name,
+              description: event.description || "",
+              date: event.event_date,
+              location: event.location || event.address || "Local a definir",
+              status: event.status as "draft" | "active" | "finished" | "cancelled",
+              inscritos: stats.inscritos,
+              capacidade: capacidade,
+              receita: stats.receita,
+              imagem: event.banner_url,
+            }
+          })
 
         setEventos(eventosFormatados)
       } catch (error: any) {

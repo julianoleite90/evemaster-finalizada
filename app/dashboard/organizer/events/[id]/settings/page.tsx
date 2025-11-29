@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   Settings,
   CreditCard,
@@ -112,6 +113,9 @@ export default function EventSettingsPage() {
   const [eventImages, setEventImages] = useState<Array<{ id: string; image_url: string; image_order: number }>>([])
   const [newImages, setNewImages] = useState<File[]>([])
   const [uploadingImages, setUploadingImages] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState("")
+  const [deleting, setDeleting] = useState(false)
 
   // Dados básicos do evento
   const [eventData, setEventData] = useState({
@@ -835,6 +839,52 @@ export default function EventSettingsPage() {
     }
   }
 
+  const handleDeleteEvent = async () => {
+    // Verificar permissões
+    if (!canDelete && !isPrimary) {
+      toast.error("Você não tem permissão para deletar eventos")
+      return
+    }
+
+    // Verificar confirmação
+    if (deleteConfirmText !== "DELETAR") {
+      toast.error("Por favor, digite 'DELETAR' para confirmar")
+      return
+    }
+
+    try {
+      setDeleting(true)
+      const supabase = createClient()
+
+      // Soft delete: marcar como deletado ao invés de deletar do banco
+      // Usar status 'cancelled' ou 'deleted' para manter os dados no banco
+      const { error } = await supabase
+        .from("events")
+        .update({ 
+          status: "cancelled",
+          // Adicionar timestamp de deleção se houver campo deleted_at
+          // deleted_at: new Date().toISOString()
+        })
+        .eq("id", eventId)
+
+      if (error) {
+        console.error("Erro ao deletar evento:", error)
+        toast.error("Erro ao deletar evento. Tente novamente.")
+        return
+      }
+
+      toast.success("Evento deletado com sucesso! Os dados foram mantidos no banco para segurança.")
+      
+      // Redirecionar para a lista de eventos
+      router.push("/dashboard/organizer/events")
+    } catch (error: any) {
+      console.error("Erro ao deletar evento:", error)
+      toast.error("Erro ao deletar evento: " + (error.message || "Erro desconhecido"))
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const updateBatch = (batchId: string, field: string, value: any) => {
     setBatches(prev => prev.map(batch =>
       batch.id === batchId ? { ...batch, [field]: value } : batch
@@ -1019,29 +1069,41 @@ export default function EventSettingsPage() {
                 Gerencie todas as configurações do seu evento
               </p>
             </div>
-            {(canEdit || isPrimary) ? (
-              <Button 
-                onClick={handleSaveEventData} 
-                disabled={saving} 
-                className="bg-[#156634] hover:bg-[#1a7a3e] text-white shadow-md"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Salvando...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Salvar Evento
-                  </>
-                )}
-              </Button>
-            ) : (
-              <Badge variant="outline" className="text-sm px-3 py-1.5">
-                Apenas visualização
-              </Badge>
-            )}
+            <div className="flex items-center gap-3">
+              {(canDelete || isPrimary) && (
+                <Button 
+                  onClick={() => setShowDeleteDialog(true)}
+                  variant="destructive"
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Deletar Evento
+                </Button>
+              )}
+              {(canEdit || isPrimary) ? (
+                <Button 
+                  onClick={handleSaveEventData} 
+                  disabled={saving} 
+                  className="bg-[#156634] hover:bg-[#1a7a3e] text-white shadow-md"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Salvar Evento
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Badge variant="outline" className="text-sm px-3 py-1.5">
+                  Apenas visualização
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -3413,6 +3475,64 @@ export default function EventSettingsPage() {
       )}
 
       </div>
+
+      {/* Dialog de Confirmação para Deletar */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Deletar Evento</DialogTitle>
+            <DialogDescription className="pt-2">
+              O evento <span className="font-semibold text-gray-900">{eventData.name}</span> será removido da visualização,
+              mas <span className="font-semibold text-green-600">todos os dados serão mantidos no banco de dados</span> para segurança e auditoria.
+              O evento será marcado como cancelado e não aparecerá mais nas listagens.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="delete-confirm" className="text-sm font-medium">
+              Para confirmar, digite <span className="font-bold text-red-600">DELETAR</span>:
+            </Label>
+            <Input
+              id="delete-confirm"
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="Digite DELETAR"
+              className="mt-2"
+              disabled={deleting}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteDialog(false)
+                setDeleteConfirmText("")
+              }}
+              disabled={deleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteEvent}
+              disabled={deleteConfirmText !== "DELETAR" || deleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deletando...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Deletar Permanentemente
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

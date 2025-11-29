@@ -113,24 +113,41 @@ export default function OrganizerDashboard() {
           .eq("payment_status", "paid")
 
         // Buscar todas as inscrições para os gráficos
-        const { data: todasInscricoes } = await supabase
+        const { data: todasInscricoes, error: errorInscricoes } = await supabase
           .from("registrations")
           .select("id, ticket_id")
           .in("event_id", eventIds)
 
-        // Buscar dados dos atletas
+        if (errorInscricoes) {
+          console.error("❌ [GRAFICOS] Erro ao buscar inscrições:", errorInscricoes)
+        }
+
+        console.log("📊 [GRAFICOS] Total de inscrições encontradas:", todasInscricoes?.length || 0)
+
+        // Buscar dados dos atletas - incluindo age também
         const regIdsParaGraficos = todasInscricoes?.map(r => r.id) || []
-        const { data: athletesData } = await supabase
+        const { data: athletesData, error: errorAthletes } = await supabase
           .from("athletes")
-          .select("registration_id, gender, birth_date")
+          .select("registration_id, gender, birth_date, age")
           .in("registration_id", regIdsParaGraficos)
+
+        if (errorAthletes) {
+          console.error("❌ [GRAFICOS] Erro ao buscar atletas:", errorAthletes)
+        }
+
+        console.log("📊 [GRAFICOS] Total de atletas encontrados:", athletesData?.length || 0)
+        console.log("📊 [GRAFICOS] Amostra de atletas:", athletesData?.slice(0, 3))
 
         // Buscar categorias dos tickets
         const ticketIdsParaGraficos = todasInscricoes?.map(r => r.ticket_id).filter(Boolean) || []
-        const { data: ticketsData } = await supabase
+        const { data: ticketsData, error: errorTickets } = await supabase
           .from("tickets")
           .select("id, category")
           .in("id", ticketIdsParaGraficos)
+
+        if (errorTickets) {
+          console.error("❌ [GRAFICOS] Erro ao buscar tickets:", errorTickets)
+        }
 
         const ticketsMap = new Map((ticketsData || []).map(t => [t.id, t]))
         const athletesMap = new Map((athletesData || []).map(a => [a.registration_id, a]))
@@ -140,32 +157,69 @@ export default function OrganizerDashboard() {
         const sexosMap = new Map<string, number>()
         const idadesMap = new Map<string, number>()
 
+        let totalComCategoria = 0
+        let totalComSexo = 0
+        let totalComIdade = 0
+
         todasInscricoes?.forEach((reg: any) => {
           // Categoria
           const ticket = ticketsMap.get(reg.ticket_id)
           if (ticket?.category) {
             categoriasMap.set(ticket.category, (categoriasMap.get(ticket.category) || 0) + 1)
+            totalComCategoria++
           }
 
-          // Sexo e Idade
+          // Gênero e Idade
           const athlete = athletesMap.get(reg.id)
           if (athlete) {
-            // Sexo
+            // Gênero - verificar valores salvos no banco
             if (athlete.gender) {
-              const gender = athlete.gender === 'M' ? 'Masculino' : athlete.gender === 'F' ? 'Feminino' : 'Outro'
-              sexosMap.set(gender, (sexosMap.get(gender) || 0) + 1)
-            }
-
-            // Idade
-            if (athlete.birth_date) {
-              const birthDate = new Date(athlete.birth_date)
-              const today = new Date()
-              let age = today.getFullYear() - birthDate.getFullYear()
-              const monthDiff = today.getMonth() - birthDate.getMonth()
-              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-                age--
+              let genderLabel = ''
+              const genderValue = athlete.gender.toString().trim()
+              
+              // Verificar valores possíveis salvos no banco
+              if (genderValue === 'M' || genderValue === 'Masculino' || genderValue.toLowerCase() === 'masculino') {
+                genderLabel = 'Masculino'
+              } else if (genderValue === 'F' || genderValue === 'Feminino' || genderValue.toLowerCase() === 'feminino') {
+                genderLabel = 'Feminino'
+              } else if (genderValue === 'Outro' || genderValue.toLowerCase() === 'outro') {
+                genderLabel = 'Outro'
+              } else if (genderValue === 'Prefiro não informar' || genderValue.toLowerCase() === 'prefiro não informar' || genderValue.toLowerCase() === 'prefiro nao informar') {
+                genderLabel = 'Prefiro não informar'
+              } else {
+                // Se não reconhecer, usar o valor original
+                genderLabel = genderValue
               }
               
+              sexosMap.set(genderLabel, (sexosMap.get(genderLabel) || 0) + 1)
+              totalComSexo++
+            }
+
+            // Idade - tentar usar age primeiro, depois birth_date
+            let age: number | null = null
+            
+            // Primeiro tentar usar o campo age diretamente
+            if (athlete.age && athlete.age > 0 && athlete.age <= 120) {
+              age = athlete.age
+            }
+            // Se não tiver age, calcular a partir de birth_date
+            else if (athlete.birth_date) {
+              try {
+                const birthDate = new Date(athlete.birth_date)
+                if (!isNaN(birthDate.getTime())) {
+                  const today = new Date()
+                  age = today.getFullYear() - birthDate.getFullYear()
+                  const monthDiff = today.getMonth() - birthDate.getMonth()
+                  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                    age--
+                  }
+                }
+              } catch (error) {
+                console.error('Erro ao calcular idade:', error, athlete.birth_date)
+              }
+            }
+
+            if (age !== null && age >= 0 && age <= 120) {
               let faixaEtaria = ''
               if (age < 18) faixaEtaria = 'Menor de 18'
               else if (age < 25) faixaEtaria = '18-24'
@@ -176,29 +230,38 @@ export default function OrganizerDashboard() {
               else faixaEtaria = '65+'
               
               idadesMap.set(faixaEtaria, (idadesMap.get(faixaEtaria) || 0) + 1)
+              totalComIdade++
             }
           }
         })
 
-        const totalInscricoes = todasInscricoes?.length || 1
+        console.log("📊 [GRAFICOS] Estatísticas:", {
+          totalInscricoes: todasInscricoes?.length || 0,
+          totalComCategoria,
+          totalComSexo,
+          totalComIdade,
+          categorias: Array.from(categoriasMap.entries()),
+          sexos: Array.from(sexosMap.entries()),
+          idades: Array.from(idadesMap.entries())
+        })
 
-        // Converter para arrays com percentuais
+        // Converter para arrays com percentuais - usar total válido para cada categoria
         const categoriasData = Array.from(categoriasMap.entries()).map(([name, value]) => ({
           name,
           value,
-          percent: (value / totalInscricoes) * 100
+          percent: totalComCategoria > 0 ? (value / totalComCategoria) : 0
         }))
 
         const sexosData = Array.from(sexosMap.entries()).map(([name, value]) => ({
           name,
           value,
-          percent: (value / totalInscricoes) * 100
+          percent: totalComSexo > 0 ? (value / totalComSexo) : 0
         }))
 
         const idadesData = Array.from(idadesMap.entries()).map(([name, value]) => ({
           name,
           value,
-          percent: (value / totalInscricoes) * 100
+          percent: totalComIdade > 0 ? (value / totalComIdade) : 0
         }))
 
         setChartData({
@@ -432,63 +495,115 @@ export default function OrganizerDashboard() {
 
       {/* Gráficos de Pizza */}
       {(chartData.categorias.length > 0 || chartData.sexos.length > 0 || chartData.idades.length > 0) && (
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-3">
           {/* Gráfico por Categoria */}
           {chartData.categorias.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Inscritos por Categoria</CardTitle>
+            <Card className="shadow-lg border-2 border-gray-100 hover:shadow-xl transition-shadow">
+              <CardHeader className="pb-3 border-b bg-gradient-to-r from-green-50 to-emerald-50">
+                <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-[#156634]"></div>
+                  Inscritos por Categoria
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
+              <CardContent className="pt-6">
+                <ResponsiveContainer width="100%" height={320}>
                   <PieChart>
                     <Pie
                       data={chartData.categorias}
                       cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
-                      outerRadius={80}
+                      cy="45%"
+                      labelLine={true}
+                      label={({ name, percent }) => percent ? `${(percent * 100).toFixed(0)}%` : ''}
+                      outerRadius={100}
+                      innerRadius={40}
                       fill="#8884d8"
                       dataKey="value"
+                      stroke="#fff"
+                      strokeWidth={2}
                     >
                       {chartData.categorias.map((entry, index) => {
-                        const colors = ['#156634', '#1a7a3e', '#22c55e', '#4ade80', '#86efac', '#bbf7d0']
+                        const colors = ['#156634', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef']
                         return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
                       })}
                     </Pie>
-                    <Tooltip formatter={(value: number) => [`${value} inscritos`, 'Quantidade']} />
+                    <Tooltip 
+                      formatter={(value: number, name: string, props: any) => [
+                        `${value} inscritos (${props.payload.percent.toFixed(1)}%)`,
+                        props.payload.name
+                      ]}
+                      contentStyle={{ 
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        padding: '8px 12px'
+                      }}
+                    />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36}
+                      formatter={(value, entry: any) => (
+                        <span style={{ color: entry.color, fontSize: '12px', fontWeight: 500 }}>
+                          {value}
+                        </span>
+                      )}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
           )}
 
-          {/* Gráfico por Sexo */}
+          {/* Gráfico por Gênero */}
           {chartData.sexos.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Inscritos por Sexo</CardTitle>
+            <Card className="shadow-lg border-2 border-gray-100 hover:shadow-xl transition-shadow">
+              <CardHeader className="pb-3 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+                <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                  Inscritos por Gênero
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
+              <CardContent className="pt-6">
+                <ResponsiveContainer width="100%" height={320}>
                   <PieChart>
                     <Pie
                       data={chartData.sexos}
                       cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
-                      outerRadius={80}
+                      cy="45%"
+                      labelLine={true}
+                      label={({ name, percent }) => percent ? `${(percent * 100).toFixed(0)}%` : ''}
+                      outerRadius={100}
+                      innerRadius={40}
                       fill="#8884d8"
                       dataKey="value"
+                      stroke="#fff"
+                      strokeWidth={2}
                     >
                       {chartData.sexos.map((entry, index) => {
-                        const colors = ['#3b82f6', '#ec4899', '#8b5cf6']
+                        const colors = ['#3b82f6', '#ec4899', '#8b5cf6', '#06b6d4', '#14b8a6', '#10b981']
                         return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
                       })}
                     </Pie>
-                    <Tooltip formatter={(value: number) => [`${value} inscritos`, 'Quantidade']} />
+                    <Tooltip 
+                      formatter={(value: number, name: string, props: any) => [
+                        `${value} inscritos (${props.payload.percent.toFixed(1)}%)`,
+                        props.payload.name
+                      ]}
+                      contentStyle={{ 
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        padding: '8px 12px'
+                      }}
+                    />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36}
+                      formatter={(value, entry: any) => (
+                        <span style={{ color: entry.color, fontSize: '12px', fontWeight: 500 }}>
+                          {value}
+                        </span>
+                      )}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -497,29 +612,55 @@ export default function OrganizerDashboard() {
 
           {/* Gráfico por Idade */}
           {chartData.idades.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Inscritos por Idade</CardTitle>
+            <Card className="shadow-lg border-2 border-gray-100 hover:shadow-xl transition-shadow">
+              <CardHeader className="pb-3 border-b bg-gradient-to-r from-orange-50 to-amber-50">
+                <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                  Inscritos por Idade
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
+              <CardContent className="pt-6">
+                <ResponsiveContainer width="100%" height={320}>
                   <PieChart>
                     <Pie
                       data={chartData.idades}
                       cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
-                      outerRadius={80}
+                      cy="45%"
+                      labelLine={true}
+                      label={({ name, percent }) => percent ? `${(percent * 100).toFixed(0)}%` : ''}
+                      outerRadius={100}
+                      innerRadius={40}
                       fill="#8884d8"
                       dataKey="value"
+                      stroke="#fff"
+                      strokeWidth={2}
                     >
                       {chartData.idades.map((entry, index) => {
-                        const colors = ['#f59e0b', '#ef4444', '#10b981', '#6366f1', '#ec4899', '#14b8a6', '#f97316']
+                        const colors = ['#f59e0b', '#ef4444', '#10b981', '#6366f1', '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#06b6d4', '#22c55e']
                         return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
                       })}
                     </Pie>
-                    <Tooltip formatter={(value: number) => [`${value} inscritos`, 'Quantidade']} />
+                    <Tooltip 
+                      formatter={(value: number, name: string, props: any) => [
+                        `${value} inscritos (${props.payload.percent.toFixed(1)}%)`,
+                        props.payload.name
+                      ]}
+                      contentStyle={{ 
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        padding: '8px 12px'
+                      }}
+                    />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36}
+                      formatter={(value, entry: any) => (
+                        <span style={{ color: entry.color, fontSize: '12px', fontWeight: 500 }}>
+                          {value}
+                        </span>
+                      )}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </CardContent>
