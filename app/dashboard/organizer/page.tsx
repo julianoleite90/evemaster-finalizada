@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { getOrganizerAccess } from "@/lib/supabase/organizer-access"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
 
 export default function OrganizerDashboard() {
   const [loading, setLoading] = useState(true)
@@ -28,6 +29,11 @@ export default function OrganizerDashboard() {
     }
   })
   const [ultimosInscritos, setUltimosInscritos] = useState<any[]>([])
+  const [chartData, setChartData] = useState({
+    categorias: [] as Array<{ name: string; value: number; percent: number }>,
+    sexos: [] as Array<{ name: string; value: number; percent: number }>,
+    idades: [] as Array<{ name: string; value: number; percent: number }>
+  })
 
   useEffect(() => {
     const fetchData = async () => {
@@ -106,6 +112,101 @@ export default function OrganizerDashboard() {
           .in("registration_id", inscricoesOntemData?.map(i => i.id) || [])
           .eq("payment_status", "paid")
 
+        // Buscar todas as inscrições para os gráficos
+        const { data: todasInscricoes } = await supabase
+          .from("registrations")
+          .select("id, ticket_id")
+          .in("event_id", eventIds)
+
+        // Buscar dados dos atletas
+        const regIdsParaGraficos = todasInscricoes?.map(r => r.id) || []
+        const { data: athletesData } = await supabase
+          .from("athletes")
+          .select("registration_id, gender, birth_date")
+          .in("registration_id", regIdsParaGraficos)
+
+        // Buscar categorias dos tickets
+        const ticketIdsParaGraficos = todasInscricoes?.map(r => r.ticket_id).filter(Boolean) || []
+        const { data: ticketsData } = await supabase
+          .from("tickets")
+          .select("id, category")
+          .in("id", ticketIdsParaGraficos)
+
+        const ticketsMap = new Map((ticketsData || []).map(t => [t.id, t]))
+        const athletesMap = new Map((athletesData || []).map(a => [a.registration_id, a]))
+
+        // Calcular dados para gráficos
+        const categoriasMap = new Map<string, number>()
+        const sexosMap = new Map<string, number>()
+        const idadesMap = new Map<string, number>()
+
+        todasInscricoes?.forEach((reg: any) => {
+          // Categoria
+          const ticket = ticketsMap.get(reg.ticket_id)
+          if (ticket?.category) {
+            categoriasMap.set(ticket.category, (categoriasMap.get(ticket.category) || 0) + 1)
+          }
+
+          // Sexo e Idade
+          const athlete = athletesMap.get(reg.id)
+          if (athlete) {
+            // Sexo
+            if (athlete.gender) {
+              const gender = athlete.gender === 'M' ? 'Masculino' : athlete.gender === 'F' ? 'Feminino' : 'Outro'
+              sexosMap.set(gender, (sexosMap.get(gender) || 0) + 1)
+            }
+
+            // Idade
+            if (athlete.birth_date) {
+              const birthDate = new Date(athlete.birth_date)
+              const today = new Date()
+              let age = today.getFullYear() - birthDate.getFullYear()
+              const monthDiff = today.getMonth() - birthDate.getMonth()
+              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--
+              }
+              
+              let faixaEtaria = ''
+              if (age < 18) faixaEtaria = 'Menor de 18'
+              else if (age < 25) faixaEtaria = '18-24'
+              else if (age < 35) faixaEtaria = '25-34'
+              else if (age < 45) faixaEtaria = '35-44'
+              else if (age < 55) faixaEtaria = '45-54'
+              else if (age < 65) faixaEtaria = '55-64'
+              else faixaEtaria = '65+'
+              
+              idadesMap.set(faixaEtaria, (idadesMap.get(faixaEtaria) || 0) + 1)
+            }
+          }
+        })
+
+        const totalInscricoes = todasInscricoes?.length || 1
+
+        // Converter para arrays com percentuais
+        const categoriasData = Array.from(categoriasMap.entries()).map(([name, value]) => ({
+          name,
+          value,
+          percent: (value / totalInscricoes) * 100
+        }))
+
+        const sexosData = Array.from(sexosMap.entries()).map(([name, value]) => ({
+          name,
+          value,
+          percent: (value / totalInscricoes) * 100
+        }))
+
+        const idadesData = Array.from(idadesMap.entries()).map(([name, value]) => ({
+          name,
+          value,
+          percent: (value / totalInscricoes) * 100
+        }))
+
+        setChartData({
+          categorias: categoriasData,
+          sexos: sexosData,
+          idades: idadesData
+        })
+
         // Buscar últimas inscrições
         const { data: ultimasInscricoes } = await supabase
           .from("registrations")
@@ -127,7 +228,7 @@ export default function OrganizerDashboard() {
         const regIds = ultimasInscricoes?.map(r => r.id) || []
         const ticketIds = ultimasInscricoes?.map(r => r.ticket_id).filter(Boolean) || []
         
-        const [athletesData, ticketsData] = await Promise.all([
+        const [athletesDataUltimos, ticketsDataUltimos] = await Promise.all([
           supabase
             .from("athletes")
             .select("registration_id, full_name")
@@ -138,8 +239,8 @@ export default function OrganizerDashboard() {
             .in("id", ticketIds)
         ])
 
-        const athletesMap = new Map((athletesData.data || []).map(a => [a.registration_id, a]))
-        const ticketsMap = new Map((ticketsData.data || []).map(t => [t.id, t]))
+        const athletesMapUltimos = new Map((athletesDataUltimos.data || []).map(a => [a.registration_id, a]))
+        const ticketsMapUltimos = new Map((ticketsDataUltimos.data || []).map(t => [t.id, t]))
 
         // Calcular receitas
         const receitaHoje = pagamentosHoje?.reduce((sum, p) => sum + Number(p.total_amount || 0), 0) || 0
@@ -196,8 +297,8 @@ export default function OrganizerDashboard() {
 
         // Formatar últimas inscrições
         const inscricoesFormatadas = ultimasInscricoes?.map((reg: any) => {
-          const athlete = athletesMap.get(reg.id)
-          const ticket = ticketsMap.get(reg.ticket_id)
+          const athlete = athletesMapUltimos.get(reg.id)
+          const ticket = ticketsMapUltimos.get(reg.ticket_id)
           
           return {
             id: reg.id,
@@ -328,6 +429,104 @@ export default function OrganizerDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Gráficos de Pizza */}
+      {(chartData.categorias.length > 0 || chartData.sexos.length > 0 || chartData.idades.length > 0) && (
+        <div className="grid gap-4 md:grid-cols-3">
+          {/* Gráfico por Categoria */}
+          {chartData.categorias.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Inscritos por Categoria</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={chartData.categorias}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {chartData.categorias.map((entry, index) => {
+                        const colors = ['#156634', '#1a7a3e', '#22c55e', '#4ade80', '#86efac', '#bbf7d0']
+                        return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                      })}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => [`${value} inscritos`, 'Quantidade']} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Gráfico por Sexo */}
+          {chartData.sexos.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Inscritos por Sexo</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={chartData.sexos}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {chartData.sexos.map((entry, index) => {
+                        const colors = ['#3b82f6', '#ec4899', '#8b5cf6']
+                        return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                      })}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => [`${value} inscritos`, 'Quantidade']} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Gráfico por Idade */}
+          {chartData.idades.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Inscritos por Idade</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={chartData.idades}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {chartData.idades.map((entry, index) => {
+                        const colors = ['#f59e0b', '#ef4444', '#10b981', '#6366f1', '#ec4899', '#14b8a6', '#f97316']
+                        return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                      })}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => [`${value} inscritos`, 'Quantidade']} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Últimos Inscritos */}
       <Card>

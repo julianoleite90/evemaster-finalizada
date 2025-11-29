@@ -1011,18 +1011,13 @@ export default function EventSettingsPage() {
       <div className="bg-white border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-9 w-9">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">
-                  {eventData.name || "Editar Evento"}
-                </h1>
-                <p className="text-sm text-gray-600 mt-1">
-                  Gerencie todas as configurações do seu evento
-                </p>
-              </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">
+                {eventData.name || "Editar Evento"}
+              </h1>
+              <p className="text-sm text-gray-600 mt-1">
+                Gerencie todas as configurações do seu evento
+              </p>
             </div>
             {(canEdit || isPrimary) ? (
               <Button 

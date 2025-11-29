@@ -72,6 +72,13 @@ export default function EventsPage() {
         console.log("Eventos encontrados:", events?.length || 0)
         console.log("Eventos:", events)
 
+        // Se não houver eventos, definir array vazio
+        if (!events || events.length === 0) {
+          setEventos([])
+          setLoading(false)
+          return
+        }
+
         // Buscar todas as inscrições e pagamentos de uma vez
         const eventIds = events.map((e: any) => e.id)
         
@@ -266,21 +273,6 @@ export default function EventsPage() {
           </div>
         </div>
       </div>
-      <CardHeader className="pb-4 hidden">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-3 flex-wrap">
-              <CardTitle className="text-xl font-bold leading-tight pr-2">{event.name}</CardTitle>
-              {getStatusBadge(event.status)}
-            </div>
-            {event.description && (
-              <CardDescription className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
-                {stripHtml(event.description)}
-              </CardDescription>
-            )}
-          </div>
-        </div>
-      </CardHeader>
       <CardContent className="flex flex-col flex-1 pt-4">
         <div className="space-y-3 flex-1 mb-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground py-1">
@@ -334,6 +326,17 @@ export default function EventsPage() {
         </div>
       </CardContent>
     </Card>
+    )
+  }
+
+  if (loading || permissionsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-[#156634] border-r-transparent mb-4"></div>
+          <p className="text-muted-foreground">Carregando eventos...</p>
+        </div>
+      </div>
     )
   }
 
