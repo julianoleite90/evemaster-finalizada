@@ -1586,30 +1586,28 @@ export default function EventSettingsPage() {
                         toast.success(`Banner "${file.name}" selecionado. Clique em "Salvar" para aplicar.`)
                       }
                     }}
-                    className={`h-24 cursor-pointer file:hidden ${newBanner ? 'border-dashed border-2 border-[#156634] bg-[#156634]/5' : 'border-dashed border-2 border-gray-300 hover:border-[#156634]/50 transition-colors bg-gray-50/50'}`}
+                    className="h-24 cursor-pointer opacity-0 absolute inset-0 z-10"
                     disabled={fieldDisabled}
                   />
-                  {!newBanner && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="text-center space-y-1">
-                        <Upload className="h-6 w-6 text-gray-400 mx-auto" />
+                  <div className={`h-24 border-dashed border-2 rounded-md flex flex-col items-center justify-center ${newBanner ? 'border-[#156634] bg-[#156634]/5' : 'border-gray-300 bg-gray-50/50 hover:border-[#156634]/50 transition-colors'}`}>
+                    {!newBanner && (
+                      <>
+                        <Upload className="h-6 w-6 text-gray-400 mb-2" />
                         <p className="text-xs font-medium text-gray-600">Clique para escolher arquivo</p>
-                        <p className="text-[10px] text-gray-400">ou arraste e solte aqui</p>
-                      </div>
-                    </div>
-                  )}
-                  {newBanner && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="text-center space-y-1">
-                        <div className="h-6 w-6 rounded-full bg-[#156634] flex items-center justify-center mx-auto">
+                        <p className="text-[10px] text-gray-400 mt-0.5">ou arraste e solte aqui</p>
+                      </>
+                    )}
+                    {newBanner && (
+                      <>
+                        <div className="h-6 w-6 rounded-full bg-[#156634] flex items-center justify-center mb-2">
                           <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
                         </div>
-                        <p className="text-xs font-medium text-[#156634]">{newBanner.name}</p>
-                      </div>
-                    </div>
-                  )}
+                        <p className="text-xs font-medium text-[#156634] truncate max-w-[90%] px-2">{newBanner.name}</p>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -1685,28 +1683,26 @@ export default function EventSettingsPage() {
                           const files = Array.from(e.target.files || [])
                           setNewImages(prev => [...prev, ...files])
                         }}
-                        className={`h-24 cursor-pointer file:hidden ${newImages.length === 0 ? 'border-dashed border-2 border-gray-300 hover:border-[#156634]/50 transition-colors bg-gray-50/50' : 'border-dashed border-2 border-[#156634] bg-[#156634]/5'}`}
+                        className="h-24 cursor-pointer opacity-0 absolute inset-0 z-10"
                         disabled={fieldDisabled || uploadingImages}
                       />
-                      {newImages.length === 0 && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="text-center space-y-1">
-                            <Upload className="h-6 w-6 text-gray-400 mx-auto" />
+                      <div className={`h-24 border-dashed border-2 rounded-md flex flex-col items-center justify-center ${newImages.length === 0 ? 'border-gray-300 bg-gray-50/50 hover:border-[#156634]/50 transition-colors' : 'border-[#156634] bg-[#156634]/5'}`}>
+                        {newImages.length === 0 && (
+                          <>
+                            <Upload className="h-6 w-6 text-gray-400 mb-2" />
                             <p className="text-xs font-medium text-gray-600">Clique para escolher arquivos</p>
-                            <p className="text-[10px] text-gray-400">ou arraste e solte aqui</p>
-                          </div>
-                        </div>
-                      )}
-                      {newImages.length > 0 && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="text-center space-y-1">
-                            <div className="h-6 w-6 rounded-full bg-[#156634] flex items-center justify-center mx-auto">
+                            <p className="text-[10px] text-gray-400 mt-0.5">ou arraste e solte aqui</p>
+                          </>
+                        )}
+                        {newImages.length > 0 && (
+                          <>
+                            <div className="h-6 w-6 rounded-full bg-[#156634] flex items-center justify-center mb-2">
                               <span className="text-xs font-bold text-white">{newImages.length}</span>
                             </div>
                             <p className="text-xs font-medium text-[#156634]">{newImages.length} arquivo(s) selecionado(s)</p>
-                          </div>
-                        </div>
-                      )}
+                          </>
+                        )}
+                      </div>
                     </div>
                     {newImages.length > 0 && (
                       <div className="space-y-2 pt-2 border-t">
