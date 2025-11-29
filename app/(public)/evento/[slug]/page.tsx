@@ -189,7 +189,13 @@ export default function EventoLandingPage() {
           event.organizer = { ...event.organizer }
         }
         
-        setEventData({ ...event })
+        // Mapear event_images para images
+        const eventDataWithImages = {
+          ...event,
+          images: event.event_images || []
+        }
+        
+        setEventData(eventDataWithImages)
         
         // Registrar visualização do evento
         if (event.id) {
@@ -537,9 +543,27 @@ export default function EventoLandingPage() {
                         : "Informações detalhadas sobre o evento em breve."}
                     </p>
                   )}
-                  
-                  {/* Informações do Ingresso Selecionado */}
                 </div>
+
+                {/* Galeria de Imagens */}
+                {eventData.images && eventData.images.length > 0 && (
+                  <div className="mt-8 space-y-4">
+                    <h3 className="text-xl md:text-2xl font-bold text-gray-900">Galeria de Imagens</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {eventData.images.map((img: any, index: number) => (
+                        <div key={img.id || index} className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow">
+                          <Image
+                            src={img.image_url}
+                            alt={`Imagem ${index + 1} do evento`}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -617,7 +641,7 @@ export default function EventoLandingPage() {
                         )}
                       {eventData.address && (
                           <p className="text-xs md:text-sm text-gray-700 leading-relaxed">
-                          {eventData.address}
+                          {eventData.address}{eventData.address_number ? `, ${eventData.address_number}` : ''}
                           </p>
                         )}
                         {eventData.location && (
@@ -633,7 +657,7 @@ export default function EventoLandingPage() {
                   <div className="w-full h-[250px] md:h-[400px] rounded-lg overflow-hidden border">
                     <iframe
                       src={`https://maps.google.com/maps?q=${encodeURIComponent(
-                        `${eventData.location}${eventData.address ? ', ' + eventData.address : ''}${eventData.city && eventData.state ? ', ' + eventData.city + ' - ' + eventData.state : ''}`
+                        `${eventData.location || ''}${eventData.address ? ', ' + eventData.address : ''}${eventData.address_number ? ', ' + eventData.address_number : ''}${eventData.city && eventData.state ? ', ' + eventData.city + ' - ' + eventData.state : ''}`
                       )}&output=embed`}
                       width="100%"
                       height="100%"
@@ -1076,7 +1100,7 @@ export default function EventoLandingPage() {
                 <div>
               <Image
                 src="/images/logo/logo.png"
-                    alt="EveMaster"
+                alt="EveMaster"
                     width={126}
                     height={36}
                     className="h-6 md:h-7 w-auto opacity-80"

@@ -266,12 +266,12 @@ export default function OrganizerDashboard() {
               </SelectContent>
             </Select>
           )}
-          <Button asChild>
-            <Link href="/dashboard/organizer/events/new" className="flex items-center">
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Evento
-            </Link>
-          </Button>
+        <Button asChild>
+          <Link href="/dashboard/organizer/events/new" className="flex items-center">
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Evento
+          </Link>
+        </Button>
         </div>
       </div>
 

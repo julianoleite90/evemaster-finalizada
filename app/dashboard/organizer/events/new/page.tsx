@@ -1384,37 +1384,6 @@ export default function NewEventPage() {
                     </p>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="gpxStrava">GPX do Strava</Label>
-                      <div className="group relative">
-                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                        <div className="absolute left-0 top-6 w-72 p-2 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
-                          Este arquivo GPX será exibido na página do evento com informações do percurso, altimetria, distância e outros dados baseados no mapa do Strava.
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        id="gpxStrava"
-                        type="file"
-                        accept=".gpx,.GPX"
-                        onChange={(e) =>
-                          handleFileUpload("gpxStrava", e.target.files?.[0] || null)
-                        }
-                        className="hidden"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => document.getElementById("gpxStrava")?.click()}
-                        className="w-full"
-                      >
-                        <Upload className="mr-2 h-4 w-4" />
-                        {formData.gpxStrava ? formData.gpxStrava.name : "Upload GPX"}
-                      </Button>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>

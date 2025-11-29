@@ -49,6 +49,11 @@ export async function getEventBySlug(slug: string) {
           tickets (*)
         ),
         event_settings (*),
+        event_images:event_images (
+          id,
+          image_url,
+          image_order
+        ),
         organizer:organizers(id, company_name, full_name, company_cnpj, company_phone, user_id)
       `)
       .eq("id", slug)
@@ -58,7 +63,7 @@ export async function getEventBySlug(slug: string) {
     error = idError
   } else {
     // Buscar por slug
-    const { data: eventsBySlug, error: slugError } = await supabase
+      const { data: eventsBySlug, error: slugError } = await supabase
       .from("events")
       .select(`
         *,
@@ -66,7 +71,12 @@ export async function getEventBySlug(slug: string) {
           *,
           tickets (*)
         ),
-        event_settings (*)
+        event_settings (*),
+        event_images:event_images (
+          id,
+          image_url,
+          image_order
+        )
       `)
       .eq("slug", slug)
       .order("created_at", { ascending: false })

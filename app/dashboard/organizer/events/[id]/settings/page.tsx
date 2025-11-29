@@ -34,6 +34,7 @@ import {
   Plus,
   Trash2,
   Edit,
+  X,
   ChevronDown,
   ChevronUp,
   Route,
@@ -52,7 +53,7 @@ import { createClient } from "@/lib/supabase/client"
 import { getEventById } from "@/lib/supabase/events"
 import { useUserPermissions } from "@/hooks/use-user-permissions"
 import { PermissionGuard } from "@/components/dashboard/permission-guard"
-import { uploadEventBanner, uploadTicketGPX } from "@/lib/supabase/storage"
+import { uploadEventBanner, uploadTicketGPX, uploadEventImage } from "@/lib/supabase/storage"
 import dynamic from "next/dynamic"
 import Image from "next/image"
 
@@ -108,6 +109,9 @@ export default function EventSettingsPage() {
   const [expandedBatches, setExpandedBatches] = useState<{ [key: string]: boolean }>({})
   const [mainMenu, setMainMenu] = useState<"edicao" | "configuracao" | "relatorios">("edicao")
   const [subMenu, setSubMenu] = useState<string>("basico")
+  const [eventImages, setEventImages] = useState<Array<{ id: string; image_url: string; image_order: number }>>([])
+  const [newImages, setNewImages] = useState<File[]>([])
+  const [uploadingImages, setUploadingImages] = useState(false)
 
   // Dados básicos do evento
   const [eventData, setEventData] = useState({
@@ -120,6 +124,7 @@ export default function EventSettingsPage() {
     end_time: "",
     location: "",
     address: "",
+    address_number: "",
     city: "",
     state: "",
     zip_code: "",
@@ -368,6 +373,7 @@ export default function EventSettingsPage() {
             end_time: event.end_time || "",
             location: event.location || "",
             address: event.address || "",
+            address_number: (event as any).address_number || "",
             city: event.city || "",
             state: event.state || "",
             zip_code: event.zip_code || "",
@@ -391,6 +397,15 @@ export default function EventSettingsPage() {
               setExpandedBatches({ [event.ticket_batches[0].id]: true })
             }
           }
+
+          // Carregar imagens do evento
+          const { data: images } = await supabase
+            .from("event_images")
+            .select("*")
+            .eq("event_id", eventId)
+            .order("image_order", { ascending: true })
+          
+          setEventImages(images || [])
 
           // Carregar configurações do evento (incluindo pixels)
           if (event.event_settings) {
@@ -506,6 +521,7 @@ export default function EventSettingsPage() {
         end_time: eventData.end_time || null,
         location: eventData.location,
         address: eventData.address,
+        address_number: eventData.address_number || null,
         city: eventData.city,
         state: eventData.state,
         zip_code: eventData.zip_code,
@@ -1408,16 +1424,29 @@ export default function EventSettingsPage() {
                   />
                 </div>
 
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-2 space-y-2">
                   <Label htmlFor="address">Endereço</Label>
                   <Input
                     id="address"
                     value={eventData.address}
                     onChange={(e) => setEventData({ ...eventData, address: e.target.value })}
-                    placeholder="Ex: Av. Beira Mar, 1000"
+                    placeholder="Ex: Av. Beira Mar"
                     disabled={fieldDisabled}
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="address_number">Número</Label>
+                  <Input
+                    id="address_number"
+                    value={eventData.address_number}
+                    onChange={(e) => setEventData({ ...eventData, address_number: e.target.value })}
+                    placeholder="Ex: 1000"
+                    disabled={fieldDisabled}
+                  />
+                </div>
+              </div>
 
                   <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
@@ -1489,6 +1518,105 @@ export default function EventSettingsPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Galeria de Imagens */}
+              <Card className="border-2 shadow-sm">
+                <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <Package className="h-5 w-5 text-[#156634]" />
+                    Galeria de Imagens
+                  </CardTitle>
+                  <CardDescription>
+                    Imagens adicionais que serão exibidas na página do evento
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Imagens existentes */}
+                  {eventImages.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {eventImages.map((img, index) => (
+                        <div key={img.id} className="relative group">
+                          <div className="relative aspect-video rounded-lg overflow-hidden border">
+                            <Image
+                              src={img.image_url}
+                              alt={`Imagem ${index + 1}`}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 768px) 50vw, 33vw"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                            onClick={async () => {
+                              try {
+                                const supabase = createClient()
+                                const { error } = await supabase
+                                  .from("event_images")
+                                  .delete()
+                                  .eq("id", img.id)
+                                
+                                if (error) throw error
+                                
+                                setEventImages(prev => prev.filter(i => i.id !== img.id))
+                                toast.success("Imagem removida com sucesso")
+                              } catch (error: any) {
+                                console.error("Erro ao remover imagem:", error)
+                                toast.error("Erro ao remover imagem")
+                              }
+                            }}
+                            disabled={fieldDisabled}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Upload de novas imagens */}
+                  <div className="space-y-2">
+                    <Label htmlFor="eventImages">Adicionar Imagens</Label>
+                    <Input
+                      id="eventImages"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || [])
+                        setNewImages(prev => [...prev, ...files])
+                      }}
+                      className="cursor-pointer"
+                      disabled={fieldDisabled || uploadingImages}
+                    />
+                    {newImages.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                          {newImages.length} imagem(ns) selecionada(s). Clique em &quot;Salvar&quot; para fazer upload.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {newImages.map((file, index) => (
+                            <div key={index} className="flex items-center gap-2 px-2 py-1 bg-gray-100 rounded text-sm">
+                              <span className="truncate max-w-[200px]">{file.name}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5"
+                                onClick={() => setNewImages(prev => prev.filter((_, i) => i !== index))}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Sidebar */}
@@ -1525,13 +1653,19 @@ export default function EventSettingsPage() {
                   id="newBanner"
                   type="file"
                   accept="image/*"
-                  onChange={(e) => setNewBanner(e.target.files?.[0] || null)}
-                  className="cursor-pointer"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null
+                    setNewBanner(file)
+                    if (file) {
+                      toast.success(`Banner "${file.name}" selecionado. Clique em "Salvar" para aplicar.`)
+                    }
+                  }}
+                  className={`cursor-pointer ${newBanner ? 'border-dashed border-2 border-[#156634]' : ''}`}
                   disabled={fieldDisabled}
                 />
                 {newBanner && (
-                  <p className="text-sm text-green-600">
-                        ✓ Novo banner: {newBanner.name}
+                  <p className="text-sm text-green-600 font-medium">
+                        ✓ Novo banner selecionado: {newBanner.name}
                   </p>
                 )}
               </div>
