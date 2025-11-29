@@ -448,19 +448,19 @@ export default function EventoLandingPage() {
                   </h1>
                   <div className="flex flex-wrap items-center gap-2">
                     {eventData.category && (
-                      <Badge className="bg-[#156634]/95 hover:bg-[#156634] text-white">
+                      <Badge className="bg-gray-400/90 hover:bg-gray-500 text-white">
                         <Footprints className="h-3 w-3 mr-1" />
                         {eventData.category.charAt(0).toUpperCase() + eventData.category.slice(1)}
                       </Badge>
                     )}
                     {eventData.difficulty_level && (
-                      <Badge className="bg-[#156634]/95 hover:bg-[#156634] text-white">
+                      <Badge className="bg-gray-400/90 hover:bg-gray-500 text-white">
                         <Gauge className="h-3 w-3 mr-1" />
                         {eventData.difficulty_level}
                       </Badge>
                     )}
                     {eventData.race_type && (
-                      <Badge className="bg-[#156634]/95 hover:bg-[#156634] text-white">
+                      <Badge className="bg-gray-400/90 hover:bg-gray-500 text-white">
                         <Map className="h-3 w-3 mr-1" />
                         {eventData.race_type === 'asfalto' 
                           ? (language === 'pt' ? 'Asfalto' : language === 'en' ? 'Asphalt' : 'Asfalto')
@@ -471,7 +471,7 @@ export default function EventoLandingPage() {
                       </Badge>
                     )}
                     {eventData.major_access && (
-                      <Badge className="bg-[#156634]/95 hover:bg-[#156634] text-white">
+                      <Badge className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white shadow-md">
                         <Award className="h-3 w-3 mr-1" />
                         {eventData.major_access_type || (language === 'pt' ? 'Prova Major' : language === 'en' ? 'Major Race' : 'Prueba Major')}
                       </Badge>
