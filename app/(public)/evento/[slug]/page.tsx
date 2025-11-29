@@ -199,14 +199,19 @@ export default function EventoLandingPage() {
             .from('event_views')
             .insert({
               event_id: event.id,
-              ip_address: typeof window !== 'undefined' ? undefined : undefined, // Não coletar IP por privacidade
               user_agent: typeof window !== 'undefined' ? navigator.userAgent : undefined,
               referrer: typeof window !== 'undefined' ? document.referrer || null : null
             })
-            .then(({ error }) => {
+            .then(({ data, error }) => {
               if (error) {
-                console.error('Erro ao registrar visualização:', error)
+                console.error('❌ [TRACKING] Erro ao registrar visualização:', error)
+                console.error('❌ [TRACKING] Detalhes:', { event_id: event.id, error_code: error.code, error_message: error.message })
+              } else {
+                console.log('✅ [TRACKING] Visualização registrada com sucesso:', data)
               }
+            })
+            .catch((err) => {
+              console.error('❌ [TRACKING] Erro ao registrar visualização (catch):', err)
             })
         }
         

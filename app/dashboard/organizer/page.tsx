@@ -9,9 +9,12 @@ import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { getOrganizerAccess } from "@/lib/supabase/organizer-access"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function OrganizerDashboard() {
   const [loading, setLoading] = useState(true)
+  const [selectedEventId, setSelectedEventId] = useState<string>("all")
+  const [events, setEvents] = useState<any[]>([])
   const [stats, setStats] = useState({
     inscricoesHoje: 0,
     inscricoesOntem: 0,
@@ -53,12 +56,18 @@ export default function OrganizerDashboard() {
         console.log("✅ [DASHBOARD] Acesso autorizado. Organizer ID:", organizerId, "É principal:", access.isPrimary)
 
         // Buscar eventos do organizador
-        const { data: events } = await supabase
+        const { data: eventsData } = await supabase
           .from("events")
-          .select("id")
+          .select("id, name, slug")
           .eq("organizer_id", organizerId)
+          .order("created_at", { ascending: false })
 
-        const eventIds = events?.map(e => e.id) || []
+        setEvents(eventsData || [])
+
+        // Filtrar por evento selecionado
+        const eventIds = selectedEventId === "all" 
+          ? (eventsData?.map(e => e.id) || [])
+          : [selectedEventId]
 
         if (eventIds.length === 0) {
           setLoading(false)
@@ -137,27 +146,46 @@ export default function OrganizerDashboard() {
         const receitaOntem = pagamentosOntem?.reduce((sum, p) => sum + Number(p.total_amount || 0), 0) || 0
 
         // Buscar visualizações dos eventos hoje e ontem
-        const { data: visualizacoesHoje } = await supabase
+        const { data: visualizacoesHoje, error: errorViewsHoje } = await supabase
           .from("event_views")
           .select("id")
           .in("event_id", eventIds)
           .gte("viewed_at", hoje.toISOString())
 
-        const { data: visualizacoesOntem } = await supabase
+        if (errorViewsHoje) {
+          console.error("❌ [DASHBOARD] Erro ao buscar visualizações hoje:", errorViewsHoje)
+        }
+
+        const { data: visualizacoesOntem, error: errorViewsOntem } = await supabase
           .from("event_views")
           .select("id")
           .in("event_id", eventIds)
           .gte("viewed_at", ontem.toISOString())
           .lt("viewed_at", hoje.toISOString())
 
+        if (errorViewsOntem) {
+          console.error("❌ [DASHBOARD] Erro ao buscar visualizações ontem:", errorViewsOntem)
+        }
+
         // Calcular total de visualizações (últimos 30 dias)
         const trintaDiasAtras = new Date(hoje)
         trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30)
-        const { count: totalVisualizacoes } = await supabase
+        const { count: totalVisualizacoes, error: errorTotalViews } = await supabase
           .from("event_views")
           .select("*", { count: "exact", head: true })
           .in("event_id", eventIds)
           .gte("viewed_at", trintaDiasAtras.toISOString())
+
+        if (errorTotalViews) {
+          console.error("❌ [DASHBOARD] Erro ao buscar total de visualizações:", errorTotalViews)
+        }
+
+        console.log("📊 [DASHBOARD] Estatísticas de visualizações:", {
+          eventIds,
+          visualizacoesHoje: visualizacoesHoje?.length || 0,
+          visualizacoesOntem: visualizacoesOntem?.length || 0,
+          totalVisualizacoes: totalVisualizacoes || 0
+        })
 
         // Calcular taxa de conversão (inscrições / visualizações)
         const visualizacoesHojeCount = visualizacoesHoje?.length || 0
@@ -203,7 +231,7 @@ export default function OrganizerDashboard() {
     }
 
     fetchData()
-  }, [])
+  }, [selectedEventId])
 
   if (loading) {
     return (
@@ -215,19 +243,36 @@ export default function OrganizerDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
             Visão geral dos seus eventos e inscrições
           </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/organizer/events/new" className="flex items-center">
-            <Plus className="mr-2 h-4 w-4" />
-            Novo Evento
-          </Link>
-        </Button>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          {events.length > 0 && (
+            <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+              <SelectTrigger className="w-full md:w-[250px]">
+                <SelectValue placeholder="Filtrar por evento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os eventos</SelectItem>
+                {events.map((event) => (
+                  <SelectItem key={event.id} value={event.id}>
+                    {event.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button asChild>
+            <Link href="/dashboard/organizer/events/new" className="flex items-center">
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Evento
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Stats Grid - Comparativo Diário */}
