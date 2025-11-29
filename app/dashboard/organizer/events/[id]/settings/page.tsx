@@ -1518,105 +1518,6 @@ export default function EventSettingsPage() {
                   </div>
                 </CardContent>
               </Card>
-
-              {/* Galeria de Imagens */}
-              <Card className="border-2 shadow-sm">
-                <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
-                  <CardTitle className="text-xl flex items-center gap-2">
-                    <Package className="h-5 w-5 text-[#156634]" />
-                    Galeria de Imagens
-                  </CardTitle>
-                  <CardDescription>
-                    Imagens adicionais que serão exibidas na página do evento
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Imagens existentes */}
-                  {eventImages.length > 0 && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {eventImages.map((img, index) => (
-                        <div key={img.id} className="relative group">
-                          <div className="relative aspect-video rounded-lg overflow-hidden border">
-                            <Image
-                              src={img.image_url}
-                              alt={`Imagem ${index + 1}`}
-                              fill
-                              className="object-cover"
-                              sizes="(max-width: 768px) 50vw, 33vw"
-                            />
-                          </div>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="icon"
-                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
-                            onClick={async () => {
-                              try {
-                                const supabase = createClient()
-                                const { error } = await supabase
-                                  .from("event_images")
-                                  .delete()
-                                  .eq("id", img.id)
-                                
-                                if (error) throw error
-                                
-                                setEventImages(prev => prev.filter(i => i.id !== img.id))
-                                toast.success("Imagem removida com sucesso")
-                              } catch (error: any) {
-                                console.error("Erro ao remover imagem:", error)
-                                toast.error("Erro ao remover imagem")
-                              }
-                            }}
-                            disabled={fieldDisabled}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Upload de novas imagens */}
-                  <div className="space-y-2">
-                    <Label htmlFor="eventImages">Adicionar Imagens</Label>
-                    <Input
-                      id="eventImages"
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={(e) => {
-                        const files = Array.from(e.target.files || [])
-                        setNewImages(prev => [...prev, ...files])
-                      }}
-                      className="cursor-pointer"
-                      disabled={fieldDisabled || uploadingImages}
-                    />
-                    {newImages.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-sm text-muted-foreground">
-                          {newImages.length} imagem(ns) selecionada(s). Clique em &quot;Salvar&quot; para fazer upload.
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {newImages.map((file, index) => (
-                            <div key={index} className="flex items-center gap-2 px-2 py-1 bg-gray-100 rounded text-sm">
-                              <span className="truncate max-w-[200px]">{file.name}</span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5"
-                                onClick={() => setNewImages(prev => prev.filter((_, i) => i !== index))}
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
             </div>
 
             {/* Sidebar */}
@@ -1649,20 +1550,31 @@ export default function EventSettingsPage() {
                 <Label htmlFor="newBanner">
                   {eventData.banner_url ? "Trocar Banner" : "Adicionar Banner"}
                 </Label>
-                <Input
-                  id="newBanner"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] || null
-                    setNewBanner(file)
-                    if (file) {
-                      toast.success(`Banner "${file.name}" selecionado. Clique em "Salvar" para aplicar.`)
-                    }
-                  }}
-                  className={`cursor-pointer ${newBanner ? 'border-dashed border-2 border-[#156634]' : ''}`}
-                  disabled={fieldDisabled}
-                />
+                <div className="relative">
+                  <Input
+                    id="newBanner"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null
+                      setNewBanner(file)
+                      if (file) {
+                        toast.success(`Banner "${file.name}" selecionado. Clique em "Salvar" para aplicar.`)
+                      }
+                    }}
+                    className={`cursor-pointer file:hidden ${newBanner ? 'border-dashed border-2 border-[#156634]' : 'border-dashed border-2 border-gray-300 hover:border-[#156634]/50 transition-colors'}`}
+                    disabled={fieldDisabled}
+                  />
+                  {!newBanner && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="text-center">
+                        <Upload className="h-5 w-5 text-gray-400 mx-auto mb-1" />
+                        <p className="text-xs text-gray-500">Clique para escolher arquivo</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">Nenhum arquivo escolhido</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 {newBanner && (
                   <p className="text-sm text-green-600 font-medium">
                         ✓ Novo banner selecionado: {newBanner.name}
@@ -1671,6 +1583,116 @@ export default function EventSettingsPage() {
               </div>
             </CardContent>
           </Card>
+
+              {/* Galeria de Imagens */}
+              <Card className="border-2 shadow-sm">
+                <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Package className="h-5 w-5 text-[#156634]" />
+                    Galeria de Imagens
+                  </CardTitle>
+                  <CardDescription>
+                    Imagens adicionais que serão exibidas na página do evento
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Imagens existentes */}
+                  {eventImages.length > 0 && (
+                    <div className="grid grid-cols-2 gap-3">
+                      {eventImages.map((img, index) => (
+                        <div key={img.id} className="relative group">
+                          <div className="relative aspect-video rounded-lg overflow-hidden border">
+                            <Image
+                              src={img.image_url}
+                              alt={`Imagem ${index + 1}`}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 768px) 50vw, 50vw"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7"
+                            onClick={async () => {
+                              try {
+                                const supabase = createClient()
+                                const { error } = await supabase
+                                  .from("event_images")
+                                  .delete()
+                                  .eq("id", img.id)
+                                
+                                if (error) throw error
+                                
+                                setEventImages(prev => prev.filter(i => i.id !== img.id))
+                                toast.success("Imagem removida com sucesso")
+                              } catch (error: any) {
+                                console.error("Erro ao remover imagem:", error)
+                                toast.error("Erro ao remover imagem")
+                              }
+                            }}
+                            disabled={fieldDisabled}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Upload de novas imagens */}
+                  <div className="space-y-2">
+                    <Label htmlFor="eventImages">Adicionar Imagens</Label>
+                    <div className="relative">
+                      <Input
+                        id="eventImages"
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || [])
+                          setNewImages(prev => [...prev, ...files])
+                        }}
+                        className={`cursor-pointer file:hidden ${newImages.length === 0 ? 'border-dashed border-2 border-gray-300 hover:border-[#156634]/50 transition-colors' : 'border-dashed border-2 border-[#156634]'}`}
+                        disabled={fieldDisabled || uploadingImages}
+                      />
+                      {newImages.length === 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="text-center">
+                            <Upload className="h-5 w-5 text-gray-400 mx-auto mb-1" />
+                            <p className="text-xs text-gray-500">Clique para escolher arquivos</p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">Nenhum arquivo escolhido</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {newImages.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-sm text-green-600 font-medium">
+                          ✓ {newImages.length} imagem(ns) selecionada(s). Clique em &quot;Salvar&quot; para fazer upload.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {newImages.map((file, index) => (
+                            <div key={index} className="flex items-center gap-2 px-2 py-1 bg-gray-100 rounded text-sm">
+                              <span className="truncate max-w-[150px]">{file.name}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5"
+                                onClick={() => setNewImages(prev => prev.filter((_, i) => i !== index))}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
               </div>
           </div>
         </TabsContent>
