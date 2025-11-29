@@ -14,6 +14,7 @@ import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { getOrganizerAccess } from "@/lib/supabase/organizer-access"
+import { getUserPermissions } from "@/lib/supabase/user-permissions"
 import { usePermissions } from "@/hooks/use-permissions"
 
 export default function OrganizerSettingsPage() {
@@ -242,14 +243,27 @@ export default function OrganizerSettingsPage() {
   }
 
   const handleAddUser = async () => {
-    if (!organizerId || !newUserEmail) {
-      toast.error("Preencha o email do usuário")
-      return
-    }
-
     try {
       setAddingUser(true)
       const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        toast.error("Usuário não autenticado")
+        return
+      }
+
+      // Verificar permissão de criação
+      const permissions = await getUserPermissions(supabase, user.id)
+      if (!permissions || (!permissions.can_create && !permissions.is_primary)) {
+        toast.error("Você não tem permissão para adicionar usuários")
+        return
+      }
+
+      if (!organizerId || !newUserEmail) {
+        toast.error("Preencha o email do usuário")
+        return
+      }
 
       let userId: string
 
@@ -969,12 +983,22 @@ export default function OrganizerSettingsPage() {
                                 </Button>
                               )}
                             {(canDelete || isPrimary) && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={async () => {
-                                  if (confirm("Tem certeza que deseja remover este usuário da organização? Esta ação não pode ser desfeita.")) {
-                                  const supabase = createClient()
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={async () => {
+                                // Verificar permissão de deletar
+                                const supabase = createClient()
+                                const { data: { user: currentUser } } = await supabase.auth.getUser()
+                                if (currentUser) {
+                                  const permissions = await getUserPermissions(supabase, currentUser.id)
+                                  if (!permissions?.can_delete && !permissions?.is_primary) {
+                                    toast.error("Você não tem permissão para remover usuários")
+                                    return
+                                  }
+                                }
+
+                                if (confirm("Tem certeza que deseja remover este usuário da organização? Esta ação não pode ser desfeita.")) {
                                   const { error } = await supabase
                                     .from("organization_users")
                                     .delete()
@@ -987,8 +1011,8 @@ export default function OrganizerSettingsPage() {
                                   }
                                 }
                               }}
-                                  title="Remover usuário"
-                                >
+                              title="Remover usuário"
+                            >
                                   <Trash2 className="h-4 w-4 text-red-600" />
                                 </Button>
                               )}

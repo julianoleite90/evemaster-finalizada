@@ -12,7 +12,7 @@ import { getOrganizerEvents } from "@/lib/supabase/events"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { getOrganizerAccess } from "@/lib/supabase/organizer-access"
-import { usePermissions } from "@/hooks/use-permissions"
+import { useUserPermissions } from "@/hooks/use-user-permissions"
 
 interface Event {
   id: string
@@ -32,7 +32,7 @@ export default function EventsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [eventos, setEventos] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
-  const { canView, canEdit, canCreate, canDelete, isPrimary } = usePermissions()
+  const { canView, canEdit, canCreate, canDelete, isPrimary, loading: permissionsLoading } = useUserPermissions()
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -231,9 +231,6 @@ export default function EventsPage() {
   }
 
   const EventCard = ({ event }: { event: Event }) => {
-    // Verificar permissões para este componente
-    const { canView, canEdit, isPrimary } = usePermissions()
-    
     return (
     <Card className="hover:shadow-lg transition-all duration-200 flex flex-col h-full border-2 hover:border-[#156634]/20">
       <CardHeader className="pb-4">
@@ -316,7 +313,7 @@ export default function EventsPage() {
             Gerencie todos os seus eventos esportivos
           </p>
         </div>
-        {(canCreate || isPrimary) && (
+        {!permissionsLoading && (canCreate || isPrimary) && (
           <div className="flex gap-2">
             <Button asChild>
               <Link href="/dashboard/organizer/events/new" className="flex items-center">

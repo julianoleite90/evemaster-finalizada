@@ -1,7 +1,7 @@
 "use client"
 
 import { ReactNode } from "react"
-import { usePermissions } from "@/hooks/use-permissions"
+import { useUserPermissions } from "@/hooks/use-user-permissions"
 
 interface PermissionGuardProps {
   permission: 'view' | 'edit' | 'create' | 'delete'
@@ -9,17 +9,19 @@ interface PermissionGuardProps {
   children: ReactNode
 }
 
-/**
- * Componente que renderiza children apenas se o usuário tiver a permissão especificada
- */
 export function PermissionGuard({ permission, fallback = null, children }: PermissionGuardProps) {
-  const { canView, canEdit, canCreate, canDelete, isPrimary } = usePermissions()
+  const { canView, canEdit, canCreate, canDelete, isPrimary, loading } = useUserPermissions()
 
-  // Organizador principal sempre tem todas as permissões
+  if (loading) {
+    return null // Ou um spinner
+  }
+
+  // Organizador principal tem todas as permissões
   if (isPrimary) {
     return <>{children}</>
   }
 
+  // Verificar permissão específica
   let hasPermission = false
   switch (permission) {
     case 'view':
@@ -42,12 +44,3 @@ export function PermissionGuard({ permission, fallback = null, children }: Permi
 
   return <>{children}</>
 }
-
-/**
- * Hook para obter se um campo deve estar desabilitado
- */
-export function useFieldDisabled() {
-  const { canEdit, isPrimary } = usePermissions()
-  return !canEdit && !isPrimary
-}
-

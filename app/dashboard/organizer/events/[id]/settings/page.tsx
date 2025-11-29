@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Switch } from "@/components/ui/switch"
 import {
   Settings,
   CreditCard,
@@ -40,6 +41,7 @@ import {
   Edit3,
   Tag,
   UserPlus,
+  Eye,
   TrendingUp,
   Users,
   DollarSign,
@@ -48,10 +50,11 @@ import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { getEventById } from "@/lib/supabase/events"
+import { useUserPermissions } from "@/hooks/use-user-permissions"
+import { PermissionGuard } from "@/components/dashboard/permission-guard"
 import { uploadEventBanner, uploadTicketGPX } from "@/lib/supabase/storage"
 import dynamic from "next/dynamic"
 import Image from "next/image"
-import { usePermissions } from "@/hooks/use-permissions"
 
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false })
 import "react-quill/dist/quill.snow.css"
@@ -97,7 +100,7 @@ export default function EventSettingsPage() {
   const params = useParams()
   const router = useRouter()
   const eventId = params.id as string
-  const { canView, canEdit, canCreate, canDelete, isPrimary } = usePermissions()
+  const { canView, canEdit, canCreate, canDelete, isPrimary, loading: permissionsLoading } = useUserPermissions()
   const fieldDisabled = !canEdit && !isPrimary
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -126,6 +129,7 @@ export default function EventSettingsPage() {
     major_access: false,
     major_access_type: "",
     race_type: "" as "asfalto" | "trail" | "misto" | "",
+    show_in_showcase: false,
   })
 
   // Lotes e ingressos
@@ -162,6 +166,76 @@ export default function EventSettingsPage() {
     expires_at: "",
     is_active: true,
   })
+
+  // Estatísticas de visualizações
+  const [viewStats, setViewStats] = useState({
+    totalViews: 0,
+    viewsToday: 0,
+    viewsLast7Days: 0,
+    viewsLast30Days: 0,
+    conversions: 0,
+    conversionRate: 0
+  })
+
+  // Buscar estatísticas de visualizações
+  const fetchViewStats = async () => {
+    try {
+      const supabase = createClient()
+      const hoje = new Date()
+      hoje.setHours(0, 0, 0, 0)
+      const seteDiasAtras = new Date(hoje)
+      seteDiasAtras.setDate(seteDiasAtras.getDate() - 7)
+      const trintaDiasAtras = new Date(hoje)
+      trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30)
+
+      // Buscar visualizações
+      const [viewsToday, viewsLast7Days, viewsLast30Days, totalViews, registrations] = await Promise.all([
+        supabase
+          .from("event_views")
+          .select("*", { count: "exact", head: true })
+          .eq("event_id", eventId)
+          .gte("viewed_at", hoje.toISOString()),
+        supabase
+          .from("event_views")
+          .select("*", { count: "exact", head: true })
+          .eq("event_id", eventId)
+          .gte("viewed_at", seteDiasAtras.toISOString()),
+        supabase
+          .from("event_views")
+          .select("*", { count: "exact", head: true })
+          .eq("event_id", eventId)
+          .gte("viewed_at", trintaDiasAtras.toISOString()),
+        supabase
+          .from("event_views")
+          .select("*", { count: "exact", head: true })
+          .eq("event_id", eventId),
+        supabase
+          .from("registrations")
+          .select("id", { count: "exact", head: true })
+          .eq("event_id", eventId)
+      ])
+
+      const viewsTodayCount = viewsToday.count || 0
+      const viewsLast7DaysCount = viewsLast7Days.count || 0
+      const viewsLast30DaysCount = viewsLast30Days.count || 0
+      const totalViewsCount = totalViews.count || 0
+      const conversionsCount = registrations.count || 0
+      const conversionRateValue = viewsLast30DaysCount > 0 
+        ? ((conversionsCount / viewsLast30DaysCount) * 100)
+        : 0
+
+      setViewStats({
+        totalViews: totalViewsCount,
+        viewsToday: viewsTodayCount,
+        viewsLast7Days: viewsLast7DaysCount,
+        viewsLast30Days: viewsLast30DaysCount,
+        conversions: conversionsCount,
+        conversionRate: Number(conversionRateValue.toFixed(2))
+      })
+    } catch (error) {
+      console.error("Erro ao buscar estatísticas de visualizações:", error)
+    }
+  }
 
   // Buscar afiliados do evento
   const fetchAffiliates = async () => {
@@ -303,6 +377,7 @@ export default function EventSettingsPage() {
             major_access: event.major_access || false,
             major_access_type: event.major_access_type || "",
             race_type: event.race_type || "",
+            show_in_showcase: event.show_in_showcase || false,
           })
 
           // Carregar lotes e ingressos
@@ -370,6 +445,13 @@ export default function EventSettingsPage() {
       fetchAcceptedAffiliates()
     }
   }, [subMenu, eventId])
+
+  // Buscar estatísticas quando entrar na seção de relatórios
+  useEffect(() => {
+    if (mainMenu === "relatorios" && eventId) {
+      fetchViewStats()
+    }
+  }, [mainMenu, eventId])
 
   const toggleBatch = (batchId: string) => {
     setExpandedBatches(prev => ({
@@ -449,16 +531,39 @@ export default function EventSettingsPage() {
         updateData.race_type = eventData.race_type
         console.log("🔵 [DEBUG] Adicionado race_type:", eventData.race_type)
       }
+      // show_in_showcase - apenas adicionar se a coluna existir no banco
+      // A migração 042_add_show_in_showcase.sql deve ser aplicada primeiro
+      if (eventData.show_in_showcase !== undefined) {
+        updateData.show_in_showcase = eventData.show_in_showcase
+        console.log("🔵 [DEBUG] Adicionado show_in_showcase:", eventData.show_in_showcase)
+      }
 
       console.log("🔵 [DEBUG] updateData completo:", JSON.stringify(updateData, null, 2))
       console.log("🔵 [DEBUG] Chamando Supabase update...")
 
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("events")
         .update(updateData)
         .eq("id", eventId)
         .select()
         .single()
+
+      // Se o erro for relacionado à coluna show_in_showcase não existir, tentar novamente sem ela
+      if (error && error.message?.includes("show_in_showcase")) {
+        console.warn("⚠️ [DEBUG] Coluna show_in_showcase não encontrada. Removendo do update e tentando novamente...")
+        const { show_in_showcase, ...updateDataWithoutShowcase } = updateData
+        const retryResult = await supabase
+          .from("events")
+          .update(updateDataWithoutShowcase)
+          .eq("id", eventId)
+          .select()
+          .single()
+        data = retryResult.data
+        error = retryResult.error
+        if (!error) {
+          toast.warning("Campo 'Exibir na Vitrine' não está disponível. Aplique a migração 042_add_show_in_showcase.sql")
+        }
+      }
 
       console.log("🔵 [DEBUG] Resposta do Supabase:")
       console.log("  - Data:", data ? "✅ Recebido" : "❌ Nulo")
@@ -513,6 +618,12 @@ export default function EventSettingsPage() {
   }
 
   const handleSaveBatches = async () => {
+    // Verificar permissão de edição
+    if (!canEdit && !isPrimary) {
+      toast.error("Você não tem permissão para editar lotes e ingressos")
+      return
+    }
+
     try {
       setSaving(true)
       const supabase = createClient()
@@ -728,6 +839,12 @@ export default function EventSettingsPage() {
   }
 
   const addNewBatch = () => {
+    // Verificar permissão de criação
+    if (!canCreate && !isPrimary) {
+      toast.error("Você não tem permissão para criar lotes")
+      return
+    }
+
     const newBatch = {
       id: `new-${Date.now()}`,
       name: `Lote ${batches.length + 1}`,
@@ -744,6 +861,12 @@ export default function EventSettingsPage() {
   }
 
   const handleSavePixels = async () => {
+    // Verificar permissão de edição
+    if (!canEdit && !isPrimary) {
+      toast.error("Você não tem permissão para editar configurações")
+      return
+    }
+
     try {
       setSaving(true)
       const supabase = createClient()
@@ -795,6 +918,12 @@ export default function EventSettingsPage() {
   }
 
   const removeBatch = (batchId: string) => {
+    // Verificar permissão de deletar
+    if (!canDelete && !isPrimary) {
+      toast.error("Você não tem permissão para deletar lotes")
+      return
+    }
+
     setBatches(prev => prev.filter((batch: any) => batch.id !== batchId))
     setExpandedBatches(prev => {
       const newState = { ...prev }
@@ -804,6 +933,10 @@ export default function EventSettingsPage() {
   }
 
   const addTicketToBatch = (batchId: string) => {
+    if (!canCreate && !isPrimary) {
+      toast.error("Você não tem permissão para criar ingressos")
+      return
+    }
     setBatches(prev => prev.map(batch =>
       batch.id === batchId
         ? {
@@ -832,6 +965,12 @@ export default function EventSettingsPage() {
   }
 
   const removeTicket = (batchId: string, ticketId: string) => {
+    // Verificar permissão de deletar
+    if (!canDelete && !isPrimary) {
+      toast.error("Você não tem permissão para deletar ingressos")
+      return
+    }
+
     setBatches(prev => prev.map(batch =>
       batch.id === batchId
         ? {
@@ -855,20 +994,20 @@ export default function EventSettingsPage() {
       {/* Header Profissional */}
       <div className="bg-white border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
               <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-9 w-9">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div>
                 <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">
                   {eventData.name || "Editar Evento"}
                 </h1>
                 <p className="text-sm text-gray-600 mt-1">
                   Gerencie todas as configurações do seu evento
-            </p>
-          </div>
-        </div>
+                </p>
+              </div>
+            </div>
             {(canEdit || isPrimary) ? (
               <Button 
                 onClick={handleSaveEventData} 
@@ -1057,6 +1196,7 @@ export default function EventSettingsPage() {
                   <Select
                     value={eventData.language}
                     onValueChange={(value) => setEventData({ ...eventData, language: value as "pt" | "es" | "en" })}
+                    disabled={fieldDisabled}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o idioma" />
@@ -1088,6 +1228,7 @@ export default function EventSettingsPage() {
                   <Select
                     value={eventData.status}
                         onValueChange={(value) => setEventData({ ...eventData, status: value })}
+                    disabled={fieldDisabled}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -1100,6 +1241,23 @@ export default function EventSettingsPage() {
                     </SelectContent>
                   </Select>
                     </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="show_in_showcase">Exibir na Vitrine</Label>
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Switch
+                        id="show_in_showcase"
+                        checked={eventData.show_in_showcase}
+                        onCheckedChange={(checked) => setEventData({ ...eventData, show_in_showcase: checked })}
+                        disabled={fieldDisabled}
+                      />
+                      <Label htmlFor="show_in_showcase" className="text-sm text-muted-foreground cursor-pointer">
+                        {eventData.show_in_showcase ? "Evento será exibido na vitrine pública" : "Evento não será exibido na vitrine"}
+                      </Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Apenas eventos ativos com esta opção habilitada aparecerão na vitrine
+                    </p>
+                  </div>
                 </div>
 
                 {/* Dificuldade, Tipo de Prova e Acesso Major */}
@@ -1109,6 +1267,7 @@ export default function EventSettingsPage() {
                     <Select
                       value={eventData.difficulty_level}
                       onValueChange={(value) => setEventData({ ...eventData, difficulty_level: value as any })}
+                      disabled={fieldDisabled}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione a dificuldade" />
@@ -1127,6 +1286,7 @@ export default function EventSettingsPage() {
                     <Select
                       value={eventData.race_type}
                       onValueChange={(value) => setEventData({ ...eventData, race_type: value as any })}
+                      disabled={fieldDisabled}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o tipo" />
@@ -1150,6 +1310,7 @@ export default function EventSettingsPage() {
                           checked={eventData.major_access === true}
                           onChange={() => setEventData({ ...eventData, major_access: true })}
                           className="h-4 w-4 text-[#156634]"
+                          disabled={fieldDisabled}
                         />
                         <Label htmlFor="major_access_sim" className="font-normal cursor-pointer">Sim</Label>
                       </div>
@@ -1161,6 +1322,7 @@ export default function EventSettingsPage() {
                           checked={eventData.major_access === false}
                           onChange={() => setEventData({ ...eventData, major_access: false, major_access_type: "" })}
                           className="h-4 w-4 text-[#156634]"
+                          disabled={fieldDisabled}
                         />
                         <Label htmlFor="major_access_nao" className="font-normal cursor-pointer">Não</Label>
                       </div>
@@ -1174,6 +1336,7 @@ export default function EventSettingsPage() {
                     <Select
                       value={eventData.major_access_type}
                       onValueChange={(value) => setEventData({ ...eventData, major_access_type: value })}
+                      disabled={fieldDisabled}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione a prova major" />
@@ -1204,6 +1367,7 @@ export default function EventSettingsPage() {
                     type="date"
                     value={eventData.event_date}
                     onChange={(e) => setEventData({ ...eventData, event_date: e.target.value })}
+                    disabled={fieldDisabled}
                   />
                 </div>
 
@@ -1214,6 +1378,7 @@ export default function EventSettingsPage() {
                     type="time"
                     value={eventData.start_time}
                     onChange={(e) => setEventData({ ...eventData, start_time: e.target.value })}
+                    disabled={fieldDisabled}
                   />
                 </div>
               </div>
@@ -1239,6 +1404,7 @@ export default function EventSettingsPage() {
                     value={eventData.location}
                     onChange={(e) => setEventData({ ...eventData, location: e.target.value })}
                     placeholder="Ex: Praça da Liberdade"
+                    disabled={fieldDisabled}
                   />
                 </div>
 
@@ -1249,6 +1415,7 @@ export default function EventSettingsPage() {
                     value={eventData.address}
                     onChange={(e) => setEventData({ ...eventData, address: e.target.value })}
                     placeholder="Ex: Av. Beira Mar, 1000"
+                    disabled={fieldDisabled}
                   />
                 </div>
 
@@ -1260,6 +1427,7 @@ export default function EventSettingsPage() {
                     value={eventData.city}
                     onChange={(e) => setEventData({ ...eventData, city: e.target.value })}
                     placeholder="Ex: Florianópolis"
+                    disabled={fieldDisabled}
                   />
                 </div>
 
@@ -1270,6 +1438,7 @@ export default function EventSettingsPage() {
                     value={eventData.state}
                     onChange={(e) => setEventData({ ...eventData, state: e.target.value })}
                     placeholder="Ex: SC"
+                    disabled={fieldDisabled}
                   />
                 </div>
 
@@ -1280,6 +1449,7 @@ export default function EventSettingsPage() {
                     value={eventData.zip_code}
                     onChange={(e) => setEventData({ ...eventData, zip_code: e.target.value })}
                     placeholder="00000-000"
+                    disabled={fieldDisabled}
                   />
                 </div>
               </div>
@@ -1357,6 +1527,7 @@ export default function EventSettingsPage() {
                   accept="image/*"
                   onChange={(e) => setNewBanner(e.target.files?.[0] || null)}
                   className="cursor-pointer"
+                  disabled={fieldDisabled}
                 />
                 {newBanner && (
                   <p className="text-sm text-green-600">
@@ -1383,28 +1554,32 @@ export default function EventSettingsPage() {
               </p>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Button onClick={addNewBatch} variant="outline" className="flex-1 sm:flex-initial">
-                <Plus className="mr-2 h-4 w-4" />
-                Novo Lote
-              </Button>
-              <Button 
-                onClick={handleSaveBatches} 
-                disabled={saving}
-                className="bg-[#156634] hover:bg-[#1a7a3e] text-white flex-1 sm:flex-initial"
-              >
-              {saving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                    Salvar
-                </>
+              {(canCreate || isPrimary) && (
+                <Button onClick={addNewBatch} variant="outline" className="flex-1 sm:flex-initial" disabled={fieldDisabled}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Lote
+                </Button>
               )}
-            </Button>
-          </div>
+              {(canEdit || isPrimary) && (
+                <Button 
+                  onClick={handleSaveBatches} 
+                  disabled={saving || fieldDisabled}
+                  className="bg-[#156634] hover:bg-[#1a7a3e] text-white flex-1 sm:flex-initial"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Salvar
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
 
           {batches.length === 0 ? (
@@ -2872,7 +3047,48 @@ export default function EventSettingsPage() {
 
       {/* Submenu de Relatórios */}
       {mainMenu === "relatorios" && (
-        <div className="mb-6">
+        <div className="mb-6 space-y-6">
+          {/* Card de Estatísticas de Visualizações */}
+          <Card className="border-2 shadow-sm">
+            <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
+              <CardTitle className="text-xl flex items-center gap-2">
+                <Eye className="h-5 w-5 text-[#156634]" />
+                Cliques na Landing Page
+              </CardTitle>
+              <CardDescription>
+                Estatísticas de visualizações e conversões do evento
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <p className="text-2xl font-bold text-gray-900">{viewStats.totalViews.toLocaleString('pt-BR')}</p>
+                  <p className="text-xs text-gray-600 mt-1">Total de Visualizações</p>
+                </div>
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <p className="text-2xl font-bold text-blue-600">{viewStats.viewsToday.toLocaleString('pt-BR')}</p>
+                  <p className="text-xs text-blue-600 mt-1">Hoje</p>
+                </div>
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <p className="text-2xl font-bold text-green-600">{viewStats.viewsLast7Days.toLocaleString('pt-BR')}</p>
+                  <p className="text-xs text-green-600 mt-1">Últimos 7 dias</p>
+                </div>
+                <div className="text-center p-4 bg-purple-50 rounded-lg">
+                  <p className="text-2xl font-bold text-purple-600">{viewStats.viewsLast30Days.toLocaleString('pt-BR')}</p>
+                  <p className="text-xs text-purple-600 mt-1">Últimos 30 dias</p>
+                </div>
+                <div className="text-center p-4 bg-orange-50 rounded-lg">
+                  <p className="text-2xl font-bold text-orange-600">{viewStats.conversions.toLocaleString('pt-BR')}</p>
+                  <p className="text-xs text-orange-600 mt-1">Inscrições</p>
+                </div>
+                <div className="text-center p-4 bg-indigo-50 rounded-lg">
+                  <p className="text-2xl font-bold text-indigo-600">{viewStats.conversionRate.toFixed(2)}%</p>
+                  <p className="text-xs text-indigo-600 mt-1">Taxa de Conversão</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Tabs value={subMenu} onValueChange={setSubMenu} className="space-y-6">
             <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-2 bg-gray-100 p-1 rounded-lg">
               <TabsTrigger 
@@ -3005,8 +3221,9 @@ export default function EventSettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
-        </div>
+      </div>
       )}
+
       </div>
     </div>
   )

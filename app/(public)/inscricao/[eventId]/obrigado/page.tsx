@@ -439,9 +439,9 @@ export default function ObrigadoPage() {
               <Image
                 src="/images/logo/logo.png"
                 alt="EveMaster"
-                    width={140}
-                    height={40}
-                    className="h-7 md:h-8 w-auto opacity-80"
+                    width={126}
+                    height={36}
+                    className="h-6 md:h-7 w-auto opacity-80"
                   />
                 </div>
                 <p className="text-xs text-gray-500 leading-relaxed max-w-xs text-center md:text-left">
@@ -576,7 +576,7 @@ export default function ObrigadoPage() {
                 © {new Date().getFullYear()} Evemaster. Todos os direitos reservados.
                 </p>
               <p>
-                Fulsale LTDA - CNPJ: 41.953.551/0001-57
+                Um software do grupo Fullsale Ltda - CNPJ: 41.953.551/0001-57
                 </p>
             </div>
           </div>

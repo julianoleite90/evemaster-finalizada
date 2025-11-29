@@ -731,7 +731,7 @@ export default function CheckoutPage() {
       const dataEvento = eventData.event_date
         ? (() => {
             const [year, month, day] = eventData.event_date.split('-').map(Number)
-            const date = new Date(year, month - 1, day)
+            const date = new Date(year, month - 1, day) // month é 0-indexed
             return date.toLocaleDateString('pt-BR')
           })()
         : ''
@@ -797,7 +797,11 @@ export default function CheckoutPage() {
       const { subtotal, taxa, total } = resumoFinanceiro
       const resumoParam = encodeURIComponent(JSON.stringify({
         evento: eventData.name,
-        eventoData: eventData.event_date ? new Date(eventData.event_date).toLocaleDateString('pt-BR') : '',
+        eventoData: eventData.event_date ? (() => {
+          const [year, month, day] = eventData.event_date.split('-').map(Number)
+          const date = new Date(year, month - 1, day)
+          return date.toLocaleDateString('pt-BR')
+        })() : '',
         eventoLocal: eventData.location || eventData.address || '',
         ingressos: ingressosSelecionados.map((ing, i) => ({
           categoria: ing.categoria,
@@ -863,9 +867,9 @@ export default function CheckoutPage() {
               <Image
                 src="/images/logo/logo.png"
                 alt="Logo EveMaster"
-                width={140}
-                height={40}
-                className="h-7 md:h-9 w-auto"
+                width={126}
+                height={36}
+                className="h-6 md:h-8 w-auto"
                 priority
               />
             </Link>
@@ -1355,7 +1359,11 @@ export default function CheckoutPage() {
                 <div className="space-y-1">
                   <p className="font-medium text-gray-900">{eventData?.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {eventData?.event_date && new Date(eventData.event_date).toLocaleDateString(idioma === "en" ? "en-US" : idioma === "es" ? "es-AR" : "pt-BR")}
+                    {eventData?.event_date && (() => {
+                      const [year, month, day] = eventData.event_date.split('-').map(Number)
+                      const date = new Date(year, month - 1, day)
+                      return date.toLocaleDateString(idioma === "en" ? "en-US" : idioma === "es" ? "es-AR" : "pt-BR")
+                    })()}
                   </p>
                   {eventData?.location && (
                     <p className="text-sm text-muted-foreground">
@@ -1441,9 +1449,9 @@ export default function CheckoutPage() {
               <Image
                 src="/images/logo/logo.png"
                 alt="EveMaster"
-                    width={140}
-                    height={40}
-                    className="h-7 md:h-8 w-auto opacity-80"
+                    width={126}
+                    height={36}
+                    className="h-6 md:h-7 w-auto opacity-80"
                   />
                 </div>
                 <p className="text-xs text-gray-500 leading-relaxed max-w-xs text-center md:text-left">
@@ -1578,7 +1586,7 @@ export default function CheckoutPage() {
                 © {new Date().getFullYear()} Evemaster. Todos os direitos reservados.
                 </p>
               <p>
-                Fulsale LTDA - CNPJ: 41.953.551/0001-57
+                Um software do grupo Fullsale Ltda - CNPJ: 41.953.551/0001-57
                 </p>
             </div>
           </div>

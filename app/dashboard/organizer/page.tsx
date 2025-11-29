@@ -136,6 +136,36 @@ export default function OrganizerDashboard() {
         const receitaHoje = pagamentosHoje?.reduce((sum, p) => sum + Number(p.total_amount || 0), 0) || 0
         const receitaOntem = pagamentosOntem?.reduce((sum, p) => sum + Number(p.total_amount || 0), 0) || 0
 
+        // Buscar visualizações dos eventos hoje e ontem
+        const { data: visualizacoesHoje } = await supabase
+          .from("event_views")
+          .select("id")
+          .in("event_id", eventIds)
+          .gte("viewed_at", hoje.toISOString())
+
+        const { data: visualizacoesOntem } = await supabase
+          .from("event_views")
+          .select("id")
+          .in("event_id", eventIds)
+          .gte("viewed_at", ontem.toISOString())
+          .lt("viewed_at", hoje.toISOString())
+
+        // Calcular total de visualizações (últimos 30 dias)
+        const trintaDiasAtras = new Date(hoje)
+        trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30)
+        const { count: totalVisualizacoes } = await supabase
+          .from("event_views")
+          .select("*", { count: "exact", head: true })
+          .in("event_id", eventIds)
+          .gte("viewed_at", trintaDiasAtras.toISOString())
+
+        // Calcular taxa de conversão (inscrições / visualizações)
+        const visualizacoesHojeCount = visualizacoesHoje?.length || 0
+        const conversoesHoje = inscricoesHojeData?.length || 0
+        const taxaConversao = visualizacoesHojeCount > 0 
+          ? ((conversoesHoje / visualizacoesHojeCount) * 100)
+          : 0
+
         // Formatar últimas inscrições
         const inscricoesFormatadas = ultimasInscricoes?.map((reg: any) => {
           const athlete = athletesMap.get(reg.id)
@@ -155,11 +185,11 @@ export default function OrganizerDashboard() {
           inscricoesOntem: inscricoesOntemData?.length || 0,
           receitaHoje,
           receitaOntem,
-          acessosLanding: 0, // TODO: implementar tracking
+          acessosLanding: totalVisualizacoes || 0,
           comparativoDia: {
-            visualizacoes: 0, // TODO: implementar tracking
-            conversoes: inscricoesHojeData?.length || 0,
-            taxaConversao: 0 // TODO: calcular
+            visualizacoes: visualizacoesHojeCount,
+            conversoes: conversoesHoje,
+            taxaConversao: Number(taxaConversao.toFixed(2))
           }
         })
 
@@ -247,7 +277,7 @@ export default function OrganizerDashboard() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Taxa</span>
-                <span className="text-sm font-medium text-green-600">{stats.comparativoDia.taxaConversao}%</span>
+                <span className="text-sm font-medium text-green-600/90">{stats.comparativoDia.taxaConversao}%</span>
               </div>
             </div>
           </CardContent>

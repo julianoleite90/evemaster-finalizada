@@ -191,6 +191,25 @@ export default function EventoLandingPage() {
         
         setEventData({ ...event })
         
+        // Registrar visualização do evento
+        if (event.id) {
+          const supabase = createClient()
+          // Registrar visualização de forma assíncrona (não bloquear renderização)
+          supabase
+            .from('event_views')
+            .insert({
+              event_id: event.id,
+              ip_address: typeof window !== 'undefined' ? undefined : undefined, // Não coletar IP por privacidade
+              user_agent: typeof window !== 'undefined' ? navigator.userAgent : undefined,
+              referrer: typeof window !== 'undefined' ? document.referrer || null : null
+            })
+            .then(({ error }) => {
+              if (error) {
+                console.error('Erro ao registrar visualização:', error)
+              }
+            })
+        }
+        
         // Usar idioma do evento como padrão, se disponível
         if (event.language && (event.language === 'pt' || event.language === 'es' || event.language === 'en')) {
           setLanguage(event.language)
@@ -403,7 +422,7 @@ export default function EventoLandingPage() {
       </div>
               
       {/* Conteúdo Principal */}
-      <div className="container mx-auto px-4 -mt-10 md:-mt-16 pb-16 relative z-10">
+      <div className="container mx-auto px-4 -mt-9 md:-mt-16 pb-16 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Coluna Esquerda - Informações do Evento */}
           <div className="lg:col-span-2 space-y-6">
@@ -416,19 +435,19 @@ export default function EventoLandingPage() {
                   </h1>
                   <div className="flex flex-wrap items-center gap-2">
                     {eventData.category && (
-                      <Badge className="bg-[#156634] hover:bg-[#1a7a3e] text-white">
+                      <Badge className="bg-[#156634]/95 hover:bg-[#156634] text-white">
                         <Footprints className="h-3 w-3 mr-1" />
                         {eventData.category.charAt(0).toUpperCase() + eventData.category.slice(1)}
                       </Badge>
                     )}
                     {eventData.difficulty_level && (
-                      <Badge className="bg-[#156634] hover:bg-[#1a7a3e] text-white">
+                      <Badge className="bg-[#156634]/95 hover:bg-[#156634] text-white">
                         <Gauge className="h-3 w-3 mr-1" />
                         {eventData.difficulty_level}
                       </Badge>
                     )}
                     {eventData.race_type && (
-                      <Badge className="bg-[#156634] hover:bg-[#1a7a3e] text-white">
+                      <Badge className="bg-[#156634]/95 hover:bg-[#156634] text-white">
                         <Map className="h-3 w-3 mr-1" />
                         {eventData.race_type === 'asfalto' 
                           ? (language === 'pt' ? 'Asfalto' : language === 'en' ? 'Asphalt' : 'Asfalto')
@@ -439,7 +458,7 @@ export default function EventoLandingPage() {
                       </Badge>
                     )}
                     {eventData.major_access && (
-                      <Badge className="bg-[#156634] hover:bg-[#1a7a3e] text-white">
+                      <Badge className="bg-[#156634]/95 hover:bg-[#156634] text-white">
                         <Award className="h-3 w-3 mr-1" />
                         {eventData.major_access_type || (language === 'pt' ? 'Prova Major' : language === 'en' ? 'Major Race' : 'Prueba Major')}
                       </Badge>
@@ -450,7 +469,7 @@ export default function EventoLandingPage() {
                 {/* Informações Principais - Layout Melhorado */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-6">
                   <div className="flex items-start gap-2.5 md:gap-3 p-3 md:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
-                    <div className="flex-shrink-0 w-9 h-9 md:w-10 md:h-10 bg-[#156634] rounded-lg flex items-center justify-center shadow-sm">
+                    <div className="flex-shrink-0 w-9 h-9 md:w-10 md:h-10 bg-[#156634]/95 rounded-lg flex items-center justify-center shadow-sm">
                       <Calendar className="h-4 w-4 md:h-5 md:w-5 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -463,7 +482,7 @@ export default function EventoLandingPage() {
 
                   {eventData.start_time && (
                     <div className="flex items-start gap-2.5 md:gap-3 p-3 md:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
-                      <div className="flex-shrink-0 w-9 h-9 md:w-10 md:h-10 bg-[#156634] rounded-lg flex items-center justify-center shadow-sm">
+                      <div className="flex-shrink-0 w-9 h-9 md:w-10 md:h-10 bg-[#156634]/95 rounded-lg flex items-center justify-center shadow-sm">
                         <Clock className="h-4 w-4 md:h-5 md:w-5 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -474,7 +493,7 @@ export default function EventoLandingPage() {
                   )}
 
                   <div className="flex items-start gap-2.5 md:gap-3 p-3 md:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors md:col-span-2 border border-gray-200">
-                    <div className="flex-shrink-0 w-9 h-9 md:w-10 md:h-10 bg-[#156634] rounded-lg flex items-center justify-center shadow-sm">
+                    <div className="flex-shrink-0 w-9 h-9 md:w-10 md:h-10 bg-[#156634]/95 rounded-lg flex items-center justify-center shadow-sm">
                       <MapPin className="h-4 w-4 md:h-5 md:w-5 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -547,7 +566,7 @@ export default function EventoLandingPage() {
                       {selectedTicketsWithGPX.map((ticket: any, index: number) => (
                         <div key={ticket.id || index} className="space-y-4">
                           <div className="flex items-center gap-2 mb-4">
-                            <Trophy className="h-5 w-5 text-[#156634]" />
+                            <Trophy className="h-5 w-5 text-[#156634]/85" />
                             <h3 className="text-xl font-semibold text-gray-900">
                               {ticket.category}
                             </h3>
@@ -813,7 +832,7 @@ export default function EventoLandingPage() {
             <div className="space-y-4">
                       {/* Nome da Empresa */}
                       <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 w-10 h-10 bg-[#156634] rounded-lg flex items-center justify-center">
+                        <div className="flex-shrink-0 w-10 h-10 bg-[#156634]/95 rounded-lg flex items-center justify-center">
                           <Building2 className="h-5 w-5 text-white" />
                         </div>
                         <div className="flex-1">
@@ -827,7 +846,7 @@ export default function EventoLandingPage() {
                       {/* CNPJ */}
                         <div className="flex items-start gap-3">
                           <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <Building2 className="h-5 w-5 text-[#156634]" />
+                            <Building2 className="h-5 w-5 text-[#156634]/85" />
                           </div>
                           <div className="flex-1">
                             <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">CNPJ</p>
@@ -840,14 +859,14 @@ export default function EventoLandingPage() {
                       {/* Email */}
                         <div className="flex items-start gap-3">
                           <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <Mail className="h-5 w-5 text-[#156634]" />
+                            <Mail className="h-5 w-5 text-[#156634]/85" />
                           </div>
                           <div className="flex-1">
                             <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">{translations[language].email}</p>
                           {eventData.organizer?.company_email || eventData.organizer?.email ? (
                             <a 
                               href={`mailto:${eventData.organizer.company_email || eventData.organizer.email}`}
-                              className="text-sm text-gray-900 hover:text-[#156634] hover:underline break-all font-semibold"
+                              className="text-sm text-gray-900 hover:text-[#156634]/95 hover:underline break-all font-semibold"
                             >
                               {eventData.organizer.company_email || eventData.organizer.email}
                             </a>
@@ -862,14 +881,14 @@ export default function EventoLandingPage() {
                       {/* Telefone */}
                         <div className="flex items-start gap-3">
                           <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <Phone className="h-5 w-5 text-[#156634]" />
+                            <Phone className="h-5 w-5 text-[#156634]/85" />
                           </div>
                           <div className="flex-1">
                             <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">{translations[language].phone}</p>
                           {eventData.organizer.company_phone ? (
                             <a 
                               href={`tel:${eventData.organizer.company_phone}`}
-                              className="text-sm text-gray-900 hover:text-[#156634] hover:underline font-semibold"
+                              className="text-sm text-gray-900 hover:text-[#156634]/95 hover:underline font-semibold"
                             >
                               {eventData.organizer.company_phone}
                             </a>
@@ -884,7 +903,7 @@ export default function EventoLandingPage() {
                       {/* Eventos realizados no último ano */}
                       <div className="flex items-start gap-3">
                         <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <Trophy className="h-5 w-5 text-[#156634]" />
+                          <Trophy className="h-5 w-5 text-[#156634]/85" />
                         </div>
                         <div className="flex-1">
                           <p className="text-xs text-muted-foreground uppercase font-medium mb-0.5">
@@ -928,7 +947,7 @@ export default function EventoLandingPage() {
                       <>
                         <span className="text-gray-900 tracking-tight font-semibold">Compartilhe esse evento</span>
                         {' '}e{' '}
-                        <span className="text-[#156634] tracking-tight font-semibold">estimule o movimento</span>
+                        <span className="text-[#156634]/95 tracking-tight font-semibold">estimule o movimento</span>
                         {' '}com outras pessoas
                       </>
                     )
@@ -937,7 +956,7 @@ export default function EventoLandingPage() {
                       <>
                         <span className="text-gray-900 tracking-tight font-semibold">Share this event</span>
                         {' '}and{' '}
-                        <span className="text-[#156634] tracking-tight font-semibold">encourage movement</span>
+                        <span className="text-[#156634]/95 tracking-tight font-semibold">encourage movement</span>
                         {' '}with others
                       </>
                     )
@@ -945,7 +964,7 @@ export default function EventoLandingPage() {
                       <>
                         <span className="text-gray-900 tracking-tight font-semibold">Comparte este evento</span>
                         {' '}y{' '}
-                        <span className="text-[#156634] tracking-tight font-semibold">fomenta el movimiento</span>
+                        <span className="text-[#156634]/95 tracking-tight font-semibold">fomenta el movimiento</span>
                         {' '}con otras personas
                       </>
                     )
@@ -956,7 +975,7 @@ export default function EventoLandingPage() {
               <div className="relative inline-block share-menu-container w-full md:w-auto">
                 <Button
                   onClick={() => setShowShareMenu(!showShareMenu)}
-                  className="bg-[#156634] hover:bg-[#1a7a3e] text-white w-full md:w-auto px-6 md:px-8 py-4 md:py-6 text-sm md:text-base font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                  className="bg-[#156634]/95 hover:bg-[#156634] text-white w-full md:w-auto px-6 md:px-8 py-4 md:py-6 text-sm md:text-base font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
                 >
                   <Share2 className="h-4 w-4 md:h-5 md:w-5" />
                   {language === 'pt' ? 'Compartilhar' : language === 'en' ? 'Share' : 'Compartir'}
@@ -1050,10 +1069,10 @@ export default function EventoLandingPage() {
                 <div>
               <Image
                 src="/images/logo/logo.png"
-                alt="EveMaster"
-                    width={140}
-                    height={40}
-                    className="h-7 md:h-8 w-auto opacity-80"
+                    alt="EveMaster"
+                    width={126}
+                    height={36}
+                    className="h-6 md:h-7 w-auto opacity-80"
                   />
                 </div>
                 <p className="text-xs text-gray-500 leading-relaxed max-w-xs text-center md:text-left">
@@ -1188,7 +1207,7 @@ export default function EventoLandingPage() {
                 © {new Date().getFullYear()} Evemaster. Todos os direitos reservados.
                 </p>
               <p>
-                Fulsale LTDA - CNPJ: 41.953.551/0001-57
+                Um software do grupo Fullsale Ltda - CNPJ: 41.953.551/0001-57
                 </p>
             </div>
           </div>
