@@ -1258,17 +1258,32 @@ export default function EventSettingsPage() {
                   </Select>
                     </div>
                   <div className="space-y-2">
-                    <Label htmlFor="show_in_showcase">Exibir na Vitrine</Label>
-                    <div className="flex items-center space-x-2 pt-2">
-                      <Switch
-                        id="show_in_showcase"
-                        checked={eventData.show_in_showcase}
-                        onCheckedChange={(checked) => setEventData({ ...eventData, show_in_showcase: checked })}
-                        disabled={fieldDisabled}
-                      />
-                      <Label htmlFor="show_in_showcase" className="text-sm text-muted-foreground cursor-pointer">
-                        {eventData.show_in_showcase ? "Evento será exibido na vitrine pública" : "Evento não será exibido na vitrine"}
-                      </Label>
+                    <Label>Exibir na Vitrine</Label>
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          id="show_in_showcase_sim"
+                          name="show_in_showcase"
+                          checked={eventData.show_in_showcase === true}
+                          onChange={() => setEventData({ ...eventData, show_in_showcase: true })}
+                          className="h-4 w-4 text-[#156634]"
+                          disabled={fieldDisabled}
+                        />
+                        <Label htmlFor="show_in_showcase_sim" className="font-normal cursor-pointer">Sim</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          id="show_in_showcase_nao"
+                          name="show_in_showcase"
+                          checked={eventData.show_in_showcase === false}
+                          onChange={() => setEventData({ ...eventData, show_in_showcase: false })}
+                          className="h-4 w-4 text-[#156634]"
+                          disabled={fieldDisabled}
+                        />
+                        <Label htmlFor="show_in_showcase_nao" className="font-normal cursor-pointer">Não</Label>
+                      </div>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       Apenas eventos ativos com esta opção habilitada aparecerão na vitrine
