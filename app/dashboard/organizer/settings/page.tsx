@@ -916,12 +916,22 @@ export default function OrganizerSettingsPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => {
+                                console.log("🔧 [EDIT USER] Clicou em editar:", orgUser)
                                 setEditingUser(orgUser)
                                 setEditUserPermissions({
                                   can_view: orgUser.can_view || false,
                                   can_edit: orgUser.can_edit || false,
                                   can_create: orgUser.can_create || false,
                                   can_delete: orgUser.can_delete || false,
+                                })
+                                console.log("🔧 [EDIT USER] Estado atualizado:", {
+                                  editingUser: orgUser,
+                                  permissions: {
+                                    can_view: orgUser.can_view || false,
+                                    can_edit: orgUser.can_edit || false,
+                                    can_create: orgUser.can_create || false,
+                                    can_delete: orgUser.can_delete || false,
+                                  }
                                 })
                               }}
                               title="Editar usuário"
@@ -989,12 +999,15 @@ export default function OrganizerSettingsPage() {
       </Tabs>
 
       {/* Dialog de Editar Usuário */}
-      <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+      <Dialog open={!!editingUser} onOpenChange={(open) => {
+        console.log("🔧 [EDIT USER DIALOG] onOpenChange:", open, "editingUser:", editingUser)
+        if (!open) setEditingUser(null)
+      }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Editar Usuário</DialogTitle>
             <DialogDescription>
-              Atualize as permissões do usuário {editingUser?.user?.full_name || editingUser?.user?.email}
+              Atualize as permissões do usuário {editingUser?.user?.full_name || editingUser?.user?.email || "N/A"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
