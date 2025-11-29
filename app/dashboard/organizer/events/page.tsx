@@ -282,7 +282,7 @@ export default function EventsPage() {
         </div>
 
         <div className="flex items-center gap-2 pt-4 mt-auto border-t border-gray-200">
-          <Button variant="outline" size="sm" asChild className="flex-1 hover:bg-[#156634]/5 hover:border-[#156634]/30">
+          <Button variant="outline" size="sm" asChild className="flex-1 hover:bg-[#156634]/5 hover:border-[#156634]/30 text-gray-900 hover:text-[#156634]">
             <Link href={`/evento/${event.slug || event.id}`} target="_blank" className="flex items-center justify-center gap-2">
               <Eye className="h-4 w-4" />
               <span className="hidden sm:inline">Ver Página</span>
@@ -290,7 +290,7 @@ export default function EventsPage() {
             </Link>
           </Button>
           {(canEdit || isPrimary) && (
-            <Button variant="outline" size="sm" asChild className="flex-1 hover:bg-[#156634]/5 hover:border-[#156634]/30">
+            <Button variant="outline" size="sm" asChild className="flex-1 hover:bg-[#156634]/5 hover:border-[#156634]/30 text-gray-900 hover:text-[#156634]">
               <Link href={`/dashboard/organizer/events/${event.id}/settings`} className="flex items-center justify-center gap-2">
                 <Settings className="h-4 w-4" />
                 <span className="hidden sm:inline">Configurações</span>
