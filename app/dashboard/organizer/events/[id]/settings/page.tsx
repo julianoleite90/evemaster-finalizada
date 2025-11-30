@@ -113,7 +113,7 @@ export default function EventSettingsPage() {
   const [newBanner, setNewBanner] = useState<File | null>(null)
   const [expandedBatches, setExpandedBatches] = useState<{ [key: string]: boolean }>({})
   const [mainMenu, setMainMenu] = useState<"edicao" | "configuracao" | "relatorios">("relatorios")
-  const [subMenu, setSubMenu] = useState<string>("pixels") // Inicializar com primeira aba de configuração
+  const [subMenu, setSubMenu] = useState<string>("inscricoes") // Inicializar com primeira aba de relatórios
   const [eventImages, setEventImages] = useState<Array<{ id: string; image_url: string; image_order: number }>>([])
   const [newImages, setNewImages] = useState<File[]>([])
   const [uploadingImages, setUploadingImages] = useState(false)
