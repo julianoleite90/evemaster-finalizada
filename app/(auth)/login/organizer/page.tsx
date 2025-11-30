@@ -19,7 +19,10 @@ export default function OrganizerLoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!email || !password) {
+    // Limpar email (remover espaços)
+    const cleanEmail = email.trim().toLowerCase()
+    
+    if (!cleanEmail || !password) {
       toast.error("Preencha todos os campos")
       return
     }
@@ -28,10 +31,12 @@ export default function OrganizerLoginPage() {
       setLoading(true)
       const supabase = createClient()
 
-      console.log("🔐 [LOGIN ORGANIZADOR] Iniciando login com email:", email)
+      console.log("🔐 [LOGIN ORGANIZADOR] Iniciando login com email:", cleanEmail)
+      console.log("🔐 [LOGIN ORGANIZADOR] Email original:", email)
+      console.log("🔐 [LOGIN ORGANIZADOR] Email limpo:", cleanEmail)
       
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: cleanEmail,
         password,
       })
 
@@ -47,26 +52,43 @@ export default function OrganizerLoginPage() {
         console.error("❌ [LOGIN ORGANIZADOR] ERRO NO LOGIN:", {
           message: error.message,
           status: error.status,
-          name: error.name
+          name: error.name,
+          code: error.status
         })
         
         // Mensagens de erro mais específicas
-        if (error.message.includes("Invalid login credentials") || error.message.includes("email") || error.message.includes("password")) {
+        if (error.message.includes("Invalid login credentials") || 
+            error.message.includes("Invalid") ||
+            error.status === 400) {
           console.error("❌ [LOGIN ORGANIZADOR] Credenciais inválidas. Verifique:")
+          console.error("  - Email usado:", cleanEmail)
           console.error("  - Email está correto?")
           console.error("  - Senha está correta?")
           console.error("  - Email está confirmado no Supabase?")
+          console.error("  - Usuário existe no Supabase Auth?")
+          
+          // Tentar verificar se o usuário existe
+          try {
+            const { data: userCheck } = await supabase.auth.admin?.getUserByEmail(cleanEmail)
+            console.log("🔍 [LOGIN ORGANIZADOR] Verificação de usuário:", userCheck)
+          } catch (checkError) {
+            console.log("ℹ️ [LOGIN ORGANIZADOR] Não foi possível verificar usuário (normal em client-side)")
+          }
+          
           toast.error("Email ou senha incorretos. Verifique suas credenciais ou redefina a senha.")
-        } else if (error.message.includes("Email not confirmed")) {
+        } else if (error.message.includes("Email not confirmed") || error.message.includes("not confirmed")) {
           console.error("❌ [LOGIN ORGANIZADOR] Email não confirmado")
           toast.error("Email não confirmado. Verifique sua caixa de entrada e confirme o email.")
-        } else if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
+        } else if (error.message.includes("Failed to fetch") || 
+                   error.message.includes("NetworkError") ||
+                   error.message.includes("network")) {
           console.error("❌ [LOGIN ORGANIZADOR] Erro de conexão")
           toast.error("Erro de conexão. Verifique sua internet e tente novamente.")
         } else {
           console.error("❌ [LOGIN ORGANIZADOR] Erro desconhecido:", error)
           toast.error(error.message || "Erro ao fazer login. Tente novamente.")
         }
+        setLoading(false)
         return
       }
 
