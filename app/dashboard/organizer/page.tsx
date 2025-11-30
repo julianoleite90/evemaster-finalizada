@@ -403,6 +403,7 @@ export default function OrganizerDashboard() {
           
           return {
             id: reg.id,
+            registration_number: reg.registration_number,
             nome: athlete?.full_name || "N/A",
             evento: reg.events?.name || "N/A",
             categoria: ticket?.category || "N/A",
@@ -747,7 +748,9 @@ export default function OrganizerDashboard() {
                   {ultimosInscritos.map((inscrito, index) => (
                     <tr key={inscrito.id || index} className="border-b hover:bg-gray-50 transition-colors">
                       <td className="py-3 px-4">
-                        <span className="text-sm font-mono text-muted-foreground">#{inscrito.id?.substring(0, 8)}</span>
+                        <span className="text-sm font-mono text-muted-foreground">
+                          {inscrito.registration_number || `#${inscrito.id?.substring(0, 8)}`}
+                        </span>
                       </td>
                       <td className="py-3 px-4">
                         <span className="text-sm font-medium">{inscrito.nome}</span>

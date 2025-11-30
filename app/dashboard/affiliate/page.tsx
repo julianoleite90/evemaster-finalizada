@@ -1,9 +1,92 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { DollarSign, TrendingUp, Users, Copy } from "lucide-react"
+import { DollarSign, TrendingUp, Users, Copy, ExternalLink, Calendar, MapPin, Link2, Tag, Eye, MousePointerClick } from "lucide-react"
 import Link from "next/link"
+import { createClient } from "@/lib/supabase/client"
+import { toast } from "sonner"
+import { Badge } from "@/components/ui/badge"
+import Image from "next/image"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
+
+interface Event {
+  id: string
+  name: string
+  slug: string
+  event_date: string
+  banner_image_url?: string
+  description?: string
+  location?: string
+  commission_type: 'percentage' | 'fixed'
+  commission_value: number
+  organizer?: {
+    name: string
+  }
+}
+
+interface Stats {
+  total_clicks: number
+  total_conversions: number
+  total_revenue: number
+  total_commission: number
+  conversion_rate: number
+}
 
 export default function AffiliateDashboard() {
+  const [loading, setLoading] = useState(true)
+  const [events, setEvents] = useState<Event[]>([])
+  const [stats, setStats] = useState<Stats>({
+    total_clicks: 0,
+    total_conversions: 0,
+    total_revenue: 0,
+    total_commission: 0,
+    conversion_rate: 0,
+  })
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      const supabase = createClient()
+
+      // Buscar eventos
+      const eventsRes = await fetch('/api/affiliate/events')
+      if (eventsRes.ok) {
+        const eventsData = await eventsRes.json()
+        setEvents(eventsData.events || [])
+      }
+
+      // Buscar estatísticas
+      const statsRes = await fetch('/api/affiliate/stats')
+      if (statsRes.ok) {
+        const statsData = await statsRes.json()
+        setStats(statsData)
+      }
+    } catch (error) {
+      console.error('Erro ao buscar dados:', error)
+      toast.error('Erro ao carregar dados')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#156634] mx-auto"></div>
+          <p className="mt-2 text-sm text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -17,26 +100,15 @@ export default function AffiliateDashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Saldo Disponível</CardTitle>
+            <CardTitle className="text-sm font-medium">Comissão Total</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ 2.450</div>
+            <div className="text-2xl font-bold">
+              R$ {stats.total_commission.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Disponível para saque
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Saldo Pendente</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">R$ 850</div>
-            <p className="text-xs text-muted-foreground">
-              Aguardando confirmação
+              Total ganho
             </p>
           </CardContent>
         </Card>
@@ -47,9 +119,22 @@ export default function AffiliateDashboard() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">127</div>
+            <div className="text-2xl font-bold">{stats.total_conversions}</div>
             <p className="text-xs text-muted-foreground">
-              +15 este mês
+              Inscrições geradas
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Cliques</CardTitle>
+            <MousePointerClick className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total_clicks}</div>
+            <p className="text-xs text-muted-foreground">
+              Cliques nos links
             </p>
           </CardContent>
         </Card>
@@ -60,63 +145,124 @@ export default function AffiliateDashboard() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">8.4%</div>
+            <div className="text-2xl font-bold">
+              {stats.conversion_rate.toFixed(2)}%
+            </div>
             <p className="text-xs text-muted-foreground">
-              +1.2% desde o mês passado
+              {stats.total_clicks > 0 
+                ? `${stats.total_conversions} de ${stats.total_clicks} cliques`
+                : 'Sem dados ainda'}
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Link de Afiliado */}
+      {/* Eventos */}
       <Card>
         <CardHeader>
-          <CardTitle>Seu Link de Afiliado</CardTitle>
-          <CardDescription>
-            Compartilhe este link para ganhar comissões
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Meus Eventos</CardTitle>
+              <CardDescription>
+                Eventos onde você é afiliado
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" asChild>
+                <Link href="/dashboard/affiliate/links">
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Meus Links
+                </Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/dashboard/affiliate/coupons">
+                  <Tag className="h-4 w-4 mr-2" />
+                  Meus Cupons
+                </Link>
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-2">
-            <div className="flex-1 p-3 bg-muted rounded-md font-mono text-sm">
-              https://evemaster.com/evento?ref=afiliado_123
+          {events.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">Você ainda não é afiliado de nenhum evento.</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Aguarde um convite de um organizador.
+              </p>
             </div>
-            <Button variant="outline" size="icon">
-              <Copy className="h-4 w-4" />
-            </Button>
-          </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {events.map((event) => (
+                <Card key={event.id} className="overflow-hidden">
+                  {event.banner_image_url && (
+                    <div className="relative h-32 w-full">
+                      <Image
+                        src={event.banner_image_url}
+                        alt={event.name}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  )}
+                  <CardHeader>
+                    <CardTitle className="text-lg">{event.name}</CardTitle>
+                    <CardDescription className="space-y-1">
+                      {event.event_date && (
+                        <div className="flex items-center gap-1 text-xs">
+                          <Calendar className="h-3 w-3" />
+                          {format(new Date(event.event_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                        </div>
+                      )}
+                      {event.location && (
+                        <div className="flex items-center gap-1 text-xs">
+                          <MapPin className="h-3 w-3" />
+                          {event.location}
+                        </div>
+                      )}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Comissão:</span>
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                          {event.commission_type === 'percentage'
+                            ? `${event.commission_value}%`
+                            : `R$ ${event.commission_value.toFixed(2)}`}
+                        </Badge>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" className="flex-1" asChild>
+                          <Link href={`/dashboard/affiliate/links?event_id=${event.id}`}>
+                            <Link2 className="h-3 w-3 mr-1" />
+                            Criar Link
+                          </Link>
+                        </Button>
+                        <Button variant="outline" size="sm" className="flex-1" asChild>
+                          <Link href={`/dashboard/affiliate/coupons?event_id=${event.id}`}>
+                            <Tag className="h-3 w-3 mr-1" />
+                            Criar Cupom
+                          </Link>
+                        </Button>
+                      </div>
+                      <Button variant="ghost" size="sm" className="w-full" asChild>
+                        <Link href={`/evento/${event.slug || event.id}`} target="_blank">
+                          Ver Evento
+                          <ExternalLink className="h-3 w-3 ml-1" />
+                        </Link>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Cupons */}
+      {/* Ações Rápidas */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Meus Cupons</CardTitle>
-            <CardDescription>
-              Cupons exclusivos para seus seguidores
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 border rounded-md">
-                <div>
-                  <p className="font-medium">CORRA10</p>
-                  <p className="text-sm text-muted-foreground">10% de desconto</p>
-                </div>
-                <span className="text-sm text-green-600">Ativo</span>
-              </div>
-              <div className="flex items-center justify-between p-3 border rounded-md">
-                <div>
-                  <p className="font-medium">MARATONA15</p>
-                  <p className="text-sm text-muted-foreground">15% de desconto</p>
-                </div>
-                <span className="text-sm text-green-600">Ativo</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         <Card>
           <CardHeader>
             <CardTitle>Ações Rápidas</CardTitle>
@@ -127,20 +273,52 @@ export default function AffiliateDashboard() {
           <CardContent>
             <div className="space-y-2">
               <Button className="w-full justify-start" variant="outline" asChild>
-                <Link href="/dashboard/affiliate/wallet">
-                  Solicitar Saque
-                </Link>
-              </Button>
-              <Button className="w-full justify-start" variant="outline" asChild>
                 <Link href="/dashboard/affiliate/links">
+                  <Link2 className="h-4 w-4 mr-2" />
                   Gerenciar Links
                 </Link>
               </Button>
               <Button className="w-full justify-start" variant="outline" asChild>
                 <Link href="/dashboard/affiliate/coupons">
-                  Criar Cupom
+                  <Tag className="h-4 w-4 mr-2" />
+                  Gerenciar Cupons
                 </Link>
               </Button>
+              <Button className="w-full justify-start" variant="outline" asChild>
+                <Link href="/dashboard/affiliate/reports">
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Ver Relatórios
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Resumo</CardTitle>
+            <CardDescription>
+              Visão geral do seu desempenho
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Receita Gerada:</span>
+                <span className="font-semibold">
+                  R$ {stats.total_revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Sua Comissão:</span>
+                <span className="font-semibold text-green-600">
+                  R$ {stats.total_commission.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Eventos Ativos:</span>
+                <span className="font-semibold">{events.length}</span>
+              </div>
             </div>
           </CardContent>
         </Card>

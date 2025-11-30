@@ -557,6 +557,9 @@ export default function CheckoutPage() {
         }
       }
 
+      // Array para armazenar os números de inscrição criados
+      const registrationNumbers: string[] = []
+
       // Para cada participante, criar registro
       for (let i = 0; i < participantes.length; i++) {
         const p = participantes[i]
@@ -656,6 +659,11 @@ export default function CheckoutPage() {
           throw regError
         }
 
+        // Armazenar o número de inscrição criado
+        if (registration?.registration_number) {
+          registrationNumbers.push(registration.registration_number)
+        }
+
         // 2. Criar atleta vinculado à inscrição
         const athleteData = {
           registration_id: registration.id,
@@ -748,7 +756,7 @@ export default function CheckoutPage() {
             categoria: ingressosSelecionados[i].categoria,
             valor: ingressosSelecionados[i].valor,
             gratuito: ingressosSelecionados[i].gratuito,
-            codigoInscricao: `EVE-${Date.now().toString(36).toUpperCase()}-${i + 1}`,
+            codigoInscricao: registrationNumbers[i] || `EVE-${Date.now().toString(36).toUpperCase()}-${i + 1}`,
           })),
           evento: {
             nome: eventData.name,
