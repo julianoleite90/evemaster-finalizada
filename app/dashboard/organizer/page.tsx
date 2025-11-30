@@ -99,34 +99,35 @@ export default function OrganizerDashboard() {
         }
 
         // Buscar inscrições dos últimos 7 dias
-        // Usar timezone local corretamente
-        const hoje = new Date()
-        hoje.setHours(0, 0, 0, 0)
-        // Converter para UTC mantendo o mesmo momento do dia
-        const hojeUTC = new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000)
+        // Calcular início e fim do dia no timezone local
+        const agora = new Date()
+        const timezoneOffset = agora.getTimezoneOffset() * 60000 // offset em milissegundos
         
-        const ontem = new Date(hoje)
-        ontem.setDate(ontem.getDate() - 1)
-        const ontemUTC = new Date(ontem.getTime() - ontem.getTimezoneOffset() * 60000)
+        // Início do dia de hoje no timezone local
+        const hojeLocal = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 0, 0, 0, 0)
+        const inicioHojeUTC = new Date(hojeLocal.getTime() - timezoneOffset)
         
-        // Fim do dia de hoje em UTC
-        const fimHoje = new Date(hoje)
-        fimHoje.setHours(23, 59, 59, 999)
-        const fimHojeUTC = new Date(fimHoje.getTime() - fimHoje.getTimezoneOffset() * 60000)
+        // Fim do dia de hoje no timezone local
+        const fimHojeLocal = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 23, 59, 59, 999)
+        const fimHojeUTC = new Date(fimHojeLocal.getTime() - timezoneOffset)
+        
+        // Início do dia de ontem no timezone local
+        const ontemLocal = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() - 1, 0, 0, 0, 0)
+        const inicioOntemUTC = new Date(ontemLocal.getTime() - timezoneOffset)
 
         const { data: inscricoesHojeData } = await supabase
           .from("registrations")
           .select("id, created_at")
           .in("event_id", eventIds)
-          .gte("created_at", hojeUTC.toISOString())
+          .gte("created_at", inicioHojeUTC.toISOString())
           .lt("created_at", fimHojeUTC.toISOString())
 
         const { data: inscricoesOntemData } = await supabase
           .from("registrations")
           .select("id, created_at")
           .in("event_id", eventIds)
-          .gte("created_at", ontemUTC.toISOString())
-          .lt("created_at", hojeUTC.toISOString())
+          .gte("created_at", inicioOntemUTC.toISOString())
+          .lt("created_at", inicioHojeUTC.toISOString())
 
         // Buscar pagamentos
         const { data: pagamentosHoje } = await supabase
@@ -344,7 +345,7 @@ export default function OrganizerDashboard() {
           .from("event_views")
           .select("id")
           .in("event_id", eventIds)
-          .gte("viewed_at", hojeUTC.toISOString())
+          .gte("viewed_at", inicioHojeUTC.toISOString())
           .lt("viewed_at", fimHojeUTC.toISOString())
 
         if (errorViewsHoje) {
@@ -355,8 +356,8 @@ export default function OrganizerDashboard() {
           .from("event_views")
           .select("id")
           .in("event_id", eventIds)
-          .gte("viewed_at", ontemUTC.toISOString())
-          .lt("viewed_at", hojeUTC.toISOString())
+          .gte("viewed_at", inicioOntemUTC.toISOString())
+          .lt("viewed_at", inicioHojeUTC.toISOString())
 
         if (errorViewsOntem) {
           console.error("❌ [DASHBOARD] Erro ao buscar visualizações ontem:", errorViewsOntem)
