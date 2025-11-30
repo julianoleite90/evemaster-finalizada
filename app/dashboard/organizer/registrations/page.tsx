@@ -23,7 +23,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Download, Filter, X, Calendar, CheckCircle, Clock, XCircle, Loader2, User, Mail, MapPin, DollarSign } from "lucide-react"
+import { Search, Download, Filter, X, Calendar, CheckCircle, Clock, XCircle, Loader2, User, Mail, MapPin, DollarSign, Copy, Check, ChevronRight, Send } from "lucide-react"
 import { useState, useEffect } from "react"
 import { format } from "date-fns"
 import { createClient } from "@/lib/supabase/client"
@@ -67,6 +67,11 @@ export default function RegistrationsPage() {
   const [loading, setLoading] = useState(true)
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [eventos, setEventos] = useState<string[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [emailRecipients, setEmailRecipients] = useState("")
+  const [sendingEmail, setSendingEmail] = useState(false)
   
   // Campos disponíveis para exportação
   const availableFields = [
@@ -284,12 +289,15 @@ export default function RegistrationsPage() {
     }).format(value)
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string, includeTime: boolean = false) => {
     if (!dateString) return "Data não informada"
     try {
       const date = new Date(dateString)
       if (isNaN(date.getTime())) {
         return "Data inválida"
+      }
+      if (includeTime) {
+        return format(date, "dd/MM/yyyy HH:mm")
       }
       return format(date, "dd/MM/yyyy")
     } catch (error) {
@@ -297,6 +305,21 @@ export default function RegistrationsPage() {
     }
   }
 
+  // Função para copiar texto ao clicar
+  const handleCopy = async (e: React.MouseEvent, text: string, id: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedId(id)
+      toast.success("Copiado para a área de transferência!")
+      setTimeout(() => setCopiedId(null), 2000)
+    } catch (error) {
+      toast.error("Erro ao copiar")
+    }
+  }
+
+  // Filtrar registrations
   const filteredRegistrations = registrations.filter((reg) => {
     if (searchTerm) {
       const search = searchTerm.toLowerCase()
@@ -346,6 +369,17 @@ export default function RegistrationsPage() {
     return true
   })
 
+  // Paginação
+  const totalPages = Math.ceil(filteredRegistrations.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedRegistrations = filteredRegistrations.slice(startIndex, endIndex)
+
+  // Resetar página quando filtros mudarem
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [selectedEvent, selectedStatus, dateFrom, dateTo, searchTerm])
+
   const clearFilters = () => {
     setSearchTerm("")
     setSelectedEvent("all")
@@ -359,6 +393,56 @@ export default function RegistrationsPage() {
     selectedStatus !== "all" ||
     dateFrom !== "" ||
     dateTo !== ""
+
+  // Função auxiliar para formatar valores para exportação
+  const formatValueForExport = (key: string, value: any): string => {
+    if (value === undefined || value === null || value === '') {
+      return 'N/A'
+    }
+
+    // Formatar valores específicos
+    if (key === 'dataInscricao' && value) {
+      return formatDate(value, true) // Incluir hora na data de inscrição
+    } else if (key === 'dataNascimento' && value) {
+      return formatDate(value, false) // Apenas data para nascimento
+    } else if (key === 'statusPagamento') {
+      return value === 'paid' ? 'Pago' : value === 'pending' ? 'Pendente' : 'Cancelado'
+    } else if (key === 'valor' && value) {
+      // Para exportação, manter apenas o número sem símbolo de moeda para melhor compatibilidade
+      const numValue = Number(value) || 0
+      return numValue.toFixed(2).replace('.', ',')
+    } else if (key === 'cpf' && value) {
+      // Formatar CPF
+      const cleanCPF = String(value).replace(/\D/g, '')
+      if (cleanCPF.length === 11) {
+        return cleanCPF.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+      }
+      return String(value)
+    } else if (key === 'cep' && value) {
+      // Formatar CEP
+      const cleanCEP = String(value).replace(/\D/g, '')
+      if (cleanCEP.length === 8) {
+        return cleanCEP.replace(/(\d{5})(\d{3})/, '$1-$2')
+      }
+      return String(value)
+    } else if (key === 'telefone' && value) {
+      // Formatar telefone
+      const cleanPhone = String(value).replace(/\D/g, '')
+      if (cleanPhone.length === 11) {
+        return cleanPhone.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3')
+      } else if (cleanPhone.length === 10) {
+        return cleanPhone.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3')
+      }
+      return String(value)
+    } else if (key === 'idade' && value !== null && value !== undefined) {
+      return String(value)
+    } else if (key === 'genero' && value) {
+      // Garantir que o gênero seja exibido corretamente
+      return String(value)
+    }
+
+    return String(value)
+  }
 
   const exportToCSV = () => {
     if (selectedFields.size === 0) {
@@ -386,42 +470,7 @@ export default function RegistrationsPage() {
       const row: string[] = []
       selectedFields.forEach(key => {
         let value: any = reg[key as keyof Registration]
-        
-        // Formatar valores específicos
-        if (key === 'dataInscricao' && value) {
-          value = formatDate(value)
-        } else if (key === 'dataNascimento' && value) {
-          value = formatDate(value)
-        } else if (key === 'statusPagamento') {
-          value = value === 'paid' ? 'Pago' : value === 'pending' ? 'Pendente' : 'Cancelado'
-        } else if (key === 'valor' && value) {
-          value = formatCurrency(Number(value) || 0)
-        } else if (key === 'cpf' && value) {
-          // Formatar CPF
-          const cleanCPF = String(value).replace(/\D/g, '')
-          if (cleanCPF.length === 11) {
-            value = cleanCPF.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-          }
-        } else if (key === 'cep' && value) {
-          // Formatar CEP
-          const cleanCEP = String(value).replace(/\D/g, '')
-          if (cleanCEP.length === 8) {
-            value = cleanCEP.replace(/(\d{5})(\d{3})/, '$1-$2')
-          }
-        } else if (key === 'telefone' && value) {
-          // Formatar telefone
-          const cleanPhone = String(value).replace(/\D/g, '')
-          if (cleanPhone.length === 11) {
-            value = cleanPhone.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3')
-          } else if (cleanPhone.length === 10) {
-            value = cleanPhone.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3')
-          }
-        }
-        
-        // Se valor for undefined/null, usar 'N/A'
-        if (value === undefined || value === null || value === '') {
-          value = 'N/A'
-        }
+        value = formatValueForExport(key, value)
         
         // Escapar vírgulas e aspas no CSV
         if (typeof value === 'string') {
@@ -448,7 +497,190 @@ export default function RegistrationsPage() {
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
 
-    toast.success(`Exportação realizada com sucesso! ${filteredRegistrations.length} inscrição(ões) exportada(s)`)
+    toast.success(`Exportação CSV realizada com sucesso! ${filteredRegistrations.length} inscrição(ões) exportada(s)`)
+  }
+
+  const exportToXLS = async () => {
+    if (selectedFields.size === 0) {
+      toast.error("Selecione pelo menos um campo para exportar")
+      return
+    }
+
+    if (filteredRegistrations.length === 0) {
+      toast.error("Não há inscrições para exportar")
+      return
+    }
+
+    try {
+      // Importação dinâmica do xlsx para evitar problemas de bundling
+      const XLSX = await import("xlsx")
+
+      // Mapear campos para labels
+      const fieldLabels: Record<string, string> = {}
+      availableFields.forEach(field => {
+        fieldLabels[field.key] = field.label
+      })
+
+      // Preparar dados para Excel
+      const headers = Array.from(selectedFields).map(key => fieldLabels[key] || key)
+      const data = filteredRegistrations.map(reg => {
+        const row: Record<string, string> = {}
+        selectedFields.forEach(key => {
+          const value = reg[key as keyof Registration]
+          row[fieldLabels[key] || key] = formatValueForExport(key, value)
+        })
+        return row
+      })
+
+      // Criar workbook
+      const worksheet = XLSX.utils.json_to_sheet(data)
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Inscrições")
+
+      // Ajustar largura das colunas
+      const colWidths = headers.map(() => ({ wch: 20 }))
+      worksheet['!cols'] = colWidths
+
+      // Fazer download
+      XLSX.writeFile(workbook, `inscricoes_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.xlsx`)
+
+      toast.success(`Exportação XLS realizada com sucesso! ${filteredRegistrations.length} inscrição(ões) exportada(s)`)
+    } catch (error) {
+      console.error("Erro ao exportar XLS:", error)
+      toast.error("Erro ao exportar arquivo XLS")
+    }
+  }
+
+  // Função para gerar CSV em base64
+  const generateCSVBase64 = (): { content: string; fileName: string } => {
+    const fieldLabels: Record<string, string> = {}
+    availableFields.forEach(field => {
+      fieldLabels[field.key] = field.label
+    })
+
+    const headers = Array.from(selectedFields).map(key => fieldLabels[key] || key)
+    const csvRows = [headers.join(',')]
+
+    filteredRegistrations.forEach(reg => {
+      const row: string[] = []
+      selectedFields.forEach(key => {
+        let value: any = reg[key as keyof Registration]
+        value = formatValueForExport(key, value)
+        
+        if (typeof value === 'string') {
+          value = value.replace(/"/g, '""')
+          if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+            value = `"${value}"`
+          }
+        }
+        
+        row.push(value || '')
+      })
+      csvRows.push(row.join(','))
+    })
+
+    const csvContent = '\ufeff' + csvRows.join('\n')
+    const fileName = `inscricoes_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.csv`
+    const base64 = btoa(unescape(encodeURIComponent(csvContent)))
+    
+    return { content: base64, fileName }
+  }
+
+  // Função para gerar XLS em base64
+  const generateXLSBase64 = async (): Promise<{ content: string; fileName: string }> => {
+    const XLSX = await import("xlsx")
+
+    const fieldLabels: Record<string, string> = {}
+    availableFields.forEach(field => {
+      fieldLabels[field.key] = field.label
+    })
+
+    const headers = Array.from(selectedFields).map(key => fieldLabels[key] || key)
+    const data = filteredRegistrations.map(reg => {
+      const row: Record<string, string> = {}
+      selectedFields.forEach(key => {
+        const value = reg[key as keyof Registration]
+        row[fieldLabels[key] || key] = formatValueForExport(key, value)
+      })
+      return row
+    })
+
+    const worksheet = XLSX.utils.json_to_sheet(data)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Inscrições")
+
+    const colWidths = headers.map(() => ({ wch: 20 }))
+    worksheet['!cols'] = colWidths
+
+    const fileName = `inscricoes_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.xlsx`
+    // Usar 'base64' diretamente para funcionar no cliente
+    const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' })
+
+    return { content: base64, fileName }
+  }
+
+  // Função para enviar por email
+  const sendByEmail = async (fileType: 'csv' | 'xlsx') => {
+    if (selectedFields.size === 0) {
+      toast.error("Selecione pelo menos um campo para exportar")
+      return
+    }
+
+    if (filteredRegistrations.length === 0) {
+      toast.error("Não há inscrições para exportar")
+      return
+    }
+
+    // Validar emails
+    const emailList = emailRecipients
+      .split(/[,\n]/)
+      .map(email => email.trim())
+      .filter(email => email.length > 0)
+
+    if (emailList.length === 0) {
+      toast.error("Digite pelo menos um email")
+      return
+    }
+
+    setSendingEmail(true)
+
+    try {
+      let fileData: { content: string; fileName: string }
+
+      if (fileType === 'csv') {
+        fileData = generateCSVBase64()
+      } else {
+        fileData = await generateXLSBase64()
+      }
+
+      const response = await fetch('/api/export/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileContent: fileData.content,
+          fileName: fileData.fileName,
+          fileType,
+          emails: emailList,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao enviar email')
+      }
+
+      toast.success(`Email enviado com sucesso para ${result.emails.length} destinatário(s)!`)
+      setEmailRecipients("")
+      setShowExportDialog(false)
+    } catch (error: any) {
+      console.error("Erro ao enviar por email:", error)
+      toast.error(error.message || "Erro ao enviar email")
+    } finally {
+      setSendingEmail(false)
+    }
   }
 
   if (loading) {
@@ -550,24 +782,89 @@ export default function RegistrationsPage() {
                   {selectedFields.size} campo(s) selecionado(s) de {filteredRegistrations.length} inscrição(ões)
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setShowExportDialog(false)}>
+              
+              {/* Seção de Envio por Email */}
+              <div className="px-6 py-4 bg-gray-50 border-t">
+                <Label htmlFor="emails" className="text-sm font-semibold mb-2 block">
+                  Enviar por Email (opcional)
+                </Label>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Digite os emails separados por vírgula ou quebra de linha
+                </p>
+                <textarea
+                  id="emails"
+                  value={emailRecipients}
+                  onChange={(e) => setEmailRecipients(e.target.value)}
+                  placeholder="email1@exemplo.com, email2@exemplo.com"
+                  className="w-full min-h-[80px] px-3 py-2 text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent mb-3"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => sendByEmail('csv')}
+                    disabled={selectedFields.size === 0 || sendingEmail || !emailRecipients.trim()}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    {sendingEmail ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="mr-2 h-4 w-4" />
+                    )}
+                    Enviar CSV por Email
+                  </Button>
+                    <Button
+                      onClick={() => sendByEmail('xlsx')}
+                      disabled={selectedFields.size === 0 || sendingEmail || !emailRecipients.trim()}
+                      className="flex-1"
+                    >
+                      {sendingEmail ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="mr-2 h-4 w-4" />
+                      )}
+                      Enviar XLS por Email
+                    </Button>
+                </div>
+              </div>
+
+              <DialogFooter className="border-t pt-4">
+                <Button variant="outline" onClick={() => {
+                  setShowExportDialog(false)
+                  setEmailRecipients("")
+                }}>
                   Cancelar
                 </Button>
-                <Button
-                  onClick={() => {
-                    if (selectedFields.size === 0) {
-                      toast.error("Selecione pelo menos um campo para exportar")
-                      return
-                    }
-                    exportToCSV()
-                    setShowExportDialog(false)
-                  }}
-                  disabled={selectedFields.size === 0}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Exportar CSV
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      if (selectedFields.size === 0) {
+                        toast.error("Selecione pelo menos um campo para exportar")
+                        return
+                      }
+                      exportToCSV()
+                      setShowExportDialog(false)
+                    }}
+                    disabled={selectedFields.size === 0}
+                    variant="outline"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Baixar CSV
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (selectedFields.size === 0) {
+                        toast.error("Selecione pelo menos um campo para exportar")
+                        return
+                      }
+                      exportToXLS()
+                      setShowExportDialog(false)
+                    }}
+                    disabled={selectedFields.size === 0}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Baixar XLS
+                  </Button>
+                </div>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -730,77 +1027,260 @@ export default function RegistrationsPage() {
         </CardHeader>
         <CardContent className="p-0">
           {filteredRegistrations.length > 0 ? (
-            <div className="divide-y">
-              {filteredRegistrations.map((registration) => (
-                <Link
-                  key={registration.id}
-                  href={`/dashboard/organizer/registrations/${registration.id}`}
-                  className="block hover:bg-gray-50/50 transition-colors"
-                >
-                  <div className="px-4 py-3 flex items-center gap-4">
-                    {/* Avatar/Inicial */}
-                    <div className="flex-shrink-0">
-                      <div className="h-10 w-10 rounded-full bg-[#156634]/10 flex items-center justify-center">
-                        <span className="text-sm font-medium text-[#156634]">
-                          {registration.nome.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
+            <>
+              {/* Cabeçalho da tabela */}
+              <div className="hidden md:grid md:grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr] gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                <div>Nome</div>
+                <div>Evento</div>
+                <div>ID</div>
+                <div>Categoria</div>
+                <div>Valor</div>
+                <div>Status</div>
+              </div>
 
-                    {/* Informações principais */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {registration.nome}
-                        </p>
-                        {getStatusBadge(registration.statusPagamento)}
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          <span className="truncate">{registration.email}</span>
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          <span className="truncate">{registration.evento}</span>
-                        </span>
-                      </div>
-                    </div>
+              {/* Lista de inscrições */}
+              <div className="divide-y">
+                {paginatedRegistrations.map((registration) => (
+                  <Link
+                    key={registration.id}
+                    href={`/dashboard/organizer/registrations/${registration.id}`}
+                    className="block hover:bg-gray-50/50 transition-colors"
+                  >
+                    <div className="px-4 py-3">
+                      {/* Desktop: Layout em grid */}
+                      <div className="hidden md:grid md:grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr] gap-3 items-center">
+                        {/* Nome e Email */}
+                        <div>
+                          <p 
+                            className="text-sm font-medium text-gray-900 truncate cursor-pointer hover:text-green-600 transition-colors" 
+                            title={registration.nome}
+                            onClick={(e) => handleCopy(e, registration.nome, `nome-${registration.id}`)}
+                          >
+                            {registration.nome}
+                            {copiedId === `nome-${registration.id}` ? (
+                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
+                            ) : null}
+                          </p>
+                          <p 
+                            className="text-xs text-gray-600 truncate mt-0.5 cursor-pointer hover:text-green-600 transition-colors" 
+                            title={registration.email}
+                            onClick={(e) => handleCopy(e, registration.email, `email-${registration.id}`)}
+                          >
+                            {registration.email}
+                            {copiedId === `email-${registration.id}` ? (
+                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
+                            ) : null}
+                          </p>
+                        </div>
 
-                    {/* Informações secundárias */}
-                    <div className="hidden md:flex items-center gap-6 text-xs text-muted-foreground">
-                      <div className="text-right">
-                        <p className="font-mono text-[10px] text-gray-500 mb-0.5">
-                          {registration.numeroInscricao}
-                        </p>
-                        <p className="text-[10px]">{formatDate(registration.dataInscricao)}</p>
-                      </div>
-                      <div className="text-right">
-                        <Badge variant="outline" className="text-[10px] mb-1">
-                          {registration.categoria}
-                        </Badge>
-                        <p className="text-xs font-medium text-gray-900">
-                          {formatCurrency(Number(registration.valor) || 0)}
-                        </p>
-                      </div>
-                    </div>
+                        {/* Evento */}
+                        <div>
+                          <p 
+                            className="text-xs text-gray-600 truncate cursor-pointer hover:text-green-600 transition-colors" 
+                            title={registration.evento}
+                            style={{ maxWidth: '100%' }}
+                            onClick={(e) => handleCopy(e, registration.evento, `evento-${registration.id}`)}
+                          >
+                            {registration.evento.length > 30 ? `${registration.evento.substring(0, 30)}...` : registration.evento}
+                            {copiedId === `evento-${registration.id}` ? (
+                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
+                            ) : null}
+                          </p>
+                        </div>
 
-                    {/* Mobile: Informações compactas */}
-                    <div className="md:hidden flex flex-col items-end gap-1 text-xs">
-                      <p className="font-mono text-[10px] text-gray-500">
-                        {registration.numeroInscricao}
-                      </p>
-                      <p className="text-xs font-medium text-gray-900">
-                        {formatCurrency(Number(registration.valor) || 0)}
-                      </p>
-                      <Badge variant="outline" className="text-[10px]">
-                        {registration.categoria}
-                      </Badge>
+                        {/* ID */}
+                        <div>
+                          <p 
+                            className="font-mono text-[10px] text-gray-500 cursor-pointer hover:text-green-600 transition-colors" 
+                            title={registration.numeroInscricao}
+                            onClick={(e) => handleCopy(e, registration.numeroInscricao, `id-${registration.id}`)}
+                          >
+                            {registration.numeroInscricao}
+                            {copiedId === `id-${registration.id}` ? (
+                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
+                            ) : null}
+                          </p>
+                        </div>
+
+                        {/* Categoria */}
+                        <div>
+                          <Badge 
+                            variant="outline" 
+                            className="text-[10px] cursor-pointer hover:border-green-600 transition-colors"
+                            onClick={(e) => handleCopy(e, registration.categoria, `categoria-${registration.id}`)}
+                          >
+                            {registration.categoria}
+                            {copiedId === `categoria-${registration.id}` ? (
+                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
+                            ) : null}
+                          </Badge>
+                        </div>
+
+                        {/* Valor */}
+                        <div>
+                          <p 
+                            className="text-xs font-medium text-gray-900 cursor-pointer hover:text-green-600 transition-colors"
+                            onClick={(e) => handleCopy(e, formatCurrency(Number(registration.valor) || 0), `valor-${registration.id}`)}
+                          >
+                            {formatCurrency(Number(registration.valor) || 0)}
+                            {copiedId === `valor-${registration.id}` ? (
+                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
+                            ) : null}
+                          </p>
+                        </div>
+
+                        {/* Status */}
+                        <div className="flex items-center justify-between w-full">
+                          <div
+                            onClick={(e) => {
+                              const statusText = registration.statusPagamento === 'paid' ? 'Pago' : registration.statusPagamento === 'pending' ? 'Pendente' : 'Cancelado'
+                              handleCopy(e, statusText, `status-${registration.id}`)
+                            }}
+                            className="cursor-pointer"
+                          >
+                            {getStatusBadge(registration.statusPagamento)}
+                            {copiedId === `status-${registration.id}` ? (
+                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
+                            ) : null}
+                          </div>
+                          <Link
+                            href={`/dashboard/organizer/registrations/${registration.id}`}
+                            className="text-gray-400 hover:text-green-600 transition-colors ml-auto"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </Link>
+                        </div>
+                      </div>
+
+                      {/* Mobile: Layout compacto */}
+                      <div className="md:hidden flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p 
+                              className="text-sm font-medium text-gray-900 truncate cursor-pointer hover:text-green-600 transition-colors" 
+                              title={registration.nome}
+                              onClick={(e) => handleCopy(e, registration.nome, `nome-mobile-${registration.id}`)}
+                            >
+                              {registration.nome}
+                              {copiedId === `nome-mobile-${registration.id}` ? (
+                                <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
+                              ) : null}
+                            </p>
+                            <div
+                              onClick={(e) => {
+                                const statusText = registration.statusPagamento === 'paid' ? 'Pago' : registration.statusPagamento === 'pending' ? 'Pendente' : 'Cancelado'
+                                handleCopy(e, statusText, `status-mobile-${registration.id}`)
+                              }}
+                            >
+                              {getStatusBadge(registration.statusPagamento)}
+                            </div>
+                          </div>
+                          <p 
+                            className="text-xs text-gray-600 truncate mb-1 cursor-pointer hover:text-green-600 transition-colors" 
+                            title={registration.email}
+                            onClick={(e) => handleCopy(e, registration.email, `email-mobile-${registration.id}`)}
+                          >
+                            {registration.email}
+                            {copiedId === `email-mobile-${registration.id}` ? (
+                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
+                            ) : null}
+                          </p>
+                          <p 
+                            className="text-xs text-gray-500 truncate cursor-pointer hover:text-green-600 transition-colors" 
+                            title={registration.evento}
+                            onClick={(e) => handleCopy(e, registration.evento, `evento-mobile-${registration.id}`)}
+                          >
+                            {registration.evento.length > 40 ? `${registration.evento.substring(0, 40)}...` : registration.evento}
+                            {copiedId === `evento-mobile-${registration.id}` ? (
+                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
+                            ) : null}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p 
+                            className="font-mono text-[10px] text-gray-500 mb-0.5 cursor-pointer hover:text-green-600 transition-colors"
+                            onClick={(e) => handleCopy(e, registration.numeroInscricao, `id-mobile-${registration.id}`)}
+                          >
+                            {registration.numeroInscricao}
+                            {copiedId === `id-mobile-${registration.id}` ? (
+                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
+                            ) : null}
+                          </p>
+                          <p className="text-[10px] text-gray-500 mb-1">{formatDate(registration.dataInscricao, true)}</p>
+                          <p 
+                            className="text-xs font-medium text-gray-900 cursor-pointer hover:text-green-600 transition-colors"
+                            onClick={(e) => handleCopy(e, formatCurrency(Number(registration.valor) || 0), `valor-mobile-${registration.id}`)}
+                          >
+                            {formatCurrency(Number(registration.valor) || 0)}
+                            {copiedId === `valor-mobile-${registration.id}` ? (
+                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
+                            ) : null}
+                          </p>
+                          <Badge 
+                            variant="outline" 
+                            className="text-[10px] mt-1 cursor-pointer hover:border-green-600 transition-colors"
+                            onClick={(e) => handleCopy(e, registration.categoria, `categoria-mobile-${registration.id}`)}
+                          >
+                            {registration.categoria}
+                            {copiedId === `categoria-mobile-${registration.id}` ? (
+                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
+                            ) : null}
+                          </Badge>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                  </Link>
+                ))}
+              </div>
+
+              {/* Controles de Paginação */}
+              <div className="border-t border-gray-200 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-gray-600">Itens por página:</Label>
+                  <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+                    setItemsPerPage(Number(value))
+                    setCurrentPage(1)
+                  }}>
+                    <SelectTrigger className="h-8 w-20 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <span className="text-xs text-gray-500">
+                    Mostrando {startIndex + 1} - {Math.min(endIndex, filteredRegistrations.length)} de {filteredRegistrations.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="h-8 text-xs"
+                  >
+                    Anterior
+                  </Button>
+                  <span className="text-xs text-gray-600 px-2">
+                    Página {currentPage} de {totalPages || 1}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage >= totalPages}
+                    className="h-8 text-xs"
+                  >
+                    Próxima
+                  </Button>
+                </div>
+              </div>
+            </>
           ) : (
             <div className="px-4 py-12 text-center">
               <p className="text-sm text-muted-foreground">

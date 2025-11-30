@@ -2392,58 +2392,60 @@ export default function EventSettingsPage() {
                             <Separator />
 
                             {/* Upload GPX */}
-                    <div className="space-y-2">
-                              <Label>Arquivo GPX do Percurso</Label>
-                              <div className="flex items-center gap-2">
-                                <input
+                    <div className="space-y-2.5">
+                              <Label className="text-sm font-medium">Arquivo GPX do Percurso</Label>
+                              <div className="relative">
+                                <Input
                                   type="file"
                                   accept=".gpx"
                                   onChange={(e) => {
                                     const file = e.target.files?.[0] || null
                                     if (file) {
                                       updateTicket(batch.id, ticket.id, "newGpxFile", file)
-                                      toast.success(`Arquivo ${file.name} selecionado`)
+                                      toast.success(`Arquivo ${file.name} selecionado. Clique em "Salvar" para aplicar.`)
                                     }
                                   }}
-                                  className="hidden"
+                                  className="h-24 cursor-pointer opacity-0 absolute inset-0 z-10"
                                   id={`gpx-${batch.id}-${ticket.id}`}
+                                  disabled={fieldDisabled}
                                 />
-                                <label htmlFor={`gpx-${batch.id}-${ticket.id}`} className="flex-1 cursor-pointer">
-                                  <div className="w-full">
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      className="w-full"
-                                      onClick={() => {
-                                        const input = document.getElementById(`gpx-${batch.id}-${ticket.id}`) as HTMLInputElement
-                                        input?.click()
-                                      }}
-                                    >
-                                      <Upload className="mr-2 h-4 w-4" />
-                                      {ticket.newGpxFile
-                                        ? ticket.newGpxFile.name
-                                        : ticket.gpx_file_url
-                                        ? "Trocar GPX"
-                                        : "Upload GPX"}
-                                    </Button>
-                  </div>
-                                </label>
-                                {ticket.newGpxFile && (
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => updateTicket(batch.id, ticket.id, "newGpxFile", null)}
-                                  >
-                                    <Trash2 className="h-4 w-4 text-red-600" />
-                                  </Button>
-                )}
-              </div>
-                              {ticket.gpx_file_url && !ticket.newGpxFile && (
-                      <p className="text-xs text-muted-foreground">
-                                  GPX atual: {ticket.gpx_file_url.split('/').pop()}
-                      </p>
-                              )}
+                                <div className={`h-24 border-dashed border-2 rounded-md flex flex-col items-center justify-center ${ticket.newGpxFile || ticket.gpx_file_url ? 'border-[#156634] bg-[#156634]/5' : 'border-gray-300 bg-gray-50/50 hover:border-[#156634]/50 transition-colors'}`}>
+                                  {!ticket.newGpxFile && !ticket.gpx_file_url && (
+                                    <>
+                                      <Upload className="h-6 w-6 text-gray-400 mb-2" />
+                                      <p className="text-xs font-medium text-gray-600">Clique para escolher arquivo GPX</p>
+                                      <p className="text-[10px] text-gray-400 mt-0.5">ou arraste e solte aqui</p>
+                                    </>
+                                  )}
+                                  {(ticket.newGpxFile || ticket.gpx_file_url) && (
+                                    <>
+                                      <div className="h-6 w-6 rounded-full bg-[#156634] flex items-center justify-center mb-2">
+                                        <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                      </div>
+                                      <p className="text-xs font-medium text-[#156634] truncate max-w-[90%] px-2 text-center">
+                                        {ticket.newGpxFile ? ticket.newGpxFile.name : ticket.gpx_file_url?.split('/').pop() || 'GPX carregado'}
+                                      </p>
+                                      {ticket.newGpxFile && (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 mt-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            updateTicket(batch.id, ticket.id, "newGpxFile", null)
+                                          }}
+                                        >
+                                          <X className="h-3 w-3 mr-1" />
+                                          Remover
+                                        </Button>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              </div>
                     </div>
 
                             {/* Opções de Exibição */}

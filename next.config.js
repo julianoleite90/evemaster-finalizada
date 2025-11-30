@@ -29,6 +29,16 @@ const nextConfig = {
   // Configurações para melhorar a estabilidade
   reactStrictMode: true,
   swcMinify: true,
+  webpack: (config, { isServer }) => {
+    // Externalizar xlsx no servidor para evitar problemas de bundling
+    if (isServer) {
+      config.externals = config.externals || []
+      config.externals.push({
+        'xlsx': 'commonjs xlsx'
+      })
+    }
+    return config
+  },
 }
 
 module.exports = nextConfig

@@ -11,7 +11,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import {
   DropdownMenu,
@@ -33,29 +32,28 @@ import {
   Shirt,
   Package,
   Shield,
-  FileText,
   MoreVertical,
   Edit,
   RefreshCw,
   X,
   CheckCircle,
   Clock,
-  AlertCircle,
   DollarSign,
   Loader2,
-  UserCheck,
-  UserX,
   Hash,
+  FileText,
+  Copy,
+  Check,
 } from "lucide-react"
 import { useParams, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
+import { format } from "date-fns"
 
 export default function RegistrationDetailsPage() {
   const params = useParams()
   const registrationId = params.id as string
-  const [isEditingTitular, setIsEditingTitular] = useState(false)
   const [showTransferDialog, setShowTransferDialog] = useState(false)
   const [newTitularEmail, setNewTitularEmail] = useState("")
   const [newTitularCpf, setNewTitularCpf] = useState("")
@@ -67,6 +65,7 @@ export default function RegistrationDetailsPage() {
   const [isCancelling, setIsCancelling] = useState(false)
   const [loading, setLoading] = useState(true)
   const [registration, setRegistration] = useState<any>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -179,6 +178,18 @@ export default function RegistrationDetailsPage() {
     fetchRegistration()
   }, [registrationId])
 
+  const handleCopy = async (e: React.MouseEvent, text: string, id: string) => {
+    e.stopPropagation()
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedId(id)
+      toast.success("Copiado para a área de transferência!")
+      setTimeout(() => setCopiedId(null), 2000)
+    } catch (error) {
+      toast.error("Erro ao copiar")
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -208,11 +219,20 @@ export default function RegistrationDetailsPage() {
     }).format(value)
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string, includeTime: boolean = false) => {
     if (!dateString) return "Não informado"
-    const [year, month, day] = dateString.split('-').map(Number)
-    const date = new Date(year, month - 1, day)
-    return date.toLocaleDateString("pt-BR")
+    try {
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) {
+        return "Data inválida"
+      }
+      if (includeTime) {
+        return format(date, "dd/MM/yyyy 'às' HH:mm")
+      }
+      return format(date, "dd/MM/yyyy")
+    } catch (error) {
+      return "Data inválida"
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -227,37 +247,45 @@ export default function RegistrationDetailsPage() {
     const Icon = config.icon
 
     return (
-      <Badge className={`${config.className} flex items-center gap-1.5 text-xs font-medium`}>
-        <Icon className="h-3 w-3" />
+      <Badge className={`${config.className} flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium`}>
+        <Icon className="h-4 w-4" />
         {config.label}
       </Badge>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => router.back()}>
+    <div className="space-y-6 pb-8">
+      {/* Header Principal */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => router.back()} className="shrink-0">
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Detalhes da Inscrição</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {registration.numeroInscricao}
-            </p>
+            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+              {registration.atleta?.nome || "Inscrição"}
+            </h1>
+            <div className="flex items-center gap-3 mt-1.5">
+              <p className="text-sm text-gray-500 font-mono">
+                {registration.numeroInscricao}
+              </p>
+              <span className="text-gray-300">•</span>
+              <p className="text-sm text-gray-500">
+                {formatDate(registration.dataInscricao, true)}
+              </p>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {getStatusBadge(registration.statusPagamento)}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="shrink-0">
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem onClick={() => setShowTransferDialog(true)}>
                 <Edit className="mr-2 h-4 w-4" />
                 Transferir Inscrição
@@ -265,7 +293,7 @@ export default function RegistrationDetailsPage() {
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={() => setShowCancelDialog(true)}
-                className="text-red-600"
+                className="text-red-600 focus:text-red-600"
               >
                 <X className="mr-2 h-4 w-4" />
                 Cancelar e Reembolsar
@@ -275,274 +303,450 @@ export default function RegistrationDetailsPage() {
         </div>
       </div>
 
-      {/* Informações principais em grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {/* Card: Informações da Inscrição */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Hash className="h-4 w-4 text-muted-foreground" />
-              Inscrição
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Número</p>
-              <p className="text-sm font-mono font-medium">{registration.numeroInscricao}</p>
-            </div>
-            <Separator />
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Data</p>
-                <p className="text-sm">{formatDate(registration.dataInscricao)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Horário</p>
-                <p className="text-sm">{registration.horaInscricao || "-"}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Card: Evento */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              Evento
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Nome</p>
-              <p className="text-sm font-medium">{registration.evento.nome}</p>
-            </div>
-            <Separator />
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Data</p>
-                <p className="text-sm">{formatDate(registration.evento.data)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Categoria</p>
-                <Badge variant="outline" className="text-xs">{registration.evento.categoria}</Badge>
-              </div>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                Local
-              </p>
-              <p className="text-sm">{registration.evento.local}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Card: Atleta */}
-        {registration.atleta && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                Atleta
+      {/* Layout Principal - Duas Colunas */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Coluna Esquerda - Informações Principais */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Card: Informações do Evento */}
+          <Card className="border-gray-200 shadow-sm">
+            <CardHeader className="pb-4 border-b border-gray-100">
+              <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-gray-500" />
+                Informações do Evento
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Nome</p>
-                <p className="text-sm font-medium">{registration.atleta.nome}</p>
-              </div>
-              <Separator />
-              <div className="grid grid-cols-2 gap-3">
+            <CardContent className="pt-6">
+              <div className="space-y-5">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                    <Mail className="h-3 w-3" />
-                    Email
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                    Nome do Evento
                   </p>
-                  <p className="text-xs truncate">{registration.atleta.email}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                    <Phone className="h-3 w-3" />
-                    Telefone
+                  <p className="text-base font-semibold text-gray-900">
+                    {registration.evento.nome}
                   </p>
-                  <p className="text-xs">{registration.atleta.telefone || "-"}</p>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">CPF</p>
-                  <p className="text-xs font-mono">{registration.atleta.cpf || "-"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                    <Cake className="h-3 w-3" />
-                    Nascimento
-                  </p>
-                  <p className="text-xs">{formatDate(registration.atleta.dataNascimento)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Informações detalhadas em grid */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Card: Dados Pessoais Completos */}
-        {registration.atleta && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">Dados Pessoais</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Gênero</p>
-                  <p className="text-sm">{registration.atleta.genero || "-"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Idade</p>
-                  <p className="text-sm">{registration.atleta.idade ? `${registration.atleta.idade} anos` : "-"}</p>
-                </div>
-              </div>
-              {registration.atleta.endereco && (
-                <>
-                  <Separator />
+                <Separator />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                      <Home className="h-3 w-3" />
-                      Endereço
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                      Data do Evento
                     </p>
-                    <p className="text-xs leading-relaxed">
-                      {registration.atleta.endereco.rua || "-"}
-                      {registration.atleta.endereco.cidade && (
-                        <>
-                          <br />
-                          {registration.atleta.endereco.cidade} - {registration.atleta.endereco.estado}
-                        </>
-                      )}
-                      {registration.atleta.endereco.cep && (
-                        <>
-                          <br />
-                          CEP: {registration.atleta.endereco.cep}
-                        </>
-                      )}
+                    <p className="text-sm text-gray-900">
+                      {formatDate(registration.evento.data)}
                     </p>
                   </div>
-                </>
-              )}
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                      Categoria
+                    </p>
+                    <Badge variant="outline" className="text-xs font-medium">
+                      {registration.evento.categoria}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      Local
+                    </p>
+                    <p className="text-sm text-gray-900">
+                      {registration.evento.local}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
-        )}
 
-        {/* Card: Participação */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">Participação</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {registration.atleta?.tamanhoCamiseta && (
-              <div>
-                <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                  <Shirt className="h-3 w-3" />
-                  Tamanho de Camiseta
-                </p>
-                <Badge variant="outline" className="text-xs">{registration.atleta.tamanhoCamiseta}</Badge>
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                  <Package className="h-3 w-3" />
-                  Kit
-                </p>
-                {registration.atleta?.possuiKit ? (
-                  <Badge className="bg-green-50 text-green-700 border-green-200 text-xs">Incluído</Badge>
-                ) : (
-                  <Badge variant="outline" className="text-xs">Não incluído</Badge>
-                )}
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                  <Shield className="h-3 w-3" />
-                  Seguro
-                </p>
-                {registration.atleta?.possuiSeguro ? (
-                  <Badge className="bg-green-50 text-green-700 border-green-200 text-xs">Incluído</Badge>
-                ) : (
-                  <Badge variant="outline" className="text-xs">Não incluído</Badge>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Card: Financeiro */}
-      {registration.financeiro && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-              Detalhes Financeiros
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Valor Base</span>
-                <span className="font-medium">{formatCurrency(registration.financeiro.valorBase || 0)}</span>
-              </div>
-              {registration.financeiro.desconto > 0 && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Desconto</span>
-                  <span className="font-medium text-green-600">
-                    -{formatCurrency(registration.financeiro.desconto)}
-                  </span>
-                </div>
-              )}
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Taxa da Plataforma</span>
-                <span className="font-medium">{formatCurrency(registration.financeiro.taxaPlataforma || 0)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Taxa de Processamento</span>
-                <span className="font-medium">{formatCurrency(registration.financeiro.taxaProcessamento || 0)}</span>
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold">Total</span>
-                <span className="text-lg font-bold text-[#156634]">
-                  {formatCurrency(registration.financeiro.total || 0)}
-                </span>
-              </div>
-              <Separator />
-              <div className="space-y-2 pt-2">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                    <CreditCard className="h-3 w-3" />
-                    Método de Pagamento
-                  </p>
-                  <p className="text-sm font-medium">{registration.financeiro.metodoPagamento || "N/A"}</p>
-                  {registration.financeiro.ultimos4Digitos && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Final {registration.financeiro.ultimos4Digitos}
-                      {registration.financeiro.parcelas > 1 && ` • ${registration.financeiro.parcelas}x`}
+          {/* Card: Dados do Participante */}
+          {registration.atleta && (
+            <Card className="border-gray-200 shadow-sm">
+              <CardHeader className="pb-4 border-b border-gray-100">
+                <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                  <User className="h-5 w-5 text-gray-500" />
+                  Dados do Participante
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="space-y-6">
+                  {/* Nome e Contato */}
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
+                      Informações de Contato
                     </p>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3">
+                        <User className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-500 mb-0.5">Nome Completo</p>
+                          <p 
+                            className="text-sm font-medium text-gray-900 cursor-pointer hover:text-green-600 transition-colors inline-flex items-center gap-2"
+                            onClick={(e) => handleCopy(e, registration.atleta.nome, 'nome')}
+                          >
+                            {registration.atleta.nome}
+                            {copiedId === 'nome' ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100" />
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <Mail className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-500 mb-0.5">Email</p>
+                          <p 
+                            className="text-sm text-gray-900 cursor-pointer hover:text-green-600 transition-colors inline-flex items-center gap-2 truncate"
+                            onClick={(e) => handleCopy(e, registration.atleta.email, 'email')}
+                            title={registration.atleta.email}
+                          >
+                            {registration.atleta.email}
+                            {copiedId === 'email' ? (
+                              <Check className="h-3 w-3 text-green-600 shrink-0" />
+                            ) : null}
+                          </p>
+                        </div>
+                      </div>
+                      {registration.atleta.telefone && (
+                        <div className="flex items-start gap-3">
+                          <Phone className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-500 mb-0.5">Telefone</p>
+                            <p 
+                              className="text-sm text-gray-900 cursor-pointer hover:text-green-600 transition-colors inline-flex items-center gap-2"
+                              onClick={(e) => handleCopy(e, registration.atleta.telefone, 'telefone')}
+                            >
+                              {registration.atleta.telefone}
+                              {copiedId === 'telefone' ? (
+                                <Check className="h-3 w-3 text-green-600" />
+                              ) : null}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Documentos e Dados Pessoais */}
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
+                      Documentos e Dados Pessoais
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {registration.atleta.cpf && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">CPF</p>
+                          <p 
+                            className="text-sm font-mono text-gray-900 cursor-pointer hover:text-green-600 transition-colors inline-flex items-center gap-2"
+                            onClick={(e) => handleCopy(e, registration.atleta.cpf, 'cpf')}
+                          >
+                            {registration.atleta.cpf}
+                            {copiedId === 'cpf' ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : null}
+                          </p>
+                        </div>
+                      )}
+                      {registration.atleta.dataNascimento && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
+                            <Cake className="h-3 w-3" />
+                            Data de Nascimento
+                          </p>
+                          <p className="text-sm text-gray-900">
+                            {formatDate(registration.atleta.dataNascimento)}
+                            {registration.atleta.idade && (
+                              <span className="text-gray-500 ml-2">
+                                ({registration.atleta.idade} anos)
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      )}
+                      {registration.atleta.genero && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Gênero</p>
+                          <p className="text-sm text-gray-900">{registration.atleta.genero}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Endereço */}
+                  {registration.atleta.endereco && (
+                    <>
+                      <Separator />
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-1">
+                          <Home className="h-3 w-3" />
+                          Endereço
+                        </p>
+                        <div className="text-sm text-gray-900 space-y-1">
+                          {registration.atleta.endereco.rua && (
+                            <p>{registration.atleta.endereco.rua}</p>
+                          )}
+                          {registration.atleta.endereco.cidade && (
+                            <p>
+                              {registration.atleta.endereco.cidade}
+                              {registration.atleta.endereco.estado && ` - ${registration.atleta.endereco.estado}`}
+                            </p>
+                          )}
+                          {registration.atleta.endereco.cep && (
+                            <p className="text-gray-500">CEP: {registration.atleta.endereco.cep}</p>
+                          )}
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
-                {registration.financeiro.dataPagamento && (
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Card: Participação e Kit */}
+          <Card className="border-gray-200 shadow-sm">
+            <CardHeader className="pb-4 border-b border-gray-100">
+              <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <Package className="h-5 w-5 text-gray-500" />
+                Participação
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                {registration.atleta?.tamanhoCamiseta && (
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1">Data do Pagamento</p>
-                    <p className="text-xs">{formatDate(registration.financeiro.dataPagamento)}</p>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+                      <Shirt className="h-3 w-3" />
+                      Tamanho da Camiseta
+                    </p>
+                    <Badge variant="outline" className="text-sm font-medium px-3 py-1.5">
+                      {registration.atleta.tamanhoCamiseta}
+                    </Badge>
                   </div>
                 )}
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+                    <Package className="h-3 w-3" />
+                    Kit
+                  </p>
+                  {registration.atleta?.possuiKit ? (
+                    <Badge className="bg-green-50 text-green-700 border-green-200 text-sm font-medium px-3 py-1.5">
+                      Incluído
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-sm font-medium px-3 py-1.5">
+                      Não incluído
+                    </Badge>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+                    <Shield className="h-3 w-3" />
+                    Seguro
+                  </p>
+                  {registration.atleta?.possuiSeguro ? (
+                    <Badge className="bg-green-50 text-green-700 border-green-200 text-sm font-medium px-3 py-1.5">
+                      Incluído
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-sm font-medium px-3 py-1.5">
+                      Não incluído
+                    </Badge>
+                  )}
+                </div>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Coluna Direita - Sidebar */}
+        <div className="space-y-6">
+          {/* Card: Resumo da Inscrição */}
+          <Card className="border-gray-200 shadow-sm">
+            <CardHeader className="pb-4 border-b border-gray-100">
+              <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <Hash className="h-5 w-5 text-gray-500" />
+                Resumo da Inscrição
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-4">
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                  Número de Inscrição
+                </p>
+                <p 
+                  className="text-sm font-mono font-semibold text-gray-900 cursor-pointer hover:text-green-600 transition-colors inline-flex items-center gap-2"
+                  onClick={(e) => handleCopy(e, registration.numeroInscricao, 'numero')}
+                >
+                  {registration.numeroInscricao}
+                  {copiedId === 'numero' ? (
+                    <Check className="h-3 w-3 text-green-600" />
+                  ) : null}
+                </p>
+              </div>
+              <Separator />
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                  Data e Hora da Inscrição
+                </p>
+                <p className="text-sm text-gray-900">
+                  {formatDate(registration.dataInscricao, true)}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card: Detalhes Financeiros */}
+          {registration.financeiro && (
+            <Card className="border-gray-200 shadow-sm">
+              <CardHeader className="pb-4 border-b border-gray-100">
+                <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-gray-500" />
+                  Detalhes Financeiros
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Valor Base</span>
+                    <span className="font-medium text-gray-900">
+                      {formatCurrency(registration.financeiro.valorBase || 0)}
+                    </span>
+                  </div>
+                  {registration.financeiro.desconto > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Desconto</span>
+                      <span className="font-medium text-green-600">
+                        -{formatCurrency(registration.financeiro.desconto)}
+                      </span>
+                    </div>
+                  )}
+                  {registration.financeiro.taxaPlataforma > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Taxa da Plataforma</span>
+                      <span className="font-medium text-gray-900">
+                        {formatCurrency(registration.financeiro.taxaPlataforma || 0)}
+                      </span>
+                    </div>
+                  )}
+                  {registration.financeiro.taxaProcessamento > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Taxa de Processamento</span>
+                      <span className="font-medium text-gray-900">
+                        {formatCurrency(registration.financeiro.taxaProcessamento || 0)}
+                      </span>
+                    </div>
+                  )}
+                  <Separator />
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-base font-semibold text-gray-900">Total</span>
+                    <span className="text-xl font-bold text-[#156634]">
+                      {formatCurrency(registration.financeiro.total || 0)}
+                    </span>
+                  </div>
+                  <Separator />
+                  <div className="space-y-3 pt-2">
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+                        <CreditCard className="h-3 w-3" />
+                        Método de Pagamento
+                      </p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {registration.financeiro.metodoPagamento || "N/A"}
+                      </p>
+                      {registration.financeiro.ultimos4Digitos && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Final {registration.financeiro.ultimos4Digitos}
+                          {registration.financeiro.parcelas > 1 && ` • ${registration.financeiro.parcelas}x`}
+                        </p>
+                      )}
+                    </div>
+                    {registration.financeiro.dataPagamento && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                          Data do Pagamento
+                        </p>
+                        <p className="text-sm text-gray-900">
+                          {formatDate(registration.financeiro.dataPagamento)}
+                        </p>
+                      </div>
+                    )}
+                    {registration.financeiro.transacaoId && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                          ID da Transação
+                        </p>
+                        <p 
+                          className="text-xs font-mono text-gray-900 cursor-pointer hover:text-green-600 transition-colors inline-flex items-center gap-2"
+                          onClick={(e) => handleCopy(e, registration.financeiro.transacaoId, 'transacao')}
+                        >
+                          {registration.financeiro.transacaoId}
+                          {copiedId === 'transacao' ? (
+                            <Check className="h-3 w-3 text-green-600" />
+                          ) : null}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      {/* Dialogs */}
+      <Dialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Transferir Inscrição</DialogTitle>
+            <DialogDescription>
+              Digite o email ou CPF do novo titular da inscrição.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium">Email ou CPF</label>
+              <input
+                type="text"
+                value={newTitularEmail}
+                onChange={(e) => setNewTitularEmail(e.target.value)}
+                className="w-full mt-1 px-3 py-2 border rounded-md"
+                placeholder="email@exemplo.com ou 000.000.000-00"
+              />
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTransferDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => {}} disabled={!newTitularEmail}>
+              Transferir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar e Reembolsar</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja cancelar esta inscrição? Um reembolso será processado.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCancelDialog(false)}>
+              Não, manter inscrição
+            </Button>
+            <Button variant="destructive" onClick={() => {}}>
+              Sim, cancelar e reembolsar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
