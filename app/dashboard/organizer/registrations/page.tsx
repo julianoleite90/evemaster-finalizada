@@ -72,6 +72,8 @@ export default function RegistrationsPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [emailRecipients, setEmailRecipients] = useState("")
   const [sendingEmail, setSendingEmail] = useState(false)
+  const [organizerName, setOrganizerName] = useState<string>("")
+  const [eventsList, setEventsList] = useState<Array<{ id: string; name: string }>>([])
   
   // Campos disponíveis para exportação
   const availableFields = [
@@ -129,6 +131,17 @@ export default function RegistrationsPage() {
 
         const organizerId = access.organizerId
 
+        // Buscar dados do organizador
+        const { data: organizer } = await supabase
+          .from("organizers")
+          .select("company_name")
+          .eq("id", organizerId)
+          .single()
+
+        if (organizer) {
+          setOrganizerName(organizer.company_name || "Organizador")
+        }
+
         // Buscar eventos do organizador
         const { data: events } = await supabase
           .from("events")
@@ -138,6 +151,7 @@ export default function RegistrationsPage() {
         const eventIds = events?.map(e => e.id) || []
         const eventNames = events?.map(e => e.name) || []
         setEventos(eventNames)
+        setEventsList(events || [])
 
         if (eventIds.length === 0) {
           setRegistrations([])
@@ -653,6 +667,15 @@ export default function RegistrationsPage() {
         fileData = await generateXLSBase64()
       }
 
+      // Determinar nome do evento
+      let eventName = "Todos os Eventos"
+      if (selectedEvent !== "all") {
+        const event = eventsList.find(e => e.name === selectedEvent)
+        eventName = event?.name || selectedEvent
+      } else if (eventsList.length === 1) {
+        eventName = eventsList[0].name
+      }
+
       const response = await fetch('/api/export/send-email', {
         method: 'POST',
         headers: {
@@ -663,6 +686,8 @@ export default function RegistrationsPage() {
           fileName: fileData.fileName,
           fileType,
           emails: emailList,
+          eventName,
+          organizerName,
         }),
       })
 

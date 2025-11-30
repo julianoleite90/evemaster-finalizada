@@ -17,12 +17,13 @@ console.log('🔧 [Export Email] Configuração:', {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { fileContent, fileName, fileType, emails, subject } = body as {
+    const { fileContent, fileName, fileType, emails, eventName, organizerName } = body as {
       fileContent: string // base64
       fileName: string
       fileType: 'csv' | 'xlsx'
       emails: string[]
-      subject?: string
+      eventName?: string
+      organizerName?: string
     }
 
     if (!fileContent || !fileName || !emails || emails.length === 0) {
@@ -65,7 +66,14 @@ export async function POST(request: NextRequest) {
       ? 'text/csv;charset=utf-8' 
       : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
-    const emailSubject = subject || `Exportação de Inscrições - ${fileName}`
+    // Montar subject do email: "Exportação de Inscrições - [Nome do Evento] - Enviado por [Nome do Organizador]"
+    let emailSubject = "Exportação de Inscrições"
+    if (eventName) {
+      emailSubject += ` - ${eventName}`
+    }
+    if (organizerName) {
+      emailSubject += ` - Enviado por ${organizerName}`
+    }
 
     // Template de email seguindo o mesmo padrão dos outros emails
     const emailHtml = `
