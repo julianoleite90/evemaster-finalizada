@@ -535,6 +535,39 @@ export default function EventSettingsPage() {
     }
   }, [subMenu, eventId])
 
+  // Estado para clubes de corrida
+  const [runningClubs, setRunningClubs] = useState<any[]>([])
+  const [loadingRunningClubs, setLoadingRunningClubs] = useState(false)
+
+  // Buscar clubes de corrida quando a tab for selecionada
+  const fetchRunningClubs = async () => {
+    if (!eventId) return
+    try {
+      setLoadingRunningClubs(true)
+      const res = await fetch(`/api/events/running-clubs?event_id=${eventId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setRunningClubs(data.clubs || [])
+      } else {
+        const errorData = await res.json().catch(() => ({}))
+        console.error('Erro ao buscar clubes:', errorData)
+        toast.error(errorData.error || 'Erro ao carregar clubes')
+      }
+    } catch (error) {
+      console.error('Erro ao buscar clubes:', error)
+      toast.error('Erro ao carregar clubes')
+    } finally {
+      setLoadingRunningClubs(false)
+    }
+  }
+
+  // Buscar clubes quando a tab de clube-corrida for selecionada
+  useEffect(() => {
+    if (subMenu === "clube-corrida" && eventId) {
+      fetchRunningClubs()
+    }
+  }, [subMenu, eventId])
+
   // Buscar dados de relatórios
   const fetchReportData = async () => {
     if (!eventId) {
@@ -3966,7 +3999,14 @@ export default function EventSettingsPage() {
                   )
                 }
                 console.log('✅ [SETTINGS] Renderizando RunningClubsTabContent')
-                return <RunningClubsTabContent eventId={eventId} />
+                return (
+                  <RunningClubsTabContent 
+                    eventId={eventId} 
+                    clubs={runningClubs}
+                    loading={loadingRunningClubs}
+                    onRefresh={fetchRunningClubs}
+                  />
+                )
               })()}
             </TabsContent>
           </Tabs>

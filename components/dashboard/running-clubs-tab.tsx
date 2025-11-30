@@ -15,12 +15,13 @@ import { ptBR } from "date-fns/locale"
 
 interface RunningClubsTabProps {
   eventId: string
+  clubs: any[]
+  loading?: boolean
+  onRefresh: () => void
 }
 
-export function RunningClubsTabContent({ eventId }: RunningClubsTabProps) {
-  console.log('🏃 [RUNNING_CLUBS] Componente renderizado com eventId:', eventId)
-  const [loading, setLoading] = useState(false)
-  const [clubs, setClubs] = useState<any[]>([])
+export function RunningClubsTabContent({ eventId, clubs, loading = false, onRefresh }: RunningClubsTabProps) {
+  console.log('🏃 [RUNNING_CLUBS] Componente renderizado com eventId:', eventId, 'clubs:', clubs.length)
   const [showAddClub, setShowAddClub] = useState(false)
   const [saving, setSaving] = useState(false)
   const [newClub, setNewClub] = useState({
@@ -33,41 +34,6 @@ export function RunningClubsTabContent({ eventId }: RunningClubsTabProps) {
     extend_on_deadline: false,
     release_after_deadline: true,
   })
-
-  useEffect(() => {
-    if (eventId) {
-      fetchClubs()
-    } else {
-      console.error('RunningClubsTabContent: eventId não fornecido')
-    }
-  }, [eventId])
-
-  const fetchClubs = async () => {
-    if (!eventId) {
-      console.error('RunningClubsTabContent: eventId não fornecido')
-      return
-    }
-    try {
-      setLoading(true)
-      console.log('🏃 [RUNNING_CLUBS] Buscando clubes para eventId:', eventId)
-      const res = await fetch(`/api/events/running-clubs?event_id=${eventId}`)
-      console.log('🏃 [RUNNING_CLUBS] Resposta da API:', res.status, res.statusText)
-      if (res.ok) {
-        const data = await res.json()
-        console.log('🏃 [RUNNING_CLUBS] Clubes recebidos:', data.clubs?.length || 0)
-        setClubs(data.clubs || [])
-      } else {
-        const errorData = await res.json().catch(() => ({}))
-        console.error('RunningClubsTabContent: Erro ao buscar clubes:', errorData)
-        toast.error(errorData.error || 'Erro ao carregar clubes')
-      }
-    } catch (error) {
-      console.error('RunningClubsTabContent: Erro ao buscar clubes:', error)
-      toast.error('Erro ao carregar clubes')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleCreateClub = async () => {
     if (!newClub.email || !newClub.tickets_allocated || !newClub.deadline) {
@@ -110,7 +76,7 @@ export function RunningClubsTabContent({ eventId }: RunningClubsTabProps) {
           extend_on_deadline: false,
           release_after_deadline: true,
         })
-        fetchClubs()
+        onRefresh()
       } else {
         const error = await res.json()
         toast.error(error.error || 'Erro ao cadastrar clube')
@@ -121,14 +87,6 @@ export function RunningClubsTabContent({ eventId }: RunningClubsTabProps) {
     } finally {
       setSaving(false)
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-[#156634]" />
-      </div>
-    )
   }
 
   if (!eventId) {
