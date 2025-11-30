@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Loader2, Ticket } from "lucide-react"
@@ -10,6 +11,7 @@ import Link from "next/link"
 import { TicketCard } from "@/components/tickets/TicketCard"
 
 export default function MyAccountPage() {
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [inscricoes, setInscricoes] = useState<any[]>([])
 
@@ -22,7 +24,8 @@ export default function MyAccountPage() {
         // Buscar usuário atual
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
-          toast.error("Você precisa estar logado")
+          // Redirecionar para login se não estiver logado
+          router.push("/login")
           return
         }
 
