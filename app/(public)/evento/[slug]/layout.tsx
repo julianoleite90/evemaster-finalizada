@@ -41,25 +41,39 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const resolvedParams = 'then' in params ? await params : params
   const slug = resolvedParams.slug
   
-  console.log('[Metadata] Buscando evento para slug:', slug)
+  console.log('[Metadata] ===== INÍCIO generateMetadata =====')
+  console.log('[Metadata] Slug recebido:', slug)
   
   let event = null
   
   try {
+    console.log('[Metadata] Chamando getEventBySlug...')
     event = await getEventBySlug(slug)
-    console.log('[Metadata] Evento encontrado:', event ? { id: event.id, name: event.name, hasBanner: !!event.banner_url } : 'null')
+    console.log('[Metadata] Resultado de getEventBySlug:', event ? {
+      id: event.id,
+      name: event.name,
+      slug: event.slug,
+      status: event.status,
+      hasBanner: !!event.banner_url,
+      banner_url: event.banner_url
+    } : 'NULL - EVENTO NÃO ENCONTRADO')
   } catch (error: any) {
-    // Se o erro for "not found", não é crítico - apenas logar
-    if (error?.code === 'PGRST116' || error?.message?.includes('not found')) {
-      console.warn(`[Metadata] Evento não encontrado para slug: ${slug}`, error)
-    } else {
-      console.error('[Metadata] Erro ao buscar evento para metadata:', error)
-    }
+    console.error('[Metadata] ERRO ao buscar evento:', {
+      message: error?.message,
+      code: error?.code,
+      details: error?.details,
+      hint: error?.hint,
+      stack: error?.stack
+    })
     // Continua com valores padrão se houver erro
   }
   
   if (!event) {
-    console.warn(`[Metadata] Evento é null para slug: ${slug}, usando valores padrão`)
+    console.error(`[Metadata] ⚠️ EVENTO É NULL para slug: ${slug}`)
+    console.error('[Metadata] Isso significa que getEventBySlug retornou null')
+    console.error('[Metadata] Verifique: 1) Se o slug está correto 2) Se o evento existe 3) Se RLS permite leitura')
+  } else {
+    console.log('[Metadata] ✅ Evento encontrado, gerando meta tags...')
   }
 
   // Se não encontrou o evento ou não tem nome, usar valores padrão

@@ -32,6 +32,8 @@ export async function getEventById(eventId: string) {
 export async function getEventBySlug(slug: string) {
   const supabase = await createClient()
   
+  console.log('[getEventBySlug] Buscando evento com slug:', slug)
+  
   // Verificar se é um UUID primeiro
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   
@@ -98,9 +100,11 @@ export async function getEventBySlug(slug: string) {
       .order("created_at", { ascending: false })
     
     if (slugError) {
+      console.error('[getEventBySlug] Erro ao buscar por slug:', slugError)
       error = slugError
     } else if (eventsBySlug && eventsBySlug.length > 0) {
       event = eventsBySlug[0] // Pegar o primeiro (mais recente)
+      console.log('[getEventBySlug] Evento encontrado:', { id: event.id, name: event.name, hasBanner: !!event.banner_url })
       error = null
       
       // Buscar organizador separadamente usando view padronizada
@@ -129,6 +133,7 @@ export async function getEventBySlug(slug: string) {
       }
     } else {
       // Nenhum evento encontrado - não é erro, apenas não encontrado
+      console.warn('[getEventBySlug] Nenhum evento encontrado para slug:', slug)
       error = null
       event = null
     }
