@@ -1,14 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Loader2, Ticket } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import Link from "next/link"
-import Image from "next/image"
+import { TicketCard } from "@/components/tickets/TicketCard"
 
 export default function MyAccountPage() {
   const [loading, setLoading] = useState(true)
@@ -179,27 +178,9 @@ export default function MyAccountPage() {
     fetchInscricoes()
   }, [])
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "Data não informada"
-    // Parse a data no formato YYYY-MM-DD como data local (não UTC)
-    const [year, month, day] = dateString.split('-').map(Number)
-    const date = new Date(year, month - 1, day) // month é 0-indexed
-    return date.toLocaleDateString("pt-BR", {
-      weekday: "long",
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    })
-  }
-
-  const formatTime = (timeString: string) => {
-    if (!timeString) return ""
-    return timeString.substring(0, 5)
-  }
-
   const handleDownloadPDF = async (inscricao: any) => {
     try {
-      const response = await fetch('/api/ingresso/pdf', {
+      const response = await fetch('/api/tickets/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ registrationId: inscricao.id }),
@@ -213,7 +194,7 @@ export default function MyAccountPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `ingresso-${inscricao.registration_number || inscricao.id}.html`
+      a.download = `ingresso-${inscricao.registration_number || inscricao.id}.pdf`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -226,17 +207,53 @@ export default function MyAccountPage() {
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-      pending: { label: "Pendente", variant: "secondary" },
-      confirmed: { label: "Confirmada", variant: "default" },
-      cancelled: { label: "Cancelada", variant: "destructive" },
-    }
+  const handleAddToWallet = async (inscricao: any, walletType: 'apple' | 'google' = 'apple') => {
+    try {
+      const response = await fetch('/api/tickets/wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registrationId: inscricao.id, walletType }),
+      })
 
-    const statusInfo = statusMap[status] || { label: status, variant: "outline" }
-    return (
-      <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
-    )
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Erro ao gerar ingresso para carteira')
+      }
+
+      if (walletType === 'apple') {
+        // Para Apple Wallet, tentar baixar o arquivo .pkpass
+        const contentType = response.headers.get('content-type')
+        if (contentType?.includes('application/vnd.apple.pkpass')) {
+          const blob = await response.blob()
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `ingresso-${inscricao.registration_number || inscricao.id}.pkpass`
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          URL.revokeObjectURL(url)
+          toast.success('Ingresso baixado! Abra o arquivo para adicionar à Apple Wallet.')
+        } else {
+          // Se não retornar .pkpass, mostrar instruções
+          const data = await response.json()
+          toast.info('Para adicionar à Apple Wallet, é necessário configurar o certificado Apple Developer')
+        }
+      } else if (walletType === 'google') {
+        // Para Google Wallet, pode retornar um link ou dados
+        const data = await response.json()
+        if (data.saveUrl) {
+          // Abrir link do Google Wallet
+          window.open(data.saveUrl, '_blank')
+          toast.success('Redirecionando para Google Wallet...')
+        } else {
+          toast.info('Integração com Google Wallet em desenvolvimento')
+        }
+      }
+    } catch (error: any) {
+      console.error('Erro ao adicionar à carteira:', error)
+      toast.error(error.message || 'Erro ao adicionar à carteira')
+    }
   }
 
   if (loading) {
@@ -272,124 +289,15 @@ export default function MyAccountPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {inscricoes.map((inscricao) => {
-            const event = inscricao.event
-            const ticket = inscricao.ticket
-
-            return (
-              <Card key={inscricao.id} className="overflow-hidden">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-base mb-2">
-                        {event?.name || "Evento não encontrado"}
-                      </CardTitle>
-                      <div className="flex flex-wrap gap-2 items-center">
-                        {getStatusBadge(inscricao.status || "pending")}
-                        {event?.category && (
-                          <Badge variant="outline" className="text-xs">
-                            {event.category}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    {/* Banner pequeno no canto */}
-                  {event?.banner_url && (
-                      <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 relative">
-                      <Image
-                        src={event.banner_url}
-                        alt={event.name || "Evento"}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  )}
-                      </div>
-                    </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 mb-3">
-                          <div>
-                          <p className="text-xs text-gray-500 mb-0.5">Data</p>
-                          <p className="text-sm font-medium">
-                              {formatDate(event?.event_date)}
-                            </p>
-                        </div>
-
-                        {event?.start_time && (
-                          <div>
-                            <p className="text-xs text-gray-500 mb-0.5">Horário</p>
-                            <p className="text-sm font-medium">
-                              {formatTime(event.start_time)}
-                            </p>
-                          </div>
-                        )}
-
-                        <div>
-                          <p className="text-xs text-gray-500 mb-0.5">Local</p>
-                          <p className="text-sm font-medium truncate">
-                            {event?.location || event?.address || "Não informado"}
-                          </p>
-                        </div>
-
-                        {ticket && (
-                          <div>
-                            <p className="text-xs text-gray-500 mb-0.5">Distância</p>
-                            <p className="text-sm font-medium">{ticket.category}</p>
-                          </div>
-                        )}
-
-                        {inscricao.shirt_size && (
-                          <div>
-                            <p className="text-xs text-gray-500 mb-0.5">Camiseta</p>
-                            <p className="text-sm font-medium">{inscricao.shirt_size}</p>
-                          </div>
-                        )}
-
-                        {inscricao.has_kit !== undefined && (
-                            <div>
-                            <p className="text-xs text-gray-500 mb-0.5">Kit</p>
-                            <p className="text-sm font-medium">{inscricao.has_kit ? "Sim" : "Não"}</p>
-                            </div>
-                        )}
-
-                        {inscricao.has_insurance !== undefined && (
-                          <div>
-                            <p className="text-xs text-gray-500 mb-0.5">Seguro</p>
-                            <p className="text-sm font-medium">{inscricao.has_insurance ? "Sim" : "Não"}</p>
-                          </div>
-                        )}
-
-                        {inscricao.athletes && Array.isArray(inscricao.athletes) && inscricao.athletes.length > 0 && (
-                            <div>
-                            <p className="text-xs text-gray-500 mb-0.5">Participante</p>
-                            <p className="text-sm font-medium truncate">
-                                {inscricao.athletes[0].full_name || inscricao.athletes[0].email}
-                              </p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex gap-2 pt-3 border-t">
-                        {event?.slug && (
-                          <Button variant="outline" asChild className="flex-1">
-                            <Link href={`/evento/${event.slug}`}>
-                              Ver Evento
-                            </Link>
-                          </Button>
-                        )}
-                        <Button 
-                          variant="outline"
-                          onClick={() => handleDownloadPDF(inscricao)}
-                          className="flex-1"
-                        >
-                          Baixar Ingresso
-                        </Button>
-                      </div>
-                    </CardContent>
-              </Card>
-            )
-          })}
+        <div className="grid gap-6">
+          {inscricoes.map((inscricao) => (
+            <TicketCard
+              key={inscricao.id}
+              inscricao={inscricao}
+              onDownloadPDF={() => handleDownloadPDF(inscricao)}
+              onAddToWallet={(walletType) => handleAddToWallet(inscricao, walletType)}
+            />
+          ))}
         </div>
       )}
     </div>
