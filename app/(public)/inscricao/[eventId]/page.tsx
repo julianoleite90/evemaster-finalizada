@@ -94,6 +94,7 @@ export default function CheckoutPage() {
   const [temCamiseta, setTemCamiseta] = useState(false)
   const [paisEvento, setPaisEvento] = useState("brasil")
   const [idioma, setIdioma] = useState("pt")
+  const [runningClub, setRunningClub] = useState<any>(null) // Dados do clube de corrida se houver
 
   const footerPaymentText: Record<string, string> = {
     pt: "Aceitamos todos os cartões, Pix e Boleto",
@@ -271,6 +272,41 @@ export default function CheckoutPage() {
           setIdioma("en")
         }
 
+        // Verificar se há parâmetro de clube de corrida
+        const clubId = searchParams.get("club")
+        if (clubId) {
+          console.log("🏃 [CHECKOUT] Clube de corrida detectado na URL:", clubId)
+          const supabase = createClient()
+          const { data: clubData, error: clubError } = await supabase
+            .from("running_clubs")
+            .select("*")
+            .eq("id", clubId)
+            .eq("event_id", eventId)
+            .eq("status", "accepted")
+            .maybeSingle()
+          
+          if (clubData && !clubError) {
+            // Verificar se ainda há ingressos disponíveis
+            const ticketsRemaining = clubData.tickets_allocated - (clubData.tickets_used || 0)
+            if (ticketsRemaining > 0) {
+              // Verificar se o prazo ainda é válido
+              const deadline = new Date(clubData.deadline)
+              const now = new Date()
+              if (deadline >= now) {
+                setRunningClub(clubData)
+                console.log("✅ [CHECKOUT] Clube de corrida válido encontrado:", clubData)
+                console.log("🏃 [CHECKOUT] Desconto base:", clubData.base_discount, "%")
+              } else {
+                console.warn("⚠️ [CHECKOUT] Prazo do clube expirado")
+              }
+            } else {
+              console.warn("⚠️ [CHECKOUT] Clube sem ingressos disponíveis")
+            }
+          } else {
+            console.warn("⚠️ [CHECKOUT] Clube não encontrado ou não autorizado:", clubError)
+          }
+        }
+
         // Parsear ingressos da URL
         const loteId = searchParams.get("lote")
         const ingressosParam = searchParams.get("ingressos")
@@ -410,9 +446,38 @@ export default function CheckoutPage() {
 
   // Calcular total
   const calcularTotal = () => {
-    const subtotal = ingressosSelecionados.reduce((sum, ing) => sum + ing.valor, 0)
-    const taxa = subtotal > 0 ? ingressosSelecionados.length * 5 : 0
-    return { subtotal, taxa, total: subtotal + taxa }
+    let subtotal = ingressosSelecionados.reduce((sum, ing) => sum + ing.valor, 0)
+    let desconto = 0
+    
+    // Aplicar desconto do clube de corrida se houver
+    if (runningClub && runningClub.base_discount > 0) {
+      // Calcular desconto base (percentual)
+      const descontoBase = (subtotal * runningClub.base_discount) / 100
+      desconto += descontoBase
+      
+      // Verificar desconto progressivo
+      if (runningClub.progressive_discount_threshold && 
+          runningClub.progressive_discount_value &&
+          ingressosSelecionados.length >= runningClub.progressive_discount_threshold) {
+        const descontoProgressivo = (subtotal * runningClub.progressive_discount_value) / 100
+        desconto += descontoProgressivo
+        console.log("🏃 [CHECKOUT] Desconto progressivo aplicado:", runningClub.progressive_discount_value, "%")
+      }
+      
+      console.log("🏃 [CHECKOUT] Desconto aplicado:", desconto, "de", subtotal)
+    }
+    
+    const subtotalComDesconto = Math.max(0, subtotal - desconto)
+    const taxa = subtotalComDesconto > 0 ? ingressosSelecionados.length * 5 : 0
+    const total = subtotalComDesconto + taxa
+    
+    return { 
+      subtotal, 
+      desconto, 
+      subtotalComDesconto,
+      taxa, 
+      total 
+    }
   }
 
   // Verificar se é gratuito
@@ -729,11 +794,37 @@ export default function CheckoutPage() {
 
         // 3. Se não for gratuito, criar pagamento
         if (!isGratuito()) {
+          // Calcular valor com desconto do clube se houver
+          let valorIngresso = ingresso.valor
+          let descontoAplicado = 0
+          
+          if (runningClub && runningClub.base_discount > 0) {
+            // Aplicar desconto base
+            const descontoBase = (valorIngresso * runningClub.base_discount) / 100
+            descontoAplicado += descontoBase
+            
+            // Verificar desconto progressivo
+            if (runningClub.progressive_discount_threshold && 
+                runningClub.progressive_discount_value &&
+                ingressosSelecionados.length >= runningClub.progressive_discount_threshold) {
+              const descontoProgressivo = (valorIngresso * runningClub.progressive_discount_value) / 100
+              descontoAplicado += descontoProgressivo
+            }
+            
+            valorIngresso = Math.max(0, valorIngresso - descontoAplicado)
+            console.log("🏃 [CHECKOUT] Valor original:", ingresso.valor, "Desconto:", descontoAplicado, "Valor final:", valorIngresso)
+          }
+          
+          const taxa = 5
+          const valorTotal = valorIngresso + taxa
+          
           const paymentData = {
             registration_id: registration.id,
-            amount: ingresso.valor + 5,
+            amount: valorTotal,
+            discount_amount: descontoAplicado > 0 ? descontoAplicado.toString() : null,
             payment_method: meioPagamento || "pix",
             payment_status: "pending",
+            running_club_id: runningClub?.id || null, // Salvar referência ao clube
           }
 
           const { error: payError } = await supabase
@@ -754,6 +845,23 @@ export default function CheckoutPage() {
 
         if (updateTicketError) {
           console.error("ERRO AO ATUALIZAR QUANTIDADE:", updateTicketError)
+        }
+
+        // 5. Se houver clube de corrida, incrementar tickets_used
+        if (runningClub) {
+          const { error: updateClubError } = await supabase
+            .from("running_clubs")
+            .update({ 
+              tickets_used: (runningClub.tickets_used || 0) + 1,
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", runningClub.id)
+
+          if (updateClubError) {
+            console.error("ERRO AO ATUALIZAR TICKETS_USED DO CLUBE:", updateClubError)
+          } else {
+            console.log("✅ [CHECKOUT] Tickets usados do clube atualizado:", runningClub.tickets_used + 1)
+          }
         }
       }
 
@@ -871,7 +979,7 @@ export default function CheckoutPage() {
 
   const participante = participantes[currentParticipante]
   const ingresso = ingressosSelecionados[currentParticipante]
-  const { subtotal, taxa, total } = calcularTotal()
+  const { subtotal, desconto, subtotalComDesconto, taxa, total } = calcularTotal()
 
   // Extrair dados dos pixels do event_settings
   const eventSettings = eventData?.event_settings?.[0] || {}
@@ -1417,13 +1525,46 @@ export default function CheckoutPage() {
                 <Separator />
 
                 <div className="space-y-3 flex-1">
+                  {runningClub && runningClub.base_discount > 0 && (
+                    <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-md">
+                      <p className="text-xs font-semibold text-green-700">
+                        🏃 {idioma === "es" ? "Descuento de Clube de Corrida aplicado" : idioma === "en" ? "Running Club discount applied" : "Desconto de Clube de Corrida aplicado"}
+                      </p>
+                      <p className="text-xs text-green-600">
+                        {runningClub.name || "Clube de Corrida"} - {runningClub.base_discount}%
+                        {runningClub.progressive_discount_threshold && ingressosSelecionados.length >= runningClub.progressive_discount_threshold
+                          ? ` + ${runningClub.progressive_discount_value}%`
+                          : ""}
+                      </p>
+                    </div>
+                  )}
                   {ingressosSelecionados.map((ing, i) => {
                     const participanteResumo = participantes[i] || participantes[0]
+                    // Calcular valor com desconto para exibição
+                    let valorExibicao = ing.valor
+                    if (runningClub && runningClub.base_discount > 0) {
+                      let descontoIngresso = (ing.valor * runningClub.base_discount) / 100
+                      if (runningClub.progressive_discount_threshold && 
+                          runningClub.progressive_discount_value &&
+                          ingressosSelecionados.length >= runningClub.progressive_discount_threshold) {
+                        descontoIngresso += (ing.valor * runningClub.progressive_discount_value) / 100
+                      }
+                      valorExibicao = Math.max(0, ing.valor - descontoIngresso)
+                    }
                     return (
                       <div key={i} className="border rounded-md p-3 text-sm space-y-1">
                         <div className="flex items-center justify-between font-medium">
                           <span>{ing.categoria}</span>
-                          <span>{ing.valor === 0 || ing.gratuito ? (isBrasil ? "R$ 0,00" : "$ 0.00") : `${isBrasil ? "R$" : "$"} ${ing.valor.toFixed(2)}`}</span>
+                          <div className="text-right">
+                            {ing.valor !== valorExibicao && (
+                              <span className="text-xs text-muted-foreground line-through mr-1">
+                                {isBrasil ? "R$" : "$"} {ing.valor.toFixed(2)}
+                              </span>
+                            )}
+                            <span className={ing.valor !== valorExibicao ? "text-green-600" : ""}>
+                              {ing.valor === 0 || ing.gratuito ? (isBrasil ? "R$ 0,00" : "$ 0.00") : `${isBrasil ? "R$" : "$"} ${valorExibicao.toFixed(2)}`}
+                            </span>
+                          </div>
                         </div>
                         <p className="text-xs text-muted-foreground">
                           {t("participante")}:{" "}
@@ -1452,6 +1593,17 @@ export default function CheckoutPage() {
                     <span className="text-muted-foreground">{t("subtotal")}</span>
                     <span>{isBrasil ? "R$" : "$"} {subtotal.toFixed(2)}</span>
                   </div>
+                  {desconto > 0 && runningClub && (
+                    <div className="flex justify-between text-green-600">
+                      <span className="text-muted-foreground">
+                        {idioma === "es" ? "Descuento" : idioma === "en" ? "Discount" : "Desconto"}
+                        {runningClub.progressive_discount_threshold && ingressosSelecionados.length >= runningClub.progressive_discount_threshold
+                          ? ` (${runningClub.base_discount}% + ${runningClub.progressive_discount_value}%)`
+                          : ` (${runningClub.base_discount}%)`}
+                      </span>
+                      <span className="font-semibold">-{isBrasil ? "R$" : "$"} {desconto.toFixed(2)}</span>
+                    </div>
+                  )}
                   {!isGratuito() && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{t("taxaServico")}</span>
