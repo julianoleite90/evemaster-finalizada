@@ -761,27 +761,58 @@ export default function CheckoutPage() {
   // Selecionar participante salvo
   const selecionarParticipanteSalvo = (perfil: any) => {
     const novosParticipantes = [...participantes]
-    const novoIndex = participantes.length
-    novosParticipantes.push({
-      nome: perfil.full_name || "",
-      email: perfil.email || "",
-      telefone: perfil.phone || "",
-      idade: perfil.age ? String(perfil.age) : "",
-      genero: perfil.gender === 'male' ? 'Masculino' : perfil.gender === 'female' ? 'Feminino' : "",
-      paisResidencia: perfil.country || "brasil",
-      cep: perfil.zip_code || "",
-      endereco: perfil.address || "",
-      numero: perfil.address_number || "",
-      complemento: perfil.address_complement || "",
-      bairro: perfil.neighborhood || "",
-      cidade: perfil.city || "",
-      estado: perfil.state || "",
-      cpf: perfil.cpf || "",
-      tamanhoCamiseta: perfil.shirt_size || "",
-      aceiteTermo: false,
-    })
-    setParticipantes(novosParticipantes)
-    setCurrentParticipante(novoIndex)
+    // Se já há participantes para preencher, substituir o próximo participante
+    // Caso contrário, adicionar um novo
+    if (currentParticipante < participantes.length - 1) {
+      // Substituir o próximo participante com os dados do perfil salvo
+      const proximoIndex = currentParticipante + 1
+      novosParticipantes[proximoIndex] = {
+        ...participanteVazio,
+        nome: perfil.full_name || "",
+        email: perfil.email || "",
+        telefone: perfil.phone || "",
+        idade: perfil.age ? String(perfil.age) : "",
+        genero: perfil.gender === 'male' ? 'Masculino' : perfil.gender === 'female' ? 'Feminino' : "",
+        paisResidencia: perfil.country || "brasil",
+        cep: perfil.zip_code || "",
+        endereco: perfil.address || "",
+        numero: perfil.address_number || "",
+        complemento: perfil.address_complement || "",
+        bairro: perfil.neighborhood || "",
+        cidade: perfil.city || "",
+        estado: perfil.state || "",
+        cpf: perfil.cpf || "",
+        tamanhoCamiseta: perfil.shirt_size || "",
+        aceiteTermo: false,
+      }
+      setParticipantes(novosParticipantes)
+      setCurrentParticipante(proximoIndex)
+      setCurrentStep(1)
+    } else {
+      // Adicionar um novo participante
+      const novoIndex = participantes.length
+      novosParticipantes.push({
+        ...participanteVazio,
+        nome: perfil.full_name || "",
+        email: perfil.email || "",
+        telefone: perfil.phone || "",
+        idade: perfil.age ? String(perfil.age) : "",
+        genero: perfil.gender === 'male' ? 'Masculino' : perfil.gender === 'female' ? 'Feminino' : "",
+        paisResidencia: perfil.country || "brasil",
+        cep: perfil.zip_code || "",
+        endereco: perfil.address || "",
+        numero: perfil.address_number || "",
+        complemento: perfil.address_complement || "",
+        bairro: perfil.neighborhood || "",
+        cidade: perfil.city || "",
+        estado: perfil.state || "",
+        cpf: perfil.cpf || "",
+        tamanhoCamiseta: perfil.shirt_size || "",
+        aceiteTermo: false,
+      })
+      setParticipantes(novosParticipantes)
+      setCurrentParticipante(novoIndex)
+    }
     setMostrarSelecaoParticipantes(false)
     toast.success('Participante adicionado! Revise e edite os dados se necessário.')
   }
@@ -906,7 +937,7 @@ export default function CheckoutPage() {
   }
 
   // Próximo step ou participante
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!validarStep()) return
     
     const totalSteps = isGratuito() ? 3 : 3
@@ -915,14 +946,23 @@ export default function CheckoutPage() {
       setCurrentStep(currentStep + 1)
     } else if (currentParticipante < participantes.length - 1) {
       // Próximo participante
-      setCurrentParticipante(currentParticipante + 1)
-      setCurrentStep(1)
+      // Se for o primeiro participante (principal) e estiver logado, mostrar diálogo antes de ir para o próximo
+      if (currentParticipante === 0 && usuarioLogado && !mostrarSelecaoParticipantes) {
+        // Buscar perfis salvos antes de mostrar o diálogo
+        await fetchPerfisSalvos()
+        setMostrarSelecaoParticipantes(true)
+        // Não avançar para o próximo participante ainda, aguardar seleção no diálogo
+      } else {
+        // Se não estiver logado ou já mostrou o diálogo, ir para o próximo participante
+        setCurrentParticipante(currentParticipante + 1)
+        setCurrentStep(1)
+      }
     } else {
       // Último participante
       // Se for o primeiro participante (principal) e estiver logado, perguntar se quer inscrever mais pessoas
       if (currentParticipante === 0 && usuarioLogado && !mostrarSelecaoParticipantes) {
         // Buscar perfis salvos antes de mostrar o diálogo
-        fetchPerfisSalvos()
+        await fetchPerfisSalvos()
         setMostrarSelecaoParticipantes(true)
       } else if (currentParticipante > 0) {
         // Se for acompanhante, finalizar direto
@@ -2420,10 +2460,19 @@ export default function CheckoutPage() {
               variant="outline"
               onClick={() => {
                 setMostrarSelecaoParticipantes(false)
-                handleSubmit()
+                // Se ainda há participantes para preencher, ir para o próximo
+                if (currentParticipante < participantes.length - 1) {
+                  setCurrentParticipante(currentParticipante + 1)
+                  setCurrentStep(1)
+                } else {
+                  // Se não há mais participantes, finalizar
+                  handleSubmit()
+                }
               }}
             >
-              Não, finalizar inscrição
+              {currentParticipante < participantes.length - 1 
+                ? "Não, continuar sem adicionar" 
+                : "Não, finalizar inscrição"}
             </Button>
           </div>
         </DialogContent>
