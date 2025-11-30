@@ -387,11 +387,11 @@ export default function CheckoutPage() {
         // Salvar quantidade inicial de ingressos
         setQuantidadeIngressosInicial(listaIngressos.length)
         
-        // Inicializar participantes com o país do evento
-        const paisEvento = (event.country || "brasil").toLowerCase()
+        // Inicializar participantes com o país do evento (usar o estado já setado)
+        console.log('🌍 [CHECKOUT] Inicializando participantes com país:', pais)
         setParticipantes(listaIngressos.map(() => ({ 
           ...participanteVazio, 
-          paisResidencia: paisEvento 
+          paisResidencia: pais 
         })))
         
       } catch (error) {
@@ -443,6 +443,13 @@ export default function CheckoutPage() {
       ...novosParticipantes[currentParticipante],
       [field]: value,
     }
+    console.log('📝 [CHECKOUT] Atualizando participante:', { 
+      field, 
+      value, 
+      currentParticipante, 
+      novoValor: novosParticipantes[currentParticipante][field],
+      paisResidencia: novosParticipantes[currentParticipante].paisResidencia
+    })
     setParticipantes(novosParticipantes)
   }
 
@@ -1704,8 +1711,9 @@ export default function CheckoutPage() {
                     <div className="space-y-2">
                       <Label>{idioma === "es" ? "País de Residencia" : idioma === "en" ? "Country of Residence" : "País de Residência"} *</Label>
                       <Select
-                        value={participante.paisResidencia}
+                        value={participante.paisResidencia || "brasil"}
                         onValueChange={(value) => {
+                          console.log('🌍 [CHECKOUT] País alterado:', value)
                           updateParticipante("paisResidencia", value)
                           // Limpar documento quando mudar o país para permitir novo formato
                           updateParticipante("cpf", "")
