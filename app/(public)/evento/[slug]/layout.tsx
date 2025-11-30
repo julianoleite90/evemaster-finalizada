@@ -41,18 +41,25 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const resolvedParams = 'then' in params ? await params : params
   const slug = resolvedParams.slug
   
+  console.log('[Metadata] Buscando evento para slug:', slug)
+  
   let event = null
   
   try {
     event = await getEventBySlug(slug)
+    console.log('[Metadata] Evento encontrado:', event ? { id: event.id, name: event.name, hasBanner: !!event.banner_url } : 'null')
   } catch (error: any) {
     // Se o erro for "not found", não é crítico - apenas logar
     if (error?.code === 'PGRST116' || error?.message?.includes('not found')) {
-      console.warn(`[Metadata] Evento não encontrado para slug: ${slug}`)
+      console.warn(`[Metadata] Evento não encontrado para slug: ${slug}`, error)
     } else {
       console.error('[Metadata] Erro ao buscar evento para metadata:', error)
     }
     // Continua com valores padrão se houver erro
+  }
+  
+  if (!event) {
+    console.warn(`[Metadata] Evento é null para slug: ${slug}, usando valores padrão`)
   }
 
   // Se não encontrou o evento ou não tem nome, usar valores padrão
@@ -104,6 +111,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const ogImage = bannerUrl 
     ? bannerUrl 
     : `${siteUrl}/api/og/evento/${event.slug || slug}`
+    
+  const canonicalUrl = `${siteUrl}/evento/${event.slug || slug}`
   
   // Debug: log para verificar o que está sendo usado (sempre logar em produção também para debug)
   console.log('[Event Metadata - generateMetadata]', {
@@ -115,8 +124,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     ogImage,
     canonicalUrl,
   })
-    
-  const canonicalUrl = `${siteUrl}/evento/${event.slug || slug}`
 
   return {
     title: {
