@@ -68,26 +68,27 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
   }
 
-  // Título do evento (sem o sufixo genérico para melhor compartilhamento)
+  // Título do evento
   const eventTitle = event.name.trim()
-  const title = eventTitle
 
   const description =
     event?.description || event?.summary
       ? stripHtml(event.description || event.summary).substring(0, 200) // Limitar a 200 caracteres
       : defaultDescription
 
-  // Usar a API de OG image que gera dinamicamente com o nome do evento
-  const eventSlug = event.slug || slug
-  const ogImage = `${siteUrl}/api/og/evento/${eventSlug}`
+  // USAR O BANNER DO EVENTO como imagem OG (se existir)
+  // Se não tiver banner, usar fallback
+  const ogImage = event.banner_url 
+    ? event.banner_url 
+    : `${siteUrl}/api/og/evento/${event.slug || slug}`
     
-  const canonicalUrl = `${siteUrl}/evento/${eventSlug}`
+  const canonicalUrl = `${siteUrl}/evento/${event.slug || slug}`
 
   return {
-    title: `${title} | EveMaster`,
+    title: eventTitle, // TÍTULO DO EVENTO (sem sufixo do site)
     description,
     openGraph: {
-      title: eventTitle, // Título do evento sem sufixo para melhor compartilhamento
+      title: eventTitle, // TÍTULO DO EVENTO
       description,
       url: canonicalUrl,
       siteName: 'EveMaster',
@@ -104,7 +105,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     twitter: {
       card: 'summary_large_image',
-      title: eventTitle,
+      title: eventTitle, // TÍTULO DO EVENTO
       description,
       images: [ogImage],
     },
