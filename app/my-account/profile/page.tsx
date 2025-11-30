@@ -16,6 +16,7 @@ export default function MyProfilePage() {
     full_name: "",
     email: "",
     phone: "",
+    cpf: "",
     address: "",
     address_number: "",
     address_complement: "",
@@ -23,6 +24,7 @@ export default function MyProfilePage() {
     city: "",
     state: "",
     zip_code: "",
+    country: "",
     emergency_contact_name: "",
     emergency_contact_phone: "",
   })
@@ -41,10 +43,26 @@ export default function MyProfilePage() {
 
         console.log("🔍 [Profile] Buscando dados do usuário:", user.id)
 
-        // Buscar dados do usuário
+        // Buscar dados do usuário - buscar explicitamente todos os campos
         const { data: userData, error } = await supabase
           .from("users")
-          .select("*")
+          .select(`
+            id,
+            email,
+            full_name,
+            phone,
+            cpf,
+            address,
+            address_number,
+            address_complement,
+            neighborhood,
+            city,
+            state,
+            zip_code,
+            country,
+            emergency_contact_name,
+            emergency_contact_phone
+          `)
           .eq("id", user.id)
           .single()
 
@@ -58,10 +76,12 @@ export default function MyProfilePage() {
 
         if (userData) {
           console.log("✅ [Profile] Dados encontrados na tabela users")
+          // Garantir que todos os campos sejam exibidos, mesmo que null/vazios
           setUserData({
             full_name: userData.full_name || "",
             email: user.email || "",
             phone: userData.phone || "",
+            cpf: userData.cpf || "",
             address: userData.address || "",
             address_number: userData.address_number || "",
             address_complement: userData.address_complement || "",
@@ -69,17 +89,19 @@ export default function MyProfilePage() {
             city: userData.city || "",
             state: userData.state || "",
             zip_code: userData.zip_code || "",
+            country: userData.country || "",
             emergency_contact_name: userData.emergency_contact_name || "",
             emergency_contact_phone: userData.emergency_contact_phone || "",
           })
         } else {
           console.log("ℹ️ [Profile] Usuário não encontrado na tabela users, usando metadados")
-          // Tentar buscar dos metadados do auth
+          // Tentar buscar dos metadados do auth - apenas se não houver dados na tabela
           const metadata = user.user_metadata || {}
           setUserData({
             full_name: metadata.full_name || "",
             email: user.email || "",
             phone: metadata.phone || "",
+            cpf: metadata.cpf || "",
             address: metadata.address || "",
             address_number: metadata.address_number || "",
             address_complement: metadata.address_complement || "",
@@ -87,6 +109,7 @@ export default function MyProfilePage() {
             city: metadata.city || "",
             state: metadata.state || "",
             zip_code: metadata.zip_code || "",
+            country: metadata.country || "",
             emergency_contact_name: metadata.emergency_contact_name || "",
             emergency_contact_phone: metadata.emergency_contact_phone || "",
           })
@@ -135,14 +158,16 @@ export default function MyProfilePage() {
           id: user.id,
           email: user.email,
           full_name: userData.full_name,
-          phone: userData.phone,
-          address: userData.address,
+          phone: userData.phone?.replace(/\D/g, '') || null,
+          cpf: userData.cpf?.replace(/\D/g, '') || null,
+          address: userData.address || null,
           address_number: userData.address_number || null,
           address_complement: userData.address_complement || null,
           neighborhood: userData.neighborhood || null,
-          city: userData.city,
-          state: userData.state,
-          zip_code: userData.zip_code,
+          city: userData.city || null,
+          state: userData.state || null,
+          zip_code: userData.zip_code?.replace(/\D/g, '') || null,
+          country: userData.country || null,
           emergency_contact_name: userData.emergency_contact_name || null,
           emergency_contact_phone: userData.emergency_contact_phone?.replace(/\D/g, '') || null,
           updated_at: new Date().toISOString(),
@@ -242,6 +267,19 @@ export default function MyProfilePage() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="cpf">CPF</Label>
+                <Input
+                  id="cpf"
+                  value={userData.cpf}
+                  onChange={(e) =>
+                    setUserData({ ...userData, cpf: e.target.value })
+                  }
+                  placeholder="000.000.000-00"
+                  maxLength={14}
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="zip_code">
                   <MapPin className="h-4 w-4 inline mr-2" />
                   CEP
@@ -315,6 +353,7 @@ export default function MyProfilePage() {
                     onChange={(e) =>
                       setUserData({ ...userData, city: e.target.value })
                     }
+                    placeholder="Nome da cidade"
                   />
                 </div>
 
@@ -330,6 +369,18 @@ export default function MyProfilePage() {
                     maxLength={2}
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="country">País</Label>
+                <Input
+                  id="country"
+                  value={userData.country}
+                  onChange={(e) =>
+                    setUserData({ ...userData, country: e.target.value })
+                  }
+                  placeholder="Brasil"
+                />
               </div>
             </div>
 
