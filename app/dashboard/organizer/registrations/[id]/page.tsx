@@ -44,6 +44,7 @@ import {
   FileText,
   Copy,
   Check,
+  Send,
 } from "lucide-react"
 import { useParams, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
@@ -66,6 +67,7 @@ export default function RegistrationDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [registration, setRegistration] = useState<any>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [resendingEmail, setResendingEmail] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -87,7 +89,9 @@ export default function RegistrationDetailsPage() {
             events:event_id (
               name,
               event_date,
-              location
+              location,
+              start_time,
+              description
             ),
             tickets:ticket_id (
               category,
@@ -129,7 +133,9 @@ export default function RegistrationDetailsPage() {
           evento: {
             nome: eventInfo?.name || "N/A",
             data: eventInfo?.event_date || "",
+            hora: eventInfo?.start_time ? eventInfo.start_time.substring(0, 5) : undefined,
             local: eventInfo?.location || "N/A",
+            descricao: eventInfo?.description ? eventInfo.description.replace(/<[^>]*>/g, '').substring(0, 200) : undefined,
             categoria: ticketInfo?.category || "N/A",
           },
           atleta: athleteData ? {
@@ -254,27 +260,80 @@ export default function RegistrationDetailsPage() {
     )
   }
 
+  const handleResendConfirmationEmail = async () => {
+    if (!registration?.atleta?.email) {
+      toast.error("Email do participante não encontrado")
+      return
+    }
+
+    setResendingEmail(true)
+
+    try {
+      // Montar payload para a API de confirmação
+      const emailPayload = {
+        inscricoes: [{
+          email: registration.atleta.email,
+          nome: registration.atleta.nome,
+          categoria: registration.evento.categoria,
+          valor: registration.financeiro?.valorBase || 0,
+          gratuito: (registration.financeiro?.valorBase || 0) === 0,
+          codigoInscricao: registration.numeroInscricao,
+        }],
+        evento: {
+          nome: registration.evento.nome,
+          data: registration.evento.data,
+          hora: registration.evento.hora,
+          local: registration.evento.local,
+          descricao: registration.evento.descricao,
+        },
+        resumoFinanceiro: registration.financeiro ? {
+          subtotal: registration.financeiro.valorBase || 0,
+          taxa: (registration.financeiro.taxaPlataforma || 0) + (registration.financeiro.taxaProcessamento || 0),
+          total: registration.financeiro.total || 0,
+        } : undefined,
+      }
+
+      const response = await fetch('/api/email/confirmacao-inscricao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailPayload),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao enviar email')
+      }
+
+      if (result.success) {
+        toast.success("Email de confirmação reenviado com sucesso!")
+      } else {
+        throw new Error(result.message || 'Erro ao enviar email')
+      }
+    } catch (error: any) {
+      console.error("Erro ao reenviar email:", error)
+      toast.error(error.message || "Erro ao reenviar email de confirmação")
+    } finally {
+      setResendingEmail(false)
+    }
+  }
+
   return (
     <div className="space-y-6 pb-8">
       {/* Header Principal */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => router.back()} className="shrink-0">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
-              {registration.atleta?.nome || "Inscrição"}
-            </h1>
-            <div className="flex items-center gap-3 mt-1.5">
-              <p className="text-sm text-gray-500 font-mono">
-                {registration.numeroInscricao}
-              </p>
-              <span className="text-gray-300">•</span>
-              <p className="text-sm text-gray-500">
-                {formatDate(registration.dataInscricao, true)}
-              </p>
-            </div>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+            {registration.atleta?.nome || "Inscrição"}
+          </h1>
+          <div className="flex items-center gap-3 mt-1.5">
+            <p className="text-sm text-gray-500 font-mono">
+              {registration.numeroInscricao}
+            </p>
+            <span className="text-gray-300">•</span>
+            <p className="text-sm text-gray-500">
+              {formatDate(registration.dataInscricao, true)}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -286,6 +345,18 @@ export default function RegistrationDetailsPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem 
+                onClick={handleResendConfirmationEmail}
+                disabled={resendingEmail || !registration?.atleta?.email}
+              >
+                {resendingEmail ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="mr-2 h-4 w-4" />
+                )}
+                Reenviar Confirmação
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setShowTransferDialog(true)}>
                 <Edit className="mr-2 h-4 w-4" />
                 Transferir Inscrição

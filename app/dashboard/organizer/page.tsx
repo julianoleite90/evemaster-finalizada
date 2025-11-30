@@ -11,8 +11,12 @@ import { toast } from "sonner"
 import { getOrganizerAccess } from "@/lib/supabase/organizer-access"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
+import { useUserPermissions } from "@/hooks/use-user-permissions"
+import { useRouter } from "next/navigation"
 
 export default function OrganizerDashboard() {
+  const { canViewDashboard, isPrimary, loading: permissionsLoading } = useUserPermissions()
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [selectedEventId, setSelectedEventId] = useState<string>("all")
   const [events, setEvents] = useState<any[]>([])
@@ -36,6 +40,19 @@ export default function OrganizerDashboard() {
   })
 
   useEffect(() => {
+    if (permissionsLoading) {
+      // Ainda carregando permissões, manter loading
+      return
+    }
+    
+    // Permissões carregadas, definir loading como false se não tiver acesso
+    if (!isPrimary && !canViewDashboard) {
+      toast.error("Você não tem permissão para visualizar o dashboard")
+      router.push("/dashboard/organizer/events")
+      setLoading(false)
+      return
+    }
+    
     const fetchData = async () => {
       try {
         setLoading(true)
@@ -55,6 +72,7 @@ export default function OrganizerDashboard() {
           console.error("❌ [DASHBOARD] Usuário não tem acesso ao dashboard do organizador")
           toast.error("Você não tem permissão para acessar este dashboard")
           setLoading(false)
+          router.push("/dashboard/organizer/events")
           return
         }
 
@@ -395,7 +413,7 @@ export default function OrganizerDashboard() {
     }
 
     fetchData()
-  }, [selectedEventId])
+  }, [selectedEventId, permissionsLoading, isPrimary, canViewDashboard])
 
   if (loading) {
     return (

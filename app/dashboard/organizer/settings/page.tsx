@@ -51,6 +51,24 @@ export default function OrganizerSettingsPage() {
     can_edit: false,
     can_create: false,
     can_delete: false,
+    can_view_dashboard: false,
+    can_view_events: false,
+    can_create_events: false,
+    can_edit_events: false,
+    can_delete_events: false,
+    can_view_registrations: false,
+    can_export_registrations: false,
+    can_edit_registrations: false,
+    can_cancel_registrations: false,
+    can_view_financial: false,
+    can_manage_financial: false,
+    can_view_settings: false,
+    can_edit_settings: false,
+    can_manage_users: false,
+    can_view_affiliates: false,
+    can_manage_affiliates: false,
+    can_view_reports: false,
+    can_export_reports: false,
   })
   const [newUserEmail, setNewUserEmail] = useState("")
   const [newUserName, setNewUserName] = useState("")
@@ -63,6 +81,24 @@ export default function OrganizerSettingsPage() {
     can_edit: false,
     can_create: false,
     can_delete: false,
+    can_view_dashboard: false,
+    can_view_events: false,
+    can_create_events: false,
+    can_edit_events: false,
+    can_delete_events: false,
+    can_view_registrations: false,
+    can_export_registrations: false,
+    can_edit_registrations: false,
+    can_cancel_registrations: false,
+    can_view_financial: false,
+    can_manage_financial: false,
+    can_view_settings: false,
+    can_edit_settings: false,
+    can_manage_users: false,
+    can_view_affiliates: false,
+    can_manage_affiliates: false,
+    can_view_reports: false,
+    can_export_reports: false,
   })
   const [addingUser, setAddingUser] = useState(false)
 
@@ -357,6 +393,24 @@ export default function OrganizerSettingsPage() {
           can_edit: newUserPermissions.can_edit,
           can_create: newUserPermissions.can_create,
           can_delete: newUserPermissions.can_delete,
+          can_view_dashboard: newUserPermissions.can_view_dashboard || false,
+          can_view_events: newUserPermissions.can_view_events || false,
+          can_create_events: newUserPermissions.can_create_events || false,
+          can_edit_events: newUserPermissions.can_edit_events || false,
+          can_delete_events: newUserPermissions.can_delete_events || false,
+          can_view_registrations: newUserPermissions.can_view_registrations || false,
+          can_export_registrations: newUserPermissions.can_export_registrations || false,
+          can_edit_registrations: newUserPermissions.can_edit_registrations || false,
+          can_cancel_registrations: newUserPermissions.can_cancel_registrations || false,
+          can_view_financial: newUserPermissions.can_view_financial || false,
+          can_manage_financial: newUserPermissions.can_manage_financial || false,
+          can_view_settings: newUserPermissions.can_view_settings || false,
+          can_edit_settings: newUserPermissions.can_edit_settings || false,
+          can_manage_users: newUserPermissions.can_manage_users || false,
+          can_view_affiliates: newUserPermissions.can_view_affiliates || false,
+          can_manage_affiliates: newUserPermissions.can_manage_affiliates || false,
+          can_view_reports: newUserPermissions.can_view_reports || false,
+          can_export_reports: newUserPermissions.can_export_reports || false,
           is_active: true,
         })
 
@@ -374,6 +428,24 @@ export default function OrganizerSettingsPage() {
         can_edit: false,
         can_create: false,
         can_delete: false,
+        can_view_dashboard: false,
+        can_view_events: false,
+        can_create_events: false,
+        can_edit_events: false,
+        can_delete_events: false,
+        can_view_registrations: false,
+        can_export_registrations: false,
+        can_edit_registrations: false,
+        can_cancel_registrations: false,
+        can_view_financial: false,
+        can_manage_financial: false,
+        can_view_settings: false,
+        can_edit_settings: false,
+        can_manage_users: false,
+        can_view_affiliates: false,
+        can_manage_affiliates: false,
+        can_view_reports: false,
+        can_export_reports: false,
       })
       // Aguardar um pouco antes de recarregar para garantir que o banco foi atualizado
       setTimeout(() => {
@@ -796,60 +868,283 @@ export default function OrganizerSettingsPage() {
                         )}
                       </div>
 
-                      <div className="space-y-3">
-                        <Label>Permissões</Label>
+                      <div className="space-y-4 border-t pt-4">
+                        <div>
+                          <Label className="text-base font-semibold">Permissões Detalhadas</Label>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Configure as permissões específicas para este usuário
+                          </p>
+                        </div>
+                        
+                        {/* Dashboard */}
                         <div className="space-y-2">
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="can_view"
-                              checked={newUserPermissions.can_view}
-                              onCheckedChange={(checked) =>
-                                setNewUserPermissions({ ...newUserPermissions, can_view: !!checked })
-                              }
-                            />
-                            <Label htmlFor="can_view" className="flex items-center gap-2 cursor-pointer">
-                              <Eye className="h-4 w-4" />
-                              Visualizar
-                            </Label>
+                          <Label className="text-sm font-medium text-gray-700">Dashboard</Label>
+                          <div className="space-y-2 pl-4">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_view_dashboard"
+                                checked={newUserPermissions.can_view_dashboard}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_view_dashboard: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_view_dashboard" className="cursor-pointer text-sm">
+                                Visualizar dashboard e estatísticas
+                              </Label>
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="can_edit"
-                              checked={newUserPermissions.can_edit}
-                              onCheckedChange={(checked) =>
-                                setNewUserPermissions({ ...newUserPermissions, can_edit: !!checked })
-                              }
-                            />
-                            <Label htmlFor="can_edit" className="flex items-center gap-2 cursor-pointer">
-                              <Edit className="h-4 w-4" />
-                              Editar
-                            </Label>
+                        </div>
+
+                        {/* Eventos */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-gray-700">Eventos</Label>
+                          <div className="space-y-2 pl-4">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_view_events"
+                                checked={newUserPermissions.can_view_events}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_view_events: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_view_events" className="cursor-pointer text-sm">
+                                Visualizar eventos
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_create_events"
+                                checked={newUserPermissions.can_create_events}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_create_events: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_create_events" className="cursor-pointer text-sm">
+                                Criar novos eventos
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_edit_events"
+                                checked={newUserPermissions.can_edit_events}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_edit_events: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_edit_events" className="cursor-pointer text-sm">
+                                Editar eventos existentes
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_delete_events"
+                                checked={newUserPermissions.can_delete_events}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_delete_events: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_delete_events" className="cursor-pointer text-sm">
+                                Deletar/cancelar eventos
+                              </Label>
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="can_create"
-                              checked={newUserPermissions.can_create}
-                              onCheckedChange={(checked) =>
-                                setNewUserPermissions({ ...newUserPermissions, can_create: !!checked })
-                              }
-                            />
-                            <Label htmlFor="can_create" className="flex items-center gap-2 cursor-pointer">
-                              <FilePlus className="h-4 w-4" />
-                              Criar
-                            </Label>
+                        </div>
+
+                        {/* Inscrições */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-gray-700">Inscrições</Label>
+                          <div className="space-y-2 pl-4">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_view_registrations"
+                                checked={newUserPermissions.can_view_registrations}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_view_registrations: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_view_registrations" className="cursor-pointer text-sm">
+                                Visualizar inscrições
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_export_registrations"
+                                checked={newUserPermissions.can_export_registrations}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_export_registrations: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_export_registrations" className="cursor-pointer text-sm">
+                                Exportar inscrições
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_edit_registrations"
+                                checked={newUserPermissions.can_edit_registrations}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_edit_registrations: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_edit_registrations" className="cursor-pointer text-sm">
+                                Editar dados de inscrições
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_cancel_registrations"
+                                checked={newUserPermissions.can_cancel_registrations}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_cancel_registrations: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_cancel_registrations" className="cursor-pointer text-sm">
+                                Cancelar inscrições
+                              </Label>
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="can_delete"
-                              checked={newUserPermissions.can_delete}
-                              onCheckedChange={(checked) =>
-                                setNewUserPermissions({ ...newUserPermissions, can_delete: !!checked })
-                              }
-                            />
-                            <Label htmlFor="can_delete" className="flex items-center gap-2 cursor-pointer">
-                              <Trash2 className="h-4 w-4" />
-                              Deletar
-                            </Label>
+                        </div>
+
+                        {/* Financeiro */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-gray-700">Financeiro</Label>
+                          <div className="space-y-2 pl-4">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_view_financial"
+                                checked={newUserPermissions.can_view_financial}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_view_financial: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_view_financial" className="cursor-pointer text-sm">
+                                Visualizar informações financeiras
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_manage_financial"
+                                checked={newUserPermissions.can_manage_financial}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_manage_financial: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_manage_financial" className="cursor-pointer text-sm">
+                                Gerenciar transações financeiras
+                              </Label>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Configurações */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-gray-700">Configurações</Label>
+                          <div className="space-y-2 pl-4">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_view_settings"
+                                checked={newUserPermissions.can_view_settings}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_view_settings: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_view_settings" className="cursor-pointer text-sm">
+                                Visualizar configurações
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_edit_settings"
+                                checked={newUserPermissions.can_edit_settings}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_edit_settings: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_edit_settings" className="cursor-pointer text-sm">
+                                Editar configurações
+                              </Label>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Usuários */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-gray-700">Usuários</Label>
+                          <div className="space-y-2 pl-4">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_manage_users"
+                                checked={newUserPermissions.can_manage_users}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_manage_users: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_manage_users" className="cursor-pointer text-sm">
+                                Gerenciar usuários da organização
+                              </Label>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Afiliados */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-gray-700">Afiliados</Label>
+                          <div className="space-y-2 pl-4">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_view_affiliates"
+                                checked={newUserPermissions.can_view_affiliates}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_view_affiliates: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_view_affiliates" className="cursor-pointer text-sm">
+                                Visualizar afiliados
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_manage_affiliates"
+                                checked={newUserPermissions.can_manage_affiliates}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_manage_affiliates: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_manage_affiliates" className="cursor-pointer text-sm">
+                                Criar e gerenciar afiliados
+                              </Label>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Relatórios */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-gray-700">Relatórios</Label>
+                          <div className="space-y-2 pl-4">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_view_reports"
+                                checked={newUserPermissions.can_view_reports}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_view_reports: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_view_reports" className="cursor-pointer text-sm">
+                                Visualizar relatórios
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="can_export_reports"
+                                checked={newUserPermissions.can_export_reports}
+                                onCheckedChange={(checked) =>
+                                  setNewUserPermissions({ ...newUserPermissions, can_export_reports: !!checked })
+                                }
+                              />
+                              <Label htmlFor="can_export_reports" className="cursor-pointer text-sm">
+                                Exportar relatórios
+                              </Label>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -939,6 +1234,24 @@ export default function OrganizerSettingsPage() {
                                   can_edit: orgUser.can_edit || false,
                                   can_create: orgUser.can_create || false,
                                   can_delete: orgUser.can_delete || false,
+                                  can_view_dashboard: orgUser.can_view_dashboard || false,
+                                  can_view_events: orgUser.can_view_events || false,
+                                  can_create_events: orgUser.can_create_events || false,
+                                  can_edit_events: orgUser.can_edit_events || false,
+                                  can_delete_events: orgUser.can_delete_events || false,
+                                  can_view_registrations: orgUser.can_view_registrations || false,
+                                  can_export_registrations: orgUser.can_export_registrations || false,
+                                  can_edit_registrations: orgUser.can_edit_registrations || false,
+                                  can_cancel_registrations: orgUser.can_cancel_registrations || false,
+                                  can_view_financial: orgUser.can_view_financial || false,
+                                  can_manage_financial: orgUser.can_manage_financial || false,
+                                  can_view_settings: orgUser.can_view_settings || false,
+                                  can_edit_settings: orgUser.can_edit_settings || false,
+                                  can_manage_users: orgUser.can_manage_users || false,
+                                  can_view_affiliates: orgUser.can_view_affiliates || false,
+                                  can_manage_affiliates: orgUser.can_manage_affiliates || false,
+                                  can_view_reports: orgUser.can_view_reports || false,
+                                  can_export_reports: orgUser.can_export_reports || false,
                                 })
                                 console.log("🔧 [EDIT USER] Estado atualizado:", {
                                   editingUser: orgUser,
@@ -1040,57 +1353,284 @@ export default function OrganizerSettingsPage() {
               Atualize as permissões do usuário {editingUser?.user?.full_name || editingUser?.user?.email || "N/A"}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label className="text-base font-semibold">Permissões</Label>
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="edit_can_view"
-                    checked={editUserPermissions.can_view}
-                    onCheckedChange={(checked) =>
-                      setEditUserPermissions({ ...editUserPermissions, can_view: !!checked })
-                    }
-                  />
-                  <Label htmlFor="edit_can_view" className="flex items-center gap-2 cursor-pointer font-normal">
-                    Visualizar
-                  </Label>
+          <div className="space-y-4 py-4 max-h-[600px] overflow-y-auto">
+            <div className="space-y-4">
+              <div>
+                <Label className="text-base font-semibold">Permissões Detalhadas</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Configure as permissões específicas para este usuário
+                </p>
+              </div>
+              
+              {/* Dashboard */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Dashboard</Label>
+                <div className="space-y-2 pl-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_view_dashboard"
+                      checked={editUserPermissions.can_view_dashboard}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_view_dashboard: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_view_dashboard" className="cursor-pointer text-sm font-normal">
+                      Visualizar dashboard e estatísticas
+                    </Label>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="edit_can_edit"
-                    checked={editUserPermissions.can_edit}
-                    onCheckedChange={(checked) =>
-                      setEditUserPermissions({ ...editUserPermissions, can_edit: !!checked })
-                    }
-                  />
-                  <Label htmlFor="edit_can_edit" className="flex items-center gap-2 cursor-pointer font-normal">
-                    Editar
-                  </Label>
+              </div>
+
+              {/* Eventos */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Eventos</Label>
+                <div className="space-y-2 pl-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_view_events"
+                      checked={editUserPermissions.can_view_events}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_view_events: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_view_events" className="cursor-pointer text-sm font-normal">
+                      Visualizar eventos
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_create_events"
+                      checked={editUserPermissions.can_create_events}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_create_events: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_create_events" className="cursor-pointer text-sm font-normal">
+                      Criar novos eventos
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_edit_events"
+                      checked={editUserPermissions.can_edit_events}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_edit_events: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_edit_events" className="cursor-pointer text-sm font-normal">
+                      Editar eventos existentes
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_delete_events"
+                      checked={editUserPermissions.can_delete_events}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_delete_events: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_delete_events" className="cursor-pointer text-sm font-normal">
+                      Deletar/cancelar eventos
+                    </Label>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="edit_can_create"
-                    checked={editUserPermissions.can_create}
-                    onCheckedChange={(checked) =>
-                      setEditUserPermissions({ ...editUserPermissions, can_create: !!checked })
-                    }
-                  />
-                  <Label htmlFor="edit_can_create" className="flex items-center gap-2 cursor-pointer font-normal">
-                    Criar
-                  </Label>
+              </div>
+
+              {/* Inscrições */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Inscrições</Label>
+                <div className="space-y-2 pl-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_view_registrations"
+                      checked={editUserPermissions.can_view_registrations}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_view_registrations: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_view_registrations" className="cursor-pointer text-sm font-normal">
+                      Visualizar inscrições
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_export_registrations"
+                      checked={editUserPermissions.can_export_registrations}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_export_registrations: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_export_registrations" className="cursor-pointer text-sm font-normal">
+                      Exportar inscrições
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_edit_registrations"
+                      checked={editUserPermissions.can_edit_registrations}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_edit_registrations: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_edit_registrations" className="cursor-pointer text-sm font-normal">
+                      Editar dados de inscrições
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_cancel_registrations"
+                      checked={editUserPermissions.can_cancel_registrations}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_cancel_registrations: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_cancel_registrations" className="cursor-pointer text-sm font-normal">
+                      Cancelar inscrições
+                    </Label>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="edit_can_delete"
-                    checked={editUserPermissions.can_delete}
-                    onCheckedChange={(checked) =>
-                      setEditUserPermissions({ ...editUserPermissions, can_delete: !!checked })
-                    }
-                  />
-                  <Label htmlFor="edit_can_delete" className="flex items-center gap-2 cursor-pointer font-normal">
-                    Deletar
-                  </Label>
+              </div>
+
+              {/* Financeiro */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Financeiro</Label>
+                <div className="space-y-2 pl-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_view_financial"
+                      checked={editUserPermissions.can_view_financial}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_view_financial: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_view_financial" className="cursor-pointer text-sm font-normal">
+                      Visualizar informações financeiras
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_manage_financial"
+                      checked={editUserPermissions.can_manage_financial}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_manage_financial: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_manage_financial" className="cursor-pointer text-sm font-normal">
+                      Gerenciar transações financeiras
+                    </Label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Configurações */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Configurações</Label>
+                <div className="space-y-2 pl-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_view_settings"
+                      checked={editUserPermissions.can_view_settings}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_view_settings: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_view_settings" className="cursor-pointer text-sm font-normal">
+                      Visualizar configurações
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_edit_settings"
+                      checked={editUserPermissions.can_edit_settings}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_edit_settings: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_edit_settings" className="cursor-pointer text-sm font-normal">
+                      Editar configurações
+                    </Label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Usuários */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Usuários</Label>
+                <div className="space-y-2 pl-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_manage_users"
+                      checked={editUserPermissions.can_manage_users}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_manage_users: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_manage_users" className="cursor-pointer text-sm font-normal">
+                      Gerenciar usuários da organização
+                    </Label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Afiliados */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Afiliados</Label>
+                <div className="space-y-2 pl-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_view_affiliates"
+                      checked={editUserPermissions.can_view_affiliates}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_view_affiliates: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_view_affiliates" className="cursor-pointer text-sm font-normal">
+                      Visualizar afiliados
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_manage_affiliates"
+                      checked={editUserPermissions.can_manage_affiliates}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_manage_affiliates: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_manage_affiliates" className="cursor-pointer text-sm font-normal">
+                      Criar e gerenciar afiliados
+                    </Label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Relatórios */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Relatórios</Label>
+                <div className="space-y-2 pl-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_view_reports"
+                      checked={editUserPermissions.can_view_reports}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_view_reports: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_view_reports" className="cursor-pointer text-sm font-normal">
+                      Visualizar relatórios
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_can_export_reports"
+                      checked={editUserPermissions.can_export_reports}
+                      onCheckedChange={(checked) =>
+                        setEditUserPermissions({ ...editUserPermissions, can_export_reports: !!checked })
+                      }
+                    />
+                    <Label htmlFor="edit_can_export_reports" className="cursor-pointer text-sm font-normal">
+                      Exportar relatórios
+                    </Label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1100,7 +1640,7 @@ export default function OrganizerSettingsPage() {
               Cancelar
             </Button>
             <Button
-              onClick={async () => {
+                  onClick={async () => {
                 if (!editingUser || !organizerId) return
 
                 try {
@@ -1112,6 +1652,24 @@ export default function OrganizerSettingsPage() {
                       can_edit: editUserPermissions.can_edit,
                       can_create: editUserPermissions.can_create,
                       can_delete: editUserPermissions.can_delete,
+                      can_view_dashboard: editUserPermissions.can_view_dashboard || false,
+                      can_view_events: editUserPermissions.can_view_events || false,
+                      can_create_events: editUserPermissions.can_create_events || false,
+                      can_edit_events: editUserPermissions.can_edit_events || false,
+                      can_delete_events: editUserPermissions.can_delete_events || false,
+                      can_view_registrations: editUserPermissions.can_view_registrations || false,
+                      can_export_registrations: editUserPermissions.can_export_registrations || false,
+                      can_edit_registrations: editUserPermissions.can_edit_registrations || false,
+                      can_cancel_registrations: editUserPermissions.can_cancel_registrations || false,
+                      can_view_financial: editUserPermissions.can_view_financial || false,
+                      can_manage_financial: editUserPermissions.can_manage_financial || false,
+                      can_view_settings: editUserPermissions.can_view_settings || false,
+                      can_edit_settings: editUserPermissions.can_edit_settings || false,
+                      can_manage_users: editUserPermissions.can_manage_users || false,
+                      can_view_affiliates: editUserPermissions.can_view_affiliates || false,
+                      can_manage_affiliates: editUserPermissions.can_manage_affiliates || false,
+                      can_view_reports: editUserPermissions.can_view_reports || false,
+                      can_export_reports: editUserPermissions.can_export_reports || false,
                     })
                     .eq("id", editingUser.id)
 

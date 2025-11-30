@@ -209,9 +209,6 @@ export async function getEventById(eventId: string) {
 export async function getEventBySlug(slug: string) {
   const supabase = await getSupabaseClient()
   
-  console.log("🔍 getEventBySlug chamado com:", slug)
-  console.log("🔧 Versão atualizada dos logs")
-  
   // Verificar se é um UUID primeiro
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   
@@ -219,7 +216,6 @@ export async function getEventBySlug(slug: string) {
   let error: PostgrestError | null = null
   
   if (uuidRegex.test(slug)) {
-    console.log("📋 Detectado UUID, buscando por ID...")
     // É um UUID, buscar por ID
     const { data: eventById, error: idError } = await supabase
       .from("events")
@@ -229,7 +225,15 @@ export async function getEventBySlug(slug: string) {
           *,
           tickets (*)
         ),
-        event_settings (*),
+        event_settings (
+          *,
+          analytics_google_analytics_id,
+          analytics_google_analytics_enabled,
+          analytics_gtm_container_id,
+          analytics_gtm_enabled,
+          analytics_facebook_pixel_id,
+          analytics_facebook_pixel_enabled
+        ),
         organizer:organizers(id, company_name, full_name, company_cnpj, company_phone, user_id)
       `)
       .eq("id", slug)
@@ -237,28 +241,15 @@ export async function getEventBySlug(slug: string) {
     
     event = eventById
     error = idError
-    console.log("📊 Resultado busca por ID:", { event: !!event, error })
   } else {
-    console.log("🏷️ Buscando por slug...")
     // Buscar por slug - corrigido para múltiplos resultados
-    console.log("🔍 Buscando eventos com slug (pode haver duplicatas)...")
-    console.log("🔐 Verificando se há problema de RLS (Row Level Security)...")
-    
     // Primeiro, tentar busca simples sem joins para testar RLS
     const { data: simpleEvents, error: simpleError } = await supabase
       .from("events")
       .select("id, name, slug, organizer_id, status")
       .eq("slug", slug)
     
-    console.log("🔍 Busca simples - Encontrados:", simpleEvents?.length || 0)
-    console.log("🔍 Busca simples - Eventos:", simpleEvents)
-    console.log("🔍 Busca simples - Erro:", simpleError?.message || "Nenhum erro")
-    if (simpleError) {
-      console.log("🔍 Detalhes do erro:", simpleError)
-    }
-    
     // Se encontrou na busca simples, fazer busca completa (sem joins problemáticos)
-    console.log("✅ Evento encontrado na busca simples, fazendo busca completa...")
     const { data: eventsBySlug, error: slugError } = await supabase
       .from("events")
       .select(`
@@ -267,37 +258,25 @@ export async function getEventBySlug(slug: string) {
           *,
           tickets (*)
         ),
-        event_settings (*)
+        event_settings (
+          *,
+          analytics_google_analytics_id,
+          analytics_google_analytics_enabled,
+          analytics_gtm_container_id,
+          analytics_gtm_enabled,
+          analytics_facebook_pixel_id,
+          analytics_facebook_pixel_enabled
+        )
       `)
       .eq("slug", slug)
       .order("created_at", { ascending: false }) // Pegar o mais recente
     
-    console.log("📊 Busca completa - Encontrados:", eventsBySlug?.length || 0)
-    if (slugError) {
-      console.log("📊 Erro na busca completa:", slugError.message)
-    }
-    
-    console.log(`📊 Encontrados ${eventsBySlug?.length || 0} eventos com slug "${slug}"`)
-    
-    if (eventsBySlug && eventsBySlug.length > 0) {
-      console.log("📋 Eventos encontrados:", eventsBySlug.map(e => ({
-        id: e.id,
-        name: e.name,
-        slug: e.slug,
-        organizer_id: e.organizer_id
-      })))
-    }
-    
     if (eventsBySlug && eventsBySlug.length > 0) {
       event = eventsBySlug[0] // Pegar o primeiro (mais recente)
       error = null
-      if (eventsBySlug.length > 1) {
-        console.log(`⚠️ ATENÇÃO: ${eventsBySlug.length} eventos com mesmo slug! Usando o mais recente.`)
-      }
       
       // Buscar organizador separadamente usando função padronizada
       if (event.organizer_id) {
-        console.log("🔍 Buscando organizador separadamente...")
         
         // Usar a view padronizada para buscar todos os dados
         const { data: organizerData, error: organizerError } = await supabase
@@ -323,17 +302,6 @@ export async function getEventBySlug(slug: string) {
           }
         }
         
-        console.log("📋 [DEBUG ORGANIZADOR] Resultado da busca (view padronizada):", {
-          organizer_id: event.organizer_id,
-          organizer_found: !!organizer,
-          company_name: organizer?.company_name,
-          company_cnpj: organizer?.company_cnpj,
-          company_phone: organizer?.company_phone,
-          email: organizer?.email,
-          events_last_year: organizer?.events_last_year,
-          error: organizerError?.message
-        })
-        
         if (organizer) {
           // Garantir que todos os campos estejam presentes
           event.organizer = {
@@ -342,17 +310,7 @@ export async function getEventBySlug(slug: string) {
             company_phone: organizer.company_phone || null,
             events_last_year: (organizer as any).events_last_year ?? 0
           }
-          console.log("✅ Organizador encontrado:", event.organizer.company_name)
-          console.log("📋 Dados FINAIS do organizador antes de retornar:", {
-            company_name: event.organizer.company_name,
-            company_cnpj: event.organizer.company_cnpj,
-            company_phone: event.organizer.company_phone,
-            email: (event.organizer as any).email,
-            company_email: (event.organizer as any).company_email,
-            events_last_year: (event.organizer as any).events_last_year
-          })
         } else {
-          console.log("⚠️ Organizador não encontrado para organizer_id:", event.organizer_id)
           // Vamos verificar se existe algum organizador na tabela
           const { data: allOrganizers, error: orgError } = await supabase
             .from("organizers")
@@ -439,41 +397,15 @@ export async function getEventBySlug(slug: string) {
   }
 
   if (!event) {
-    console.log("❌ Nenhum evento encontrado")
     return null
   }
 
-  console.log("✅ Evento encontrado:", event.name)
-  console.log("📊 Dados do evento:")
-  console.log("- ID:", event.id)
-  console.log("- Nome:", event.name)
-  console.log("- Organizador ID:", event.organizer_id)
-  console.log("- Ticket Batches:", event.ticket_batches?.length || 0)
   if (event.ticket_batches && event.ticket_batches.length > 0) {
-    event.ticket_batches.forEach((batch: TicketBatch, index: number) => {
-      console.log(`- Lote ${index + 1}:`, {
-        id: batch.id,
-        name: batch.name,
-        total_quantity: batch.total_quantity,
-        is_active: batch.is_active,
-        start_date: batch.start_date,
-        end_date: batch.end_date,
-        tickets: batch.tickets?.length || 0
-      })
-      
-      if (batch.tickets && batch.tickets.length > 0) {
-        console.log(`  - Ingressos do lote ${batch.name}:`)
-        batch.tickets.forEach((ticket: Ticket, ticketIndex: number) => {
-          console.log(`    ${ticketIndex + 1}. ${ticket.name} - R$ ${ticket.price} (${ticket.category})`)
-        })
-      } else {
-        console.log(`  ⚠️ Lote ${batch.name} não tem ingressos!`)
-        // Vamos verificar se há tickets diretamente na tabela
-        console.log(`  🔍 Verificando tickets diretamente na tabela para batch_id: ${batch.id}`)
+    event.ticket_batches.forEach((batch: TicketBatch) => {
+      if (!batch.tickets || batch.tickets.length === 0) {
+        // Verificar se há tickets diretamente na tabela se necessário
       }
     })
-  } else {
-    console.log("⚠️ Nenhum lote de ingresso encontrado!")
   }
   return event
 }
@@ -524,7 +456,6 @@ export async function getOrganizerEvents(organizerId: string) {
         
         // Atualizar o objeto local
         event.slug = finalSlug
-        console.log(`✅ Slug gerado: ${finalSlug}`)
       }
     }
   }

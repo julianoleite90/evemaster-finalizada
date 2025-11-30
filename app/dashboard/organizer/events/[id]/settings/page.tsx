@@ -47,6 +47,8 @@ import {
   TrendingUp,
   Users,
   DollarSign,
+  Pencil,
+  Shirt,
 } from "lucide-react"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -57,6 +59,7 @@ import { PermissionGuard } from "@/components/dashboard/permission-guard"
 import { uploadEventBanner, uploadTicketGPX, uploadEventImage } from "@/lib/supabase/storage"
 import dynamic from "next/dynamic"
 import Image from "next/image"
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from "recharts"
 
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false })
 import "react-quill/dist/quill.snow.css"
@@ -108,14 +111,23 @@ export default function EventSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [newBanner, setNewBanner] = useState<File | null>(null)
   const [expandedBatches, setExpandedBatches] = useState<{ [key: string]: boolean }>({})
-  const [mainMenu, setMainMenu] = useState<"edicao" | "configuracao" | "relatorios">("edicao")
-  const [subMenu, setSubMenu] = useState<string>("basico")
+  const [mainMenu, setMainMenu] = useState<"edicao" | "configuracao" | "relatorios">("relatorios")
+  const [subMenu, setSubMenu] = useState<string>("inscricoes")
   const [eventImages, setEventImages] = useState<Array<{ id: string; image_url: string; image_order: number }>>([])
   const [newImages, setNewImages] = useState<File[]>([])
   const [uploadingImages, setUploadingImages] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState("")
   const [deleting, setDeleting] = useState(false)
+  const [editingBlocks, setEditingBlocks] = useState<{ [key: string]: boolean }>({
+    basic: false,
+    location: false,
+    description: false,
+    banner: false,
+    gallery: false,
+    batches: false,
+    maps: false
+  })
 
   // Dados básicos do evento
   const [eventData, setEventData] = useState({
@@ -184,6 +196,26 @@ export default function EventSettingsPage() {
     viewsLast30Days: 0,
     conversions: 0,
     conversionRate: 0
+  })
+
+  // Dados para relatórios
+  const [reportData, setReportData] = useState({
+    registrationsOverTime: [] as Array<{ date: string; count: number }>,
+    revenueOverTime: [] as Array<{ date: string; amount: number }>,
+    ticketsByCategory: [] as Array<{ name: string; value: number; percent: number }>,
+    topCoupons: [] as Array<{ code: string; uses: number; discount: number; revenue: number }>,
+    financialMetrics: {
+      totalRevenue: 0,
+      totalDiscounts: 0,
+      netRevenue: 0,
+      averageTicket: 0,
+      estimatedRevenue: 0
+    },
+    affiliatePerformance: [] as Array<{ name: string; sales: number; commission: number; revenue: number }>,
+    byGender: [] as Array<{ name: string; value: number; percent: number }>,
+    byAge: [] as Array<{ name: string; value: number; percent: number }>,
+    byShirtSize: [] as Array<{ name: string; value: number; percent: number }>,
+    loading: false
   })
 
   // Buscar estatísticas de visualizações
@@ -412,7 +444,21 @@ export default function EventSettingsPage() {
           setEventImages(images || [])
 
           // Carregar configurações do evento (incluindo pixels)
-          if (event.event_settings) {
+          // Sempre buscar separadamente para garantir que temos os dados mais recentes
+          const { data: settingsData } = await supabase
+            .from("event_settings")
+            .select("*")
+            .eq("event_id", eventId)
+            .maybeSingle()
+          
+          if (settingsData) {
+            setPixels({
+              google_analytics_id: settingsData.analytics_google_analytics_id || "",
+              google_tag_manager_id: settingsData.analytics_gtm_container_id || "",
+              facebook_pixel_id: settingsData.analytics_facebook_pixel_id || "",
+            })
+          } else if (event.event_settings && event.event_settings.length > 0) {
+            // Fallback para event_settings do join
             const settings = event.event_settings[0] || {}
             setPixels({
               google_analytics_id: settings.analytics_google_analytics_id || "",
@@ -420,20 +466,11 @@ export default function EventSettingsPage() {
               facebook_pixel_id: settings.analytics_facebook_pixel_id || "",
             })
           } else {
-            // Se não tem settings, buscar separadamente
-            const { data: settingsData } = await supabase
-              .from("event_settings")
-              .select("*")
-              .eq("event_id", eventId)
-              .maybeSingle()
-            
-            if (settingsData) {
-              setPixels({
-                google_analytics_id: settingsData.analytics_google_analytics_id || "",
-                google_tag_manager_id: settingsData.analytics_gtm_container_id || "",
-                facebook_pixel_id: settingsData.analytics_facebook_pixel_id || "",
-              })
-            }
+            setPixels({
+              google_analytics_id: "",
+              google_tag_manager_id: "",
+              facebook_pixel_id: "",
+            })
           }
         }
       } catch (error) {
@@ -465,10 +502,402 @@ export default function EventSettingsPage() {
     }
   }, [subMenu, eventId])
 
+  // Buscar dados de relatórios
+  const fetchReportData = async () => {
+    if (!eventId) {
+      console.log("⚠️ [REPORTS] eventId não encontrado")
+      return
+    }
+    
+    console.log("🔍 [REPORTS] Iniciando busca de dados para eventId:", eventId)
+    setReportData(prev => ({ ...prev, loading: true }))
+    try {
+      const supabase = createClient()
+      
+      // Buscar inscrições
+      const { data: registrations, error: regError } = await supabase
+        .from("registrations")
+        .select(`
+          id,
+          created_at,
+          ticket_id,
+          shirt_size
+        `)
+        .eq("event_id", eventId)
+        .order("created_at", { ascending: true })
+
+      if (regError) {
+        console.error("❌ [REPORTS] Erro ao buscar inscrições:", regError)
+        setReportData(prev => ({ ...prev, loading: false }))
+        return
+      }
+
+      console.log("✅ [REPORTS] Inscrições encontradas:", registrations?.length || 0)
+
+      if (!registrations || registrations.length === 0) {
+        console.log("⚠️ [REPORTS] Nenhuma inscrição encontrada")
+        setReportData(prev => ({ ...prev, loading: false }))
+        return
+      }
+
+      console.log("📊 [REPORTS] Total de inscrições encontradas:", registrations.length)
+
+      // Buscar dados relacionados separadamente
+      const registrationIds = registrations.map(r => r.id)
+      const ticketIds = registrations.map(r => r.ticket_id).filter(Boolean)
+
+      console.log("📊 [REPORTS] IDs de tickets:", ticketIds.length)
+
+      const [ticketsData, paymentsData, athletesDataResult] = await Promise.all([
+        ticketIds.length > 0 ? supabase
+          .from("tickets")
+          .select("id, category, price")
+          .in("id", ticketIds) : { data: [], error: null },
+        registrationIds.length > 0 ? supabase
+          .from("payments")
+          .select("registration_id, total_amount, discount_amount, payment_status, coupon_code, affiliate_id")
+          .in("registration_id", registrationIds) : { data: [], error: null },
+        registrationIds.length > 0 ? supabase
+          .from("athletes")
+          .select("registration_id, gender, birth_date, age")
+          .in("registration_id", registrationIds) : { data: [], error: null }
+      ])
+
+      const athletesData = athletesDataResult.error ? { data: [], error: athletesDataResult.error } : athletesDataResult
+
+      if (athletesDataResult.error) {
+        console.error("❌ [REPORTS] Erro ao buscar atletas:", athletesDataResult.error)
+      }
+
+      // Buscar afiliados únicos dos pagamentos
+      const uniqueAffiliateIds = [...new Set((paymentsData.data || [])
+        .map(p => p.affiliate_id)
+        .filter(Boolean))]
+      
+      const { data: affiliatesData } = uniqueAffiliateIds.length > 0 ? await supabase
+        .from("affiliates")
+        .select("id, name")
+        .in("id", uniqueAffiliateIds) : { data: null }
+
+      // Criar mapas para lookup rápido
+      const ticketsMap = new Map((ticketsData.data || []).map(t => [t.id, t]))
+      const paymentsMap = new Map((paymentsData.data || []).map(p => [p.registration_id, p]))
+      const affiliatesMap = new Map((affiliatesData || []).map(a => [a.id, a]))
+      const athletesMap = new Map((athletesData.data || []).map(a => [a.registration_id, a]))
+
+      console.log("📊 [REPORTS] Tickets encontrados:", ticketsMap.size)
+      console.log("📊 [REPORTS] Pagamentos encontrados:", paymentsMap.size)
+      console.log("📊 [REPORTS] Atletas encontrados:", athletesMap.size)
+      console.log("📊 [REPORTS] Amostra de atletas:", Array.from(athletesData.data || []).slice(0, 3))
+      console.log("📊 [REPORTS] Amostra de registrations com shirt_size:", registrations.filter((r: any) => r.shirt_size).slice(0, 3))
+
+      const registrationsByDate = new Map<string, number>()
+      const revenueByDate = new Map<string, number>()
+      const categoryMap = new Map<string, number>()
+      const couponMap = new Map<string, { uses: number; discount: number; revenue: number }>()
+      const affiliateMap = new Map<string, { name: string; sales: number; commission: number; revenue: number }>()
+      const genderMap = new Map<string, number>()
+      const ageMap = new Map<string, number>()
+      const shirtSizeMap = new Map<string, number>()
+      let totalRevenue = 0
+      let totalDiscounts = 0
+      let paidCount = 0
+
+      registrations.forEach((reg: any) => {
+        // Usar timezone local para calcular a data corretamente
+        const regDate = new Date(reg.created_at)
+        const year = regDate.getFullYear()
+        const month = String(regDate.getMonth() + 1).padStart(2, '0')
+        const day = String(regDate.getDate()).padStart(2, '0')
+        const date = `${year}-${month}-${day}`
+        registrationsByDate.set(date, (registrationsByDate.get(date) || 0) + 1)
+
+        // Buscar ticket
+        const ticket = reg.ticket_id ? ticketsMap.get(reg.ticket_id) : null
+        if (ticket?.category) {
+          categoryMap.set(ticket.category, (categoryMap.get(ticket.category) || 0) + 1)
+        } else if (reg.ticket_id && !ticket) {
+          console.log("⚠️ [REPORTS] Ticket não encontrado para ticket_id:", reg.ticket_id)
+        } else if (reg.ticket_id && ticket && !ticket.category) {
+          // Se o ticket existe mas não tem categoria, usar "Sem categoria"
+          categoryMap.set("Sem categoria", (categoryMap.get("Sem categoria") || 0) + 1)
+        } else if (!reg.ticket_id) {
+          // Se não tem ticket_id, usar "Sem ingresso"
+          categoryMap.set("Sem ingresso", (categoryMap.get("Sem ingresso") || 0) + 1)
+        }
+
+        // Buscar pagamento
+        const payment = paymentsMap.get(reg.id)
+        
+        // Processar cupom do pagamento (se existir)
+        if (payment?.coupon_code) {
+          const existing = couponMap.get(payment.coupon_code) || { uses: 0, discount: 0, revenue: 0 }
+          existing.uses++
+          couponMap.set(payment.coupon_code, existing)
+        }
+        
+        if (payment && payment.payment_status === 'paid') {
+          paidCount++
+          const amount = parseFloat(payment.total_amount) || 0
+          const discount = parseFloat(payment.discount_amount) || 0
+          totalRevenue += amount
+          totalDiscounts += discount
+          
+          revenueByDate.set(date, (revenueByDate.get(date) || 0) + amount)
+          
+          if (payment.coupon_code) {
+            const coupon = couponMap.get(payment.coupon_code)!
+            coupon.discount += discount
+            coupon.revenue += amount
+          }
+        }
+
+        // Buscar afiliado do pagamento (já temos payment declarado acima)
+        if (payment?.affiliate_id) {
+          const affiliate = affiliatesMap.get(payment.affiliate_id)
+          if (affiliate) {
+            const existing = affiliateMap.get(payment.affiliate_id) || {
+              name: affiliate.name || 'Sem nome',
+              sales: 0,
+              commission: 0,
+              revenue: 0
+            }
+            existing.sales++
+            if (payment.payment_status === 'paid') {
+              const amount = parseFloat(payment.total_amount) || 0
+              existing.revenue += amount
+              existing.commission += amount * 0.1
+            }
+            affiliateMap.set(payment.affiliate_id, existing)
+          }
+        }
+
+        // Processar dados do atleta (gênero, idade, tamanho de camiseta)
+        const athlete = athletesMap.get(reg.id)
+        
+        // Gênero - buscar do atleta
+        if (athlete?.gender) {
+          let genderLabel = ''
+          const genderValue = athlete.gender.toString().trim()
+          
+          if (genderValue === 'M' || genderValue === 'Masculino' || genderValue.toLowerCase() === 'masculino') {
+            genderLabel = 'Masculino'
+          } else if (genderValue === 'F' || genderValue === 'Feminino' || genderValue.toLowerCase() === 'feminino') {
+            genderLabel = 'Feminino'
+          } else if (genderValue === 'Outro' || genderValue.toLowerCase() === 'outro') {
+            genderLabel = 'Outro'
+          } else {
+            genderLabel = genderValue
+          }
+          
+          genderMap.set(genderLabel, (genderMap.get(genderLabel) || 0) + 1)
+        }
+
+        // Idade - buscar do atleta
+        if (athlete) {
+          let age: number | null = null
+          if (athlete.age && athlete.age > 0 && athlete.age <= 120) {
+            age = athlete.age
+          } else if (athlete.birth_date) {
+            try {
+              const birthDate = new Date(athlete.birth_date)
+              if (!isNaN(birthDate.getTime())) {
+                const today = new Date()
+                age = today.getFullYear() - birthDate.getFullYear()
+                const monthDiff = today.getMonth() - birthDate.getMonth()
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                  age--
+                }
+              }
+            } catch (error) {
+              console.error('Erro ao calcular idade:', error)
+            }
+          }
+
+          if (age !== null && age >= 0 && age <= 120) {
+            let faixaEtaria = ''
+            if (age < 18) faixaEtaria = 'Menor de 18'
+            else if (age < 25) faixaEtaria = '18-24'
+            else if (age < 35) faixaEtaria = '25-34'
+            else if (age < 45) faixaEtaria = '35-44'
+            else if (age < 55) faixaEtaria = '45-54'
+            else if (age < 65) faixaEtaria = '55-64'
+            else faixaEtaria = '65+'
+            
+            ageMap.set(faixaEtaria, (ageMap.get(faixaEtaria) || 0) + 1)
+          }
+        }
+
+        // Tamanho de camiseta - buscar de registrations
+        const shirtSize = (reg as any).shirt_size
+        if (shirtSize) {
+          const shirtSizeStr = shirtSize.toString().trim().toUpperCase()
+          if (shirtSizeStr) {
+            shirtSizeMap.set(shirtSizeStr, (shirtSizeMap.get(shirtSizeStr) || 0) + 1)
+          }
+        }
+      })
+
+      // Formatar datas para "dia mês ano"
+      const formatDate = (dateStr: string) => {
+        const date = new Date(dateStr + 'T00:00:00') // Adicionar hora para evitar problemas de timezone
+        const day = date.getDate()
+        const months = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+        const month = months[date.getMonth()]
+        const year = date.getFullYear()
+        return `${day} ${month} ${year}`
+      }
+
+      const registrationsOverTime = Array.from(registrationsByDate.entries())
+        .map(([date, count]) => ({ date: formatDate(date), count, originalDate: date }))
+        .sort((a, b) => a.originalDate.localeCompare(b.originalDate))
+
+      const revenueOverTime = Array.from(revenueByDate.entries())
+        .map(([date, amount]) => ({ date: formatDate(date), amount, originalDate: date }))
+        .sort((a, b) => a.originalDate.localeCompare(b.originalDate))
+
+      const totalWithCategory = Array.from(categoryMap.values()).reduce((a, b) => a + b, 0)
+      const ticketsByCategory = Array.from(categoryMap.entries())
+        .map(([name, value]) => ({
+          name,
+          value,
+          percent: totalWithCategory > 0 ? (value / totalWithCategory) * 100 : 0
+        }))
+        .sort((a, b) => b.value - a.value)
+
+      console.log("📊 [REPORTS] Registrations over time:", registrationsOverTime.length, registrationsOverTime)
+      console.log("📊 [REPORTS] Categories found:", categoryMap.size, Array.from(categoryMap.entries()))
+      console.log("📊 [REPORTS] Tickets by category:", ticketsByCategory)
+
+      const topCoupons = Array.from(couponMap.entries())
+        .map(([code, data]) => ({
+          code,
+          uses: data.uses,
+          discount: data.discount,
+          revenue: data.revenue
+        }))
+        .sort((a, b) => b.uses - a.uses)
+        .slice(0, 10)
+
+      const affiliatePerformance = Array.from(affiliateMap.values())
+        .sort((a, b) => b.sales - a.sales)
+
+      // Processar dados de gênero
+      const totalWithGender = Array.from(genderMap.values()).reduce((a, b) => a + b, 0)
+      const byGender = Array.from(genderMap.entries())
+        .map(([name, value]) => ({
+          name,
+          value,
+          percent: totalWithGender > 0 ? (value / totalWithGender) * 100 : 0
+        }))
+        .sort((a, b) => b.value - a.value)
+
+      console.log("📊 [REPORTS] Dados de gênero:", {
+        total: totalWithGender,
+        map: Array.from(genderMap.entries()),
+        processed: byGender
+      })
+
+      // Processar dados de idade
+      const totalWithAge = Array.from(ageMap.values()).reduce((a, b) => a + b, 0)
+      const byAge = Array.from(ageMap.entries())
+        .map(([name, value]) => ({
+          name,
+          value,
+          percent: totalWithAge > 0 ? (value / totalWithAge) * 100 : 0
+        }))
+        .sort((a, b) => {
+          // Ordenar por ordem de faixa etária
+          const order = ['Menor de 18', '18-24', '25-34', '35-44', '45-54', '55-64', '65+']
+          const indexA = order.indexOf(a.name)
+          const indexB = order.indexOf(b.name)
+          if (indexA === -1) return 1
+          if (indexB === -1) return -1
+          return indexA - indexB
+        })
+
+      console.log("📊 [REPORTS] Dados de idade:", {
+        total: totalWithAge,
+        map: Array.from(ageMap.entries()),
+        processed: byAge
+      })
+
+      // Processar dados de tamanho de camiseta
+      const totalWithShirtSize = Array.from(shirtSizeMap.values()).reduce((a, b) => a + b, 0)
+      const byShirtSize = Array.from(shirtSizeMap.entries())
+        .map(([name, value]) => ({
+          name,
+          value,
+          percent: totalWithShirtSize > 0 ? (value / totalWithShirtSize) * 100 : 0
+        }))
+        .sort((a, b) => {
+          // Ordenar por ordem de tamanho
+          const order = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'XXG']
+          const indexA = order.indexOf(a.name)
+          const indexB = order.indexOf(b.name)
+          if (indexA === -1) return 1
+          if (indexB === -1) return -1
+          return indexA - indexB
+        })
+
+      console.log("📊 [REPORTS] Dados de tamanho de camiseta:", {
+        total: totalWithShirtSize,
+        map: Array.from(shirtSizeMap.entries()),
+        processed: byShirtSize
+      })
+
+      const last7Days = revenueOverTime.slice(-7)
+      const avgDailyRevenue = last7Days.length > 0
+        ? last7Days.reduce((sum, day) => sum + day.amount, 0) / last7Days.length
+        : 0
+      
+      const daysUntilEvent = eventData.event_date 
+        ? Math.max(0, Math.ceil((new Date(eventData.event_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
+        : 0
+      const estimatedRevenue = avgDailyRevenue * Math.min(daysUntilEvent, 30)
+
+      console.log("📊 [REPORTS] Final data before setting:", {
+        registrationsOverTime: registrationsOverTime.length,
+        ticketsByCategory: ticketsByCategory.length,
+        topCoupons: topCoupons.length
+      })
+
+      const finalData = {
+        registrationsOverTime,
+        revenueOverTime,
+        ticketsByCategory,
+        topCoupons,
+        financialMetrics: {
+          totalRevenue,
+          totalDiscounts,
+          netRevenue: totalRevenue - totalDiscounts,
+          averageTicket: paidCount > 0 ? totalRevenue / paidCount : 0,
+          estimatedRevenue
+        },
+        affiliatePerformance,
+        byGender,
+        byAge,
+        byShirtSize,
+        loading: false
+      }
+
+      setReportData(finalData)
+    } catch (error) {
+      console.error("❌ [REPORTS] Erro ao buscar dados de relatórios:", error)
+      console.error("❌ [REPORTS] Detalhes do erro:", JSON.stringify(error, null, 2))
+      setReportData(prev => ({ ...prev, loading: false }))
+    }
+  }
+
   // Buscar estatísticas quando entrar na seção de relatórios
   useEffect(() => {
+    console.log("🔍 [REPORTS] useEffect disparado - mainMenu:", mainMenu, "eventId:", eventId)
     if (mainMenu === "relatorios" && eventId) {
+      console.log("✅ [REPORTS] Chamando fetchViewStats e fetchReportData")
       fetchViewStats()
+      fetchReportData()
+    } else {
+      console.log("⚠️ [REPORTS] Condições não atendidas - mainMenu:", mainMenu, "eventId:", eventId)
     }
   }, [mainMenu, eventId])
 
@@ -486,34 +915,19 @@ export default function EventSettingsPage() {
       return
     }
     try {
-      console.log("🔵 [DEBUG] Iniciando salvamento do evento...")
-      console.log("🔵 [DEBUG] Event ID:", eventId)
       setSaving(true)
       const supabase = createClient()
 
       // Se tem novo banner, fazer upload
       let bannerUrl = eventData.banner_url
       if (newBanner) {
-        console.log("🔵 [DEBUG] Novo banner detectado, fazendo upload...")
         try {
           bannerUrl = await uploadEventBanner(newBanner, eventId)
-          console.log("🔵 [DEBUG] Banner upload concluído:", bannerUrl)
           toast.success("Banner atualizado!")
         } catch (error) {
-          console.error("🔴 [DEBUG] Erro ao fazer upload do banner:", error)
           toast.error("Erro ao fazer upload do banner")
         }
       }
-
-      console.log("🔵 [DEBUG] Construindo updateData...")
-      console.log("🔵 [DEBUG] eventData atual:", {
-        name: eventData.name,
-        category: eventData.category,
-        difficulty_level: eventData.difficulty_level,
-        major_access: eventData.major_access,
-        major_access_type: eventData.major_access_type,
-        race_type: eventData.race_type,
-      })
 
       const updateData: any = {
         name: eventData.name,
@@ -537,29 +951,22 @@ export default function EventSettingsPage() {
       // Adicionar campos novos apenas se existirem (após migration)
       if (eventData.difficulty_level) {
         updateData.difficulty_level = eventData.difficulty_level
-        console.log("🔵 [DEBUG] Adicionado difficulty_level:", eventData.difficulty_level)
       }
       if (eventData.major_access !== undefined) {
         updateData.major_access = eventData.major_access
-        console.log("🔵 [DEBUG] Adicionado major_access:", eventData.major_access)
       }
       if (eventData.major_access_type) {
         updateData.major_access_type = eventData.major_access_type
-        console.log("🔵 [DEBUG] Adicionado major_access_type:", eventData.major_access_type)
       }
       if (eventData.race_type) {
         updateData.race_type = eventData.race_type
-        console.log("🔵 [DEBUG] Adicionado race_type:", eventData.race_type)
       }
       // show_in_showcase - apenas adicionar se a coluna existir no banco
       // A migração 042_add_show_in_showcase.sql deve ser aplicada primeiro
       if (eventData.show_in_showcase !== undefined) {
         updateData.show_in_showcase = eventData.show_in_showcase
-        console.log("🔵 [DEBUG] Adicionado show_in_showcase:", eventData.show_in_showcase)
       }
 
-      console.log("🔵 [DEBUG] updateData completo:", JSON.stringify(updateData, null, 2))
-      console.log("🔵 [DEBUG] Chamando Supabase update...")
 
       let { data, error } = await supabase
         .from("events")
@@ -570,7 +977,6 @@ export default function EventSettingsPage() {
 
       // Se o erro for relacionado à coluna show_in_showcase não existir, tentar novamente sem ela
       if (error && error.message?.includes("show_in_showcase")) {
-        console.warn("⚠️ [DEBUG] Coluna show_in_showcase não encontrada. Removendo do update e tentando novamente...")
         const { show_in_showcase, ...updateDataWithoutShowcase } = updateData
         const retryResult = await supabase
           .from("events")
@@ -585,55 +991,25 @@ export default function EventSettingsPage() {
         }
       }
 
-      console.log("🔵 [DEBUG] Resposta do Supabase:")
-      console.log("  - Data:", data ? "✅ Recebido" : "❌ Nulo")
-      console.log("  - Error:", error ? {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-      } : "✅ Nenhum erro")
-
       if (error) {
-        console.error("🔴 [DEBUG] Erro do Supabase:", {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-          fullError: error,
-        })
         throw error
       }
-
-      console.log("✅ [DEBUG] Evento salvo com sucesso!")
-      console.log("✅ [DEBUG] Dados retornados:", data)
 
       setEventData(prev => ({ ...prev, banner_url: bannerUrl, status: data.status }))
       setNewBanner(null)
       
       toast.success(`Evento salvo! Status: ${data.status === 'active' ? 'Ativo' : data.status === 'draft' ? 'Rascunho' : data.status}`)
     } catch (error: any) {
-      console.error("🔴 [DEBUG] Erro capturado no catch:", {
-        message: error?.message,
-        details: error?.details,
-        hint: error?.hint,
-        code: error?.code,
-        stack: error?.stack,
-        fullError: error,
-      })
-      
       // Detectar erro de tipo (migration não executada)
       if (error?.message?.includes('invalid input syntax for type integer') || 
           error?.message?.includes('column') && error?.message?.includes('does not exist')) {
         const errorMsg = "Erro: Migration não executada. Execute a migration 038_add_event_difficulty_and_type_fields.sql no Supabase."
-        console.error("🔴 [DEBUG] ERRO DE MIGRATION:", errorMsg)
         toast.error(errorMsg, { duration: 10000 })
       } else {
         toast.error(`Erro ao salvar evento: ${error?.message || "Erro desconhecido"}`)
       }
     } finally {
       setSaving(false)
-      console.log("🔵 [DEBUG] Finalizando salvamento (setSaving false)")
     }
   }
 
@@ -846,6 +1222,12 @@ export default function EventSettingsPage() {
       return
     }
 
+    // Verificar se o evento está em rascunho
+    if (eventData.status !== "draft") {
+      toast.error("Apenas eventos em rascunho podem ser deletados. Eventos publicados não podem ser removidos.")
+      return
+    }
+
     // Verificar confirmação
     if (deleteConfirmText !== "DELETAR") {
       toast.error("Por favor, digite 'DELETAR' para confirmar")
@@ -945,39 +1327,113 @@ export default function EventSettingsPage() {
         .maybeSingle()
 
       const pixelsData = {
-        analytics_google_analytics_id: pixels.google_analytics_id || null,
-        analytics_google_analytics_enabled: !!pixels.google_analytics_id,
-        analytics_gtm_container_id: pixels.google_tag_manager_id || null,
-        analytics_gtm_enabled: !!pixels.google_tag_manager_id,
-        analytics_facebook_pixel_id: pixels.facebook_pixel_id || null,
-        analytics_facebook_pixel_enabled: !!pixels.facebook_pixel_id,
+        analytics_google_analytics_id: pixels.google_analytics_id?.trim() || null,
+        analytics_google_analytics_enabled: !!pixels.google_analytics_id?.trim(),
+        analytics_gtm_container_id: pixels.google_tag_manager_id?.trim() || null,
+        analytics_gtm_enabled: !!pixels.google_tag_manager_id?.trim(),
+        analytics_facebook_pixel_id: pixels.facebook_pixel_id?.trim() || null,
+        analytics_facebook_pixel_enabled: !!pixels.facebook_pixel_id?.trim(),
         updated_at: new Date().toISOString(),
       }
 
+      console.log("💾 [SAVE PIXELS] Dados que serão salvos:", pixelsData)
+      console.log("💾 [SAVE PIXELS] Event ID:", eventId)
+      console.log("💾 [SAVE PIXELS] Settings existente?", !!existingSettings)
+
       if (existingSettings) {
         // Atualizar settings existente
-        const { error } = await supabase
+        const { error, data } = await supabase
           .from("event_settings")
           .update(pixelsData)
           .eq("event_id", eventId)
+          .select()
 
-        if (error) throw error
+        if (error) {
+          throw error
+        }
+        
       } else {
         // Criar novo settings
-        const { error } = await supabase
+        
+        // Verificar se existe algum registro (mesmo sem os campos de analytics)
+        const { data: anySettings } = await supabase
           .from("event_settings")
-          .insert({
-            event_id: eventId,
-            ...pixelsData,
-          })
+          .select("id")
+          .eq("event_id", eventId)
+          .maybeSingle()
+        
+        if (anySettings) {
+          // Se existe, atualizar
+          const { error, data } = await supabase
+            .from("event_settings")
+            .update(pixelsData)
+            .eq("event_id", eventId)
+            .select()
 
-        if (error) throw error
+          if (error) {
+            throw error
+          }
+        } else {
+          // Se não existe, criar
+          const { error, data } = await supabase
+            .from("event_settings")
+            .insert({
+              event_id: eventId,
+              ...pixelsData,
+            })
+            .select()
+
+          if (error) {
+            throw error
+          }
+        }
+      }
+
+      // Recarregar os pixels para confirmar que foram salvos
+      await new Promise(resolve => setTimeout(resolve, 300)) // Aguardar um pouco para garantir que o banco foi atualizado
+      
+      const { data: updatedSettings, error: reloadError } = await supabase
+        .from("event_settings")
+        .select("*")
+        .eq("event_id", eventId)
+        .maybeSingle()
+
+      if (updatedSettings) {
+        const reloadedPixels = {
+          google_analytics_id: updatedSettings.analytics_google_analytics_id || "",
+          google_tag_manager_id: updatedSettings.analytics_gtm_container_id || "",
+          facebook_pixel_id: updatedSettings.analytics_facebook_pixel_id || "",
+        }
+        setPixels(reloadedPixels)
+      } else {
+        // Mesmo assim, tentar recarregar novamente após mais um tempo
+        setTimeout(async () => {
+          const { data: retrySettings } = await supabase
+            .from("event_settings")
+            .select("analytics_google_analytics_id, analytics_gtm_container_id, analytics_facebook_pixel_id")
+            .eq("event_id", eventId)
+            .maybeSingle()
+          
+          if (retrySettings) {
+            setPixels({
+              google_analytics_id: retrySettings.analytics_google_analytics_id || "",
+              google_tag_manager_id: retrySettings.analytics_gtm_container_id || "",
+              facebook_pixel_id: retrySettings.analytics_facebook_pixel_id || "",
+            })
+          }
+        }, 1000)
       }
 
       toast.success("Pixels salvos com sucesso!")
     } catch (error: any) {
       console.error("Erro ao salvar pixels:", error)
-      toast.error("Erro ao salvar pixels")
+      console.error("Detalhes do erro:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      })
+      toast.error(`Erro ao salvar pixels: ${error.message || "Erro desconhecido"}`)
     } finally {
       setSaving(false)
     }
@@ -1072,9 +1528,17 @@ export default function EventSettingsPage() {
             <div className="flex items-center gap-3">
               {(canDelete || isPrimary) && (
                 <Button 
-                  onClick={() => setShowDeleteDialog(true)}
+                  onClick={() => {
+                    if (eventData.status !== "draft") {
+                      toast.error("Apenas eventos em rascunho podem ser deletados. Eventos publicados não podem ser removidos.")
+                      return
+                    }
+                    setShowDeleteDialog(true)
+                  }}
                   variant="destructive"
                   className="bg-red-600 hover:bg-red-700 text-white"
+                  disabled={eventData.status !== "draft"}
+                  title={eventData.status !== "draft" ? "Apenas eventos em rascunho podem ser deletados" : ""}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Deletar Evento
@@ -1116,18 +1580,18 @@ export default function EventSettingsPage() {
         <div className="flex items-center gap-2 border-b border-gray-200">
           <button
             onClick={() => {
-              setMainMenu("edicao")
-              setSubMenu("basico")
+              setMainMenu("relatorios")
+              setSubMenu("inscricoes")
             }}
             className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${
-              mainMenu === "edicao"
+              mainMenu === "relatorios"
                 ? "border-[#156634] text-[#156634]"
                 : "border-transparent text-gray-600 hover:text-gray-900"
             }`}
           >
             <div className="flex items-center gap-2">
-              <Edit3 className="h-4 w-4" />
-              Edição
+              <BarChart3 className="h-4 w-4" />
+              Relatórios
             </div>
           </button>
           <button
@@ -1148,18 +1612,18 @@ export default function EventSettingsPage() {
           </button>
           <button
             onClick={() => {
-              setMainMenu("relatorios")
-              setSubMenu("inscricoes")
+              setMainMenu("edicao")
+              setSubMenu("basico")
             }}
             className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${
-              mainMenu === "relatorios"
+              mainMenu === "edicao"
                 ? "border-[#156634] text-[#156634]"
                 : "border-transparent text-gray-600 hover:text-gray-900"
             }`}
           >
             <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Relatórios
+              <Edit3 className="h-4 w-4" />
+              Edição
             </div>
           </button>
         </div>
@@ -1169,7 +1633,7 @@ export default function EventSettingsPage() {
       {mainMenu === "edicao" && (
         <div className="mb-6">
           <Tabs value={subMenu} onValueChange={setSubMenu} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 gap-2 bg-gray-100 p-1 rounded-lg">
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-2 bg-gray-100 p-1 rounded-lg">
               <TabsTrigger 
                 value="basico" 
                 className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
@@ -1193,20 +1657,6 @@ export default function EventSettingsPage() {
                 <span className="hidden sm:inline">Mapas</span>
           </TabsTrigger>
               <TabsTrigger 
-                value="pagamento" 
-                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
-              >
-                <CreditCard className="h-4 w-4" />
-                <span className="hidden sm:inline">Pagamento</span>
-          </TabsTrigger>
-              <TabsTrigger 
-                value="afiliados" 
-                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
-              >
-                <UserPlus className="h-4 w-4" />
-                <span className="hidden sm:inline">Afiliados</span>
-          </TabsTrigger>
-              <TabsTrigger 
                 value="outros" 
                 className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
               >
@@ -1223,13 +1673,26 @@ export default function EventSettingsPage() {
               {/* Informações Básicas */}
           <Card className="border border-gray-200 shadow-sm">
             <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                <FileText className="h-4 w-4 text-[#156634]" />
-                Informações Básicas
-              </CardTitle>
-              <CardDescription className="text-xs mt-1">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-[#156634]" />
+                    Informações Básicas
+                  </CardTitle>
+                  <CardDescription className="text-xs mt-1">
                     Dados principais do evento
-              </CardDescription>
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setEditingBlocks({ ...editingBlocks, basic: !editingBlocks.basic })}
+                >
+                  <Pencil className={`h-4 w-4 ${editingBlocks.basic ? 'text-[#156634]' : 'text-gray-400'}`} />
+                </Button>
+              </div>
             </CardHeader>
                 <CardContent className="space-y-5 pt-0">
                   <div className="space-y-2">
@@ -1239,7 +1702,8 @@ export default function EventSettingsPage() {
                     value={eventData.name}
                     onChange={(e) => setEventData({ ...eventData, name: e.target.value })}
                     placeholder="Nome do evento"
-                    disabled={fieldDisabled}
+                    disabled={fieldDisabled || !editingBlocks.basic}
+                    readOnly={!editingBlocks.basic}
                     className="h-10"
                   />
                 </div>
@@ -1250,7 +1714,7 @@ export default function EventSettingsPage() {
                   <Select
                     value={eventData.category}
                     onValueChange={(value) => setEventData({ ...eventData, category: value })}
-                    disabled={fieldDisabled}
+                    disabled={fieldDisabled || !editingBlocks.basic}
                   >
                     <SelectTrigger className="h-10">
                           <SelectValue placeholder="Selecione" />
@@ -1270,7 +1734,7 @@ export default function EventSettingsPage() {
                   <Select
                     value={eventData.language}
                     onValueChange={(value) => setEventData({ ...eventData, language: value as "pt" | "es" | "en" })}
-                    disabled={fieldDisabled}
+                    disabled={fieldDisabled || !editingBlocks.basic}
                   >
                     <SelectTrigger className="h-10">
                       <SelectValue placeholder="Selecione o idioma" />
@@ -1302,7 +1766,7 @@ export default function EventSettingsPage() {
                   <Select
                     value={eventData.status}
                         onValueChange={(value) => setEventData({ ...eventData, status: value })}
-                    disabled={fieldDisabled}
+                    disabled={fieldDisabled || !editingBlocks.basic}
                   >
                     <SelectTrigger className="h-10">
                       <SelectValue />
@@ -1326,7 +1790,7 @@ export default function EventSettingsPage() {
                           checked={eventData.show_in_showcase === true}
                           onChange={() => setEventData({ ...eventData, show_in_showcase: true })}
                           className="h-4 w-4 text-[#156634]"
-                          disabled={fieldDisabled}
+                          disabled={fieldDisabled || !editingBlocks.basic}
                         />
                         <Label htmlFor="show_in_showcase_sim" className="font-normal cursor-pointer">Sim</Label>
                       </div>
@@ -1338,7 +1802,7 @@ export default function EventSettingsPage() {
                           checked={eventData.show_in_showcase === false}
                           onChange={() => setEventData({ ...eventData, show_in_showcase: false })}
                           className="h-4 w-4 text-[#156634]"
-                          disabled={fieldDisabled}
+                          disabled={fieldDisabled || !editingBlocks.basic}
                         />
                         <Label htmlFor="show_in_showcase_nao" className="font-normal cursor-pointer">Não</Label>
                       </div>
@@ -1356,7 +1820,7 @@ export default function EventSettingsPage() {
                     <Select
                       value={eventData.difficulty_level}
                       onValueChange={(value) => setEventData({ ...eventData, difficulty_level: value as any })}
-                      disabled={fieldDisabled}
+                      disabled={fieldDisabled || !editingBlocks.basic}
                     >
                       <SelectTrigger className="h-10">
                         <SelectValue placeholder="Selecione a dificuldade" />
@@ -1375,7 +1839,7 @@ export default function EventSettingsPage() {
                     <Select
                       value={eventData.race_type}
                       onValueChange={(value) => setEventData({ ...eventData, race_type: value as any })}
-                      disabled={fieldDisabled}
+                      disabled={fieldDisabled || !editingBlocks.basic}
                     >
                       <SelectTrigger className="h-10">
                         <SelectValue placeholder="Selecione o tipo" />
@@ -1399,7 +1863,7 @@ export default function EventSettingsPage() {
                           checked={eventData.major_access === true}
                           onChange={() => setEventData({ ...eventData, major_access: true })}
                           className="h-4 w-4 text-[#156634]"
-                          disabled={fieldDisabled}
+                          disabled={fieldDisabled || !editingBlocks.basic}
                         />
                         <Label htmlFor="major_access_sim" className="font-normal cursor-pointer">Sim</Label>
                       </div>
@@ -1411,7 +1875,7 @@ export default function EventSettingsPage() {
                           checked={eventData.major_access === false}
                           onChange={() => setEventData({ ...eventData, major_access: false, major_access_type: "" })}
                           className="h-4 w-4 text-[#156634]"
-                          disabled={fieldDisabled}
+                          disabled={fieldDisabled || !editingBlocks.basic}
                         />
                         <Label htmlFor="major_access_nao" className="font-normal cursor-pointer">Não</Label>
                       </div>
@@ -1425,7 +1889,7 @@ export default function EventSettingsPage() {
                     <Select
                       value={eventData.major_access_type}
                       onValueChange={(value) => setEventData({ ...eventData, major_access_type: value })}
-                      disabled={fieldDisabled}
+                      disabled={fieldDisabled || !editingBlocks.basic}
                     >
                       <SelectTrigger className="h-10">
                         <SelectValue placeholder="Selecione a prova major" />
@@ -1456,7 +1920,8 @@ export default function EventSettingsPage() {
                     type="date"
                     value={eventData.event_date}
                     onChange={(e) => setEventData({ ...eventData, event_date: e.target.value })}
-                    disabled={fieldDisabled}
+                    disabled={fieldDisabled || !editingBlocks.basic}
+                    readOnly={!editingBlocks.basic}
                     className="h-10"
                   />
                 </div>
@@ -1468,7 +1933,8 @@ export default function EventSettingsPage() {
                     type="time"
                     value={eventData.start_time}
                     onChange={(e) => setEventData({ ...eventData, start_time: e.target.value })}
-                    disabled={fieldDisabled}
+                    disabled={fieldDisabled || !editingBlocks.basic}
+                    readOnly={!editingBlocks.basic}
                     className="h-10"
                   />
                 </div>
@@ -1479,13 +1945,26 @@ export default function EventSettingsPage() {
               {/* Localização */}
           <Card className="border border-gray-200 shadow-sm">
             <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div>
                   <CardTitle className="text-lg font-semibold flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-[#156634]" />
                     Localização
                   </CardTitle>
-              <CardDescription className="text-xs mt-1">
+                  <CardDescription className="text-xs mt-1">
                     Onde o evento será realizado
-              </CardDescription>
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setEditingBlocks({ ...editingBlocks, location: !editingBlocks.location })}
+                >
+                  <Pencil className={`h-4 w-4 ${editingBlocks.location ? 'text-[#156634]' : 'text-gray-400'}`} />
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4 pt-0">
                   <div className="space-y-2">
@@ -1495,7 +1974,8 @@ export default function EventSettingsPage() {
                     value={eventData.location}
                     onChange={(e) => setEventData({ ...eventData, location: e.target.value })}
                     placeholder="Ex: Praça da Liberdade"
-                    disabled={fieldDisabled}
+                    disabled={fieldDisabled || !editingBlocks.location}
+                    readOnly={!editingBlocks.location}
                     className="h-10"
                   />
                 </div>
@@ -1508,7 +1988,8 @@ export default function EventSettingsPage() {
                     value={eventData.address}
                     onChange={(e) => setEventData({ ...eventData, address: e.target.value })}
                     placeholder="Ex: Av. Beira Mar"
-                    disabled={fieldDisabled}
+                    disabled={fieldDisabled || !editingBlocks.location}
+                    readOnly={!editingBlocks.location}
                     className="h-10"
                   />
                 </div>
@@ -1520,7 +2001,8 @@ export default function EventSettingsPage() {
                     value={eventData.address_number}
                     onChange={(e) => setEventData({ ...eventData, address_number: e.target.value })}
                     placeholder="Ex: 1000"
-                    disabled={fieldDisabled}
+                    disabled={fieldDisabled || !editingBlocks.location}
+                    readOnly={!editingBlocks.location}
                     className="h-10"
                   />
                 </div>
@@ -1534,7 +2016,8 @@ export default function EventSettingsPage() {
                     value={eventData.city}
                     onChange={(e) => setEventData({ ...eventData, city: e.target.value })}
                     placeholder="Ex: Florianópolis"
-                    disabled={fieldDisabled}
+                    disabled={fieldDisabled || !editingBlocks.location}
+                    readOnly={!editingBlocks.location}
                     className="h-10"
                   />
                 </div>
@@ -1546,7 +2029,8 @@ export default function EventSettingsPage() {
                     value={eventData.state}
                     onChange={(e) => setEventData({ ...eventData, state: e.target.value })}
                     placeholder="Ex: SC"
-                    disabled={fieldDisabled}
+                    disabled={fieldDisabled || !editingBlocks.location}
+                    readOnly={!editingBlocks.location}
                     className="h-10"
                   />
                 </div>
@@ -1558,7 +2042,8 @@ export default function EventSettingsPage() {
                     value={eventData.zip_code}
                     onChange={(e) => setEventData({ ...eventData, zip_code: e.target.value })}
                     placeholder="00000-000"
-                    disabled={fieldDisabled}
+                    disabled={fieldDisabled || !editingBlocks.location}
+                    readOnly={!editingBlocks.location}
                     className="h-10"
                   />
                 </div>
@@ -1569,31 +2054,45 @@ export default function EventSettingsPage() {
               {/* Descrição */}
               <Card className="border border-gray-200 shadow-sm">
                 <CardHeader className="pb-4">
-                  <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-[#156634]" />
-                    Descrição do Evento
-                  </CardTitle>
-              <CardDescription className="text-xs mt-1">
-                    Texto que será exibido na página do evento
-                  </CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-[#156634]" />
+                        Descrição do Evento
+                      </CardTitle>
+                      <CardDescription className="text-xs mt-1">
+                        Texto que será exibido na página do evento
+                      </CardDescription>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setEditingBlocks({ ...editingBlocks, description: !editingBlocks.description })}
+                    >
+                      <Pencil className={`h-4 w-4 ${editingBlocks.description ? 'text-[#156634]' : 'text-gray-400'}`} />
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="border rounded-lg overflow-hidden">
+                  <div className={`border rounded-lg overflow-hidden ${!editingBlocks.description ? 'pointer-events-none opacity-60' : ''}`}>
                     <ReactQuill
                       theme="snow"
                       value={eventData.description}
                       onChange={(value) => setEventData({ ...eventData, description: value })}
                       placeholder="Descreva seu evento aqui..."
                       className="bg-white"
+                      readOnly={!editingBlocks.description || fieldDisabled}
                       modules={{
-                        toolbar: [
+                        toolbar: editingBlocks.description && !fieldDisabled ? [
                           [{ 'header': [1, 2, 3, false] }],
                           ['bold', 'italic', 'underline', 'strike'],
                           [{ 'list': 'ordered'}, { 'list': 'bullet' }],
                           [{ 'color': [] }, { 'background': [] }],
                           ['link'],
                           ['clean']
-                        ],
+                        ] : false,
                       }}
                     />
                   </div>
@@ -1606,13 +2105,26 @@ export default function EventSettingsPage() {
               {/* Banner */}
           <Card className="border border-gray-200 shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Upload className="h-4 w-4 text-[#156634]" />
-                Banner do Evento
-              </CardTitle>
-              <CardDescription className="text-xs mt-1">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Upload className="h-4 w-4 text-[#156634]" />
+                    Banner do Evento
+                  </CardTitle>
+                  <CardDescription className="text-xs mt-1">
                     Imagem principal do evento. Proporção recomendada: 21:9
-              </CardDescription>
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setEditingBlocks({ ...editingBlocks, banner: !editingBlocks.banner })}
+                >
+                  <Pencil className={`h-4 w-4 ${editingBlocks.banner ? 'text-[#156634]' : 'text-gray-400'}`} />
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4 pt-0">
               {eventData.banner_url && (
@@ -1644,7 +2156,7 @@ export default function EventSettingsPage() {
                       }
                     }}
                     className="h-24 cursor-pointer opacity-0 absolute inset-0 z-10"
-                    disabled={fieldDisabled}
+                    disabled={fieldDisabled || !editingBlocks.banner}
                   />
                   <div className={`h-24 border-dashed border-2 rounded-md flex flex-col items-center justify-center ${newBanner ? 'border-[#156634] bg-[#156634]/5' : 'border-gray-300 bg-gray-50/50 hover:border-[#156634]/50 transition-colors'}`}>
                     {!newBanner && (
@@ -1673,13 +2185,26 @@ export default function EventSettingsPage() {
               {/* Galeria de Imagens */}
               <Card className="border border-gray-200 shadow-sm">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Package className="h-4 w-4 text-[#156634]" />
-                    Galeria de Imagens
-                  </CardTitle>
-                  <CardDescription className="text-xs mt-1">
-                    Imagens adicionais que serão exibidas na página do evento
-                  </CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base font-semibold flex items-center gap-2">
+                        <Package className="h-4 w-4 text-[#156634]" />
+                        Galeria de Imagens
+                      </CardTitle>
+                      <CardDescription className="text-xs mt-1">
+                        Imagens adicionais que serão exibidas na página do evento
+                      </CardDescription>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setEditingBlocks({ ...editingBlocks, gallery: !editingBlocks.gallery })}
+                    >
+                      <Pencil className={`h-4 w-4 ${editingBlocks.gallery ? 'text-[#156634]' : 'text-gray-400'}`} />
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4 pt-0">
                   {/* Imagens existentes */}
@@ -1718,7 +2243,7 @@ export default function EventSettingsPage() {
                                 toast.error("Erro ao remover imagem")
                               }
                             }}
-                            disabled={fieldDisabled}
+                            disabled={fieldDisabled || !editingBlocks.gallery}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
@@ -1741,7 +2266,7 @@ export default function EventSettingsPage() {
                           setNewImages(prev => [...prev, ...files])
                         }}
                         className="h-24 cursor-pointer opacity-0 absolute inset-0 z-10"
-                        disabled={fieldDisabled || uploadingImages}
+                        disabled={fieldDisabled || uploadingImages || !editingBlocks.gallery}
                       />
                       <div className={`h-24 border-dashed border-2 rounded-md flex flex-col items-center justify-center ${newImages.length === 0 ? 'border-gray-300 bg-gray-50/50 hover:border-[#156634]/50 transition-colors' : 'border-[#156634] bg-[#156634]/5'}`}>
                         {newImages.length === 0 && (
@@ -1794,18 +2319,29 @@ export default function EventSettingsPage() {
         {/* Tab: Lotes & Ingressos */}
         <TabsContent value="lotes" className="space-y-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <Trophy className="h-6 w-6 text-[#156634]" />
-                Lotes e Ingressos
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Gerencie os lotes de venda e os ingressos do evento
-              </p>
+            <div className="flex items-center gap-3 flex-1">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <Trophy className="h-6 w-6 text-[#156634]" />
+                  Lotes e Ingressos
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Gerencie os lotes de venda e os ingressos do evento
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setEditingBlocks({ ...editingBlocks, batches: !editingBlocks.batches })}
+              >
+                <Pencil className={`h-4 w-4 ${editingBlocks.batches ? 'text-[#156634]' : 'text-gray-400'}`} />
+              </Button>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
               {(canCreate || isPrimary) && (
-                <Button onClick={addNewBatch} variant="outline" className="flex-1 sm:flex-initial" disabled={fieldDisabled}>
+                <Button onClick={addNewBatch} variant="outline" className="flex-1 sm:flex-initial" disabled={fieldDisabled || !editingBlocks.batches}>
                   <Plus className="mr-2 h-4 w-4" />
                   Novo Lote
                 </Button>
@@ -1813,7 +2349,7 @@ export default function EventSettingsPage() {
               {(canEdit || isPrimary) && (
                 <Button 
                   onClick={handleSaveBatches} 
-                  disabled={saving || fieldDisabled}
+                  disabled={saving || fieldDisabled || !editingBlocks.batches}
                   className="bg-[#156634] hover:bg-[#1a7a3e] text-white flex-1 sm:flex-initial"
                 >
                   {saving ? (
@@ -1840,7 +2376,7 @@ export default function EventSettingsPage() {
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum lote cadastrado</h3>
                 <p className="text-sm text-gray-600 mb-6">Comece criando seu primeiro lote de ingressos</p>
-                <Button onClick={addNewBatch} className="bg-[#156634] hover:bg-[#1a7a3e]">
+                <Button onClick={addNewBatch} className="bg-[#156634] hover:bg-[#1a7a3e]" disabled={!editingBlocks.batches}>
                   <Plus className="mr-2 h-4 w-4" />
                   Criar Primeiro Lote
                 </Button>
@@ -1944,6 +2480,8 @@ export default function EventSettingsPage() {
                             onChange={(e) => updateBatch(batch.id, "name", e.target.value)}
                               className="h-10"
                               placeholder="Ex: Lote Promocional"
+                              disabled={!editingBlocks.batches}
+                              readOnly={!editingBlocks.batches}
                           />
                   </div>
                         <div className="space-y-2">
@@ -1956,6 +2494,8 @@ export default function EventSettingsPage() {
                             value={batch.start_date}
                             onChange={(e) => updateBatch(batch.id, "start_date", e.target.value)}
                               className="h-10"
+                              disabled={!editingBlocks.batches}
+                              readOnly={!editingBlocks.batches}
                   />
                   </div>
                     <div className="space-y-2">
@@ -1968,6 +2508,8 @@ export default function EventSettingsPage() {
                             value={batch.start_time}
                             onChange={(e) => updateBatch(batch.id, "start_time", e.target.value)}
                               className="h-10"
+                              disabled={!editingBlocks.batches}
+                              readOnly={!editingBlocks.batches}
                   />
                 </div>
                     <div className="space-y-2">
@@ -1992,6 +2534,8 @@ export default function EventSettingsPage() {
                             }}
                             placeholder="Deixe vazio para ilimitado"
                               className="h-10"
+                              disabled={!editingBlocks.batches}
+                              readOnly={!editingBlocks.batches}
                         />
                             <p className="text-xs text-gray-500">
                           Deixe vazio para ilimitado
@@ -2018,6 +2562,7 @@ export default function EventSettingsPage() {
                             size="sm"
                             onClick={() => addTicketToBatch(batch.id)}
                             className="border-[#156634] text-[#156634] hover:bg-[#156634] hover:text-white font-medium"
+                            disabled={!editingBlocks.batches}
                           >
                             <Plus className="mr-2 h-4 w-4" />
                             Adicionar Ingresso
@@ -2055,6 +2600,7 @@ export default function EventSettingsPage() {
                                       size="icon"
                                       onClick={() => removeTicket(batch.id, ticket.id)}
                                       className="h-9 w-9 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      disabled={!editingBlocks.batches}
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -2072,6 +2618,8 @@ export default function EventSettingsPage() {
                                         onChange={(e) => updateTicket(batch.id, ticket.id, "category", e.target.value)}
                                         className="h-10"
                                           placeholder="Ex: 5km, 10km, 21km"
+                                        disabled={!editingBlocks.batches}
+                                        readOnly={!editingBlocks.batches}
                                       />
                   </div>
                                     <div className="space-y-2">
@@ -2086,7 +2634,8 @@ export default function EventSettingsPage() {
                                           value={ticket.price || ""}
                                         onChange={(e) => updateTicket(batch.id, ticket.id, "price", parseFloat(e.target.value) || 0)}
                                         className="h-10"
-                                        disabled={ticket.is_free}
+                                        disabled={ticket.is_free || !editingBlocks.batches}
+                                        readOnly={!editingBlocks.batches}
                                         placeholder="0.00"
                                       />
               </div>
@@ -2112,6 +2661,8 @@ export default function EventSettingsPage() {
                                           }}
                                         className="h-10"
                                           placeholder="Deixe vazio para ilimitado"
+                                        disabled={!editingBlocks.batches}
+                                        readOnly={!editingBlocks.batches}
                                       />
                                         <p className="text-xs text-gray-500">Vazio = ilimitado</p>
                   </div>
@@ -2122,6 +2673,7 @@ export default function EventSettingsPage() {
                                           id={`free-${ticket.id}`}
                                           checked={ticket.is_free}
                                           onCheckedChange={(checked) => updateTicket(batch.id, ticket.id, "is_free", checked)}
+                                          disabled={!editingBlocks.batches}
                                         />
                                           <Label htmlFor={`free-${ticket.id}`} className="text-sm font-medium cursor-pointer">
                                           Gratuito
@@ -2153,6 +2705,7 @@ export default function EventSettingsPage() {
                                             updateTicket(batch.id, ticket.id, "shirt_quantities", {})
                                           }
                                         }}
+                                        disabled={!editingBlocks.batches}
                                       />
                                         <Label htmlFor={`kit-${ticket.id}`} className="text-sm font-medium cursor-pointer">
                                           Este ingresso inclui kit
@@ -2274,6 +2827,8 @@ export default function EventSettingsPage() {
                                                           }}
                                                           placeholder="Ilimitado"
                                                           className="w-full h-9"
+                                                          disabled={!editingBlocks.batches}
+                                                          readOnly={!editingBlocks.batches}
                         />
                       </div>
                                                     )
@@ -2326,13 +2881,24 @@ export default function EventSettingsPage() {
         {/* Tab: Mapas & Percursos */}
         <TabsContent value="mapas" className="space-y-6">
                 <div className="flex items-center justify-between">
-                    <div>
-              <h2 className="text-2xl font-bold">Mapas e Percursos GPX</h2>
-              <p className="text-muted-foreground">
-                Gerencie os arquivos GPX e opções de exibição para cada distância
-                      </p>
+                    <div className="flex items-center gap-3 flex-1">
+                      <div>
+                        <h2 className="text-2xl font-bold">Mapas e Percursos GPX</h2>
+                        <p className="text-muted-foreground">
+                          Gerencie os arquivos GPX e opções de exibição para cada distância
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setEditingBlocks({ ...editingBlocks, maps: !editingBlocks.maps })}
+                      >
+                        <Pencil className={`h-4 w-4 ${editingBlocks.maps ? 'text-[#156634]' : 'text-gray-400'}`} />
+                      </Button>
                     </div>
-            <Button onClick={handleSaveBatches} disabled={saving}>
+            <Button onClick={handleSaveBatches} disabled={saving || !editingBlocks.maps}>
               {saving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -2407,7 +2973,7 @@ export default function EventSettingsPage() {
                                   }}
                                   className="h-24 cursor-pointer opacity-0 absolute inset-0 z-10"
                                   id={`gpx-${batch.id}-${ticket.id}`}
-                                  disabled={fieldDisabled}
+                                  disabled={fieldDisabled || !editingBlocks.maps}
                                 />
                                 <div className={`h-24 border-dashed border-2 rounded-md flex flex-col items-center justify-center ${ticket.newGpxFile || ticket.gpx_file_url ? 'border-[#156634] bg-[#156634]/5' : 'border-gray-300 bg-gray-50/50 hover:border-[#156634]/50 transition-colors'}`}>
                                   {!ticket.newGpxFile && !ticket.gpx_file_url && (
@@ -2437,6 +3003,7 @@ export default function EventSettingsPage() {
                                             e.stopPropagation()
                                             updateTicket(batch.id, ticket.id, "newGpxFile", null)
                                           }}
+                                          disabled={!editingBlocks.maps}
                                         >
                                           <X className="h-3 w-3 mr-1" />
                                           Remover
@@ -2458,6 +3025,7 @@ export default function EventSettingsPage() {
                                       id={`show-route-${ticket.id}`}
                                       checked={ticket.show_route || false}
                                       onCheckedChange={(checked) => updateTicket(batch.id, ticket.id, "show_route", checked)}
+                                      disabled={!editingBlocks.maps}
                                     />
                                     <Label htmlFor={`show-route-${ticket.id}`} className="text-sm cursor-pointer flex items-center gap-2">
                                       <Route className="h-4 w-4" />
@@ -2469,6 +3037,7 @@ export default function EventSettingsPage() {
                                       id={`show-map-${ticket.id}`}
                                       checked={ticket.show_map || false}
                                       onCheckedChange={(checked) => updateTicket(batch.id, ticket.id, "show_map", checked)}
+                                      disabled={!editingBlocks.maps}
                                     />
                                     <Label htmlFor={`show-map-${ticket.id}`} className="text-sm cursor-pointer flex items-center gap-2">
                                       <MapPin className="h-4 w-4" />
@@ -2480,6 +3049,7 @@ export default function EventSettingsPage() {
                                       id={`show-elevation-${ticket.id}`}
                                       checked={ticket.show_elevation || false}
                                       onCheckedChange={(checked) => updateTicket(batch.id, ticket.id, "show_elevation", checked)}
+                                      disabled={!editingBlocks.maps}
                                     />
                                     <Label htmlFor={`show-elevation-${ticket.id}`} className="text-sm cursor-pointer flex items-center gap-2">
                                       <Mountain className="h-4 w-4" />
@@ -2498,31 +3068,6 @@ export default function EventSettingsPage() {
               ))}
               </div>
           )}
-        </TabsContent>
-
-        {/* Tab: Pagamento */}
-        <TabsContent value="pagamento" className="space-y-6">
-          <Card className="border-2 shadow-sm">
-            <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
-              <CardTitle className="text-xl flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-[#156634]" />
-                Meios de Pagamento
-              </CardTitle>
-              <CardDescription>
-                Configure os meios de pagamento disponíveis
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CreditCard className="h-8 w-8 text-gray-400" />
-                </div>
-                <p className="text-sm text-gray-600">
-                  Configurações de pagamento em desenvolvimento
-                </p>
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         {/* Tab: Outros */}
@@ -2902,7 +3447,7 @@ export default function EventSettingsPage() {
 
                     <div className="flex gap-2 pt-4">
                       <Button
-                        className="flex-1 bg-[#156634] hover:bg-[#1a7a3e]"
+                        className="bg-[#156634] hover:bg-[#1a7a3e] px-6 py-2.5"
                         onClick={async () => {
                           const couponData = editingCoupon || newCoupon
                           
@@ -2966,10 +3511,11 @@ export default function EventSettingsPage() {
                           }
                         }}
                       >
-                        {editingCoupon ? "Salvar Alterações" : "Criar Cupom"}
+                        Salvar
                       </Button>
                       <Button
                         variant="outline"
+                        className="px-6 py-2.5"
                         onClick={() => {
                           setShowAddCoupon(false)
                           setEditingCoupon(null)
@@ -3060,239 +3606,6 @@ export default function EventSettingsPage() {
                 </CardContent>
               </Card>
             </TabsContent>
-
-            {/* Tab: Afiliados */}
-            <TabsContent value="afiliados" className="space-y-6">
-              <div className="flex items-center justify-between mb-4">
-                  <div>
-                  <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                    <UserPlus className="h-6 w-6 text-[#156634]" />
-                    Afiliados
-                  </h2>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Cadastre afiliados para promover este evento
-                    </p>
-                  </div>
-                <Button 
-                  className="bg-[#156634] hover:bg-[#1a7a3e] text-white"
-                  onClick={() => setShowAddAffiliate(true)}
-                >
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Cadastrar Afiliado
-                </Button>
-                </div>
-
-              {/* Formulário de adicionar/editar afiliado */}
-              {(showAddAffiliate || editingAffiliate) && (
-              <Card className="border-2 shadow-sm">
-                  <CardHeader>
-                    <CardTitle>{editingAffiliate ? "Editar Afiliado" : "Adicionar Novo Afiliado"}</CardTitle>
-                    <CardDescription>
-                      {editingAffiliate ? "Edite a comissão do afiliado" : "Envie um convite de afiliação para este evento"}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="affiliate-email">Email do Afiliado *</Label>
-                      <Input
-                        id="affiliate-email"
-                        type="email"
-                        placeholder="afiliado@exemplo.com"
-                        value={editingAffiliate?.email || newAffiliate.email}
-                        onChange={(e) => {
-                          if (editingAffiliate) {
-                            setEditingAffiliate({ ...editingAffiliate, email: e.target.value })
-                          } else {
-                            setNewAffiliate({ ...newAffiliate, email: e.target.value })
-                          }
-                        }}
-                        disabled={!!editingAffiliate}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Tipo de Comissão *</Label>
-                      <Select
-                        value={editingAffiliate?.commission_type || newAffiliate.commission_type}
-                        onValueChange={(value: "percentage" | "fixed") => {
-                          if (editingAffiliate) {
-                            setEditingAffiliate({ ...editingAffiliate, commission_type: value })
-                          } else {
-                            setNewAffiliate({ ...newAffiliate, commission_type: value })
-                          }
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="percentage">Percentual (%)</SelectItem>
-                          <SelectItem value="fixed">Valor Fixo (R$)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="commission-value">
-                        {(editingAffiliate?.commission_type || newAffiliate.commission_type) === "percentage" ? "Percentual (%) *" : "Valor Fixo (R$) *"}
-                      </Label>
-                      <Input
-                        id="commission-value"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder={(editingAffiliate?.commission_type || newAffiliate.commission_type) === "percentage" ? "10.00" : "50.00"}
-                        value={editingAffiliate?.commission_value || newAffiliate.commission_value}
-                        onChange={(e) => {
-                          if (editingAffiliate) {
-                            setEditingAffiliate({ ...editingAffiliate, commission_value: e.target.value })
-                          } else {
-                            setNewAffiliate({ ...newAffiliate, commission_value: e.target.value })
-                          }
-                        }}
-                      />
-                    </div>
-
-                    <div className="flex gap-2 pt-4">
-                      <Button
-                        className="flex-1 bg-[#156634] hover:bg-[#1a7a3e]"
-                        onClick={async () => {
-                          const affiliateData = editingAffiliate || newAffiliate
-                          
-                          if (!affiliateData.email || !affiliateData.commission_value) {
-                            toast.error("Preencha todos os campos")
-                            return
-                          }
-
-                          try {
-                            if (editingAffiliate) {
-                              // Editar afiliado
-                              const response = await fetch(`/api/events/affiliate/${editingAffiliate.id}`, {
-                                method: "PUT",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                  commission_type: affiliateData.commission_type,
-                                  commission_value: parseFloat(affiliateData.commission_value),
-                                }),
-                              })
-
-                              const data = await response.json()
-
-                              if (!response.ok) {
-                                throw new Error(data.error || "Erro ao atualizar afiliado")
-                              }
-
-                              toast.success("Afiliado atualizado com sucesso!")
-                              setEditingAffiliate(null)
-                              fetchAffiliates()
-                            } else {
-                              // Criar novo convite
-                              const response = await fetch("/api/events/affiliate-invite", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                  event_id: eventId,
-                                  email: affiliateData.email,
-                                  commission_type: affiliateData.commission_type,
-                                  commission_value: parseFloat(affiliateData.commission_value),
-                                }),
-                              })
-
-                              const data = await response.json()
-
-                              if (!response.ok) {
-                                throw new Error(data.error || "Erro ao enviar convite")
-                              }
-
-                              toast.success("Convite enviado com sucesso!")
-                              setShowAddAffiliate(false)
-                              setNewAffiliate({ email: "", commission_type: "percentage", commission_value: "" })
-                              fetchAffiliates()
-                            }
-                          } catch (error: any) {
-                            toast.error(error.message || "Erro ao processar")
-                          }
-                        }}
-                      >
-                        {editingAffiliate ? "Salvar Alterações" : "Enviar Convite"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setShowAddAffiliate(false)
-                          setEditingAffiliate(null)
-                          setNewAffiliate({ email: "", commission_type: "percentage", commission_value: "" })
-                        }}
-                      >
-                        Cancelar
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Lista de afiliados */}
-              <Card className="border-2 shadow-sm">
-                <CardHeader>
-                  <CardTitle>Afiliados Cadastrados</CardTitle>
-                  <CardDescription>
-                    Lista de afiliados convidados para este evento
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {affiliates.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <UserPlus className="h-8 w-8 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum afiliado cadastrado</h3>
-                    <p className="text-sm text-gray-600 mb-6">Cadastre afiliados para promover seu evento e aumentar as vendas</p>
-                      <Button 
-                        className="bg-[#156634] hover:bg-[#1a7a3e]"
-                        onClick={() => setShowAddAffiliate(true)}
-                      >
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Cadastrar Primeiro Afiliado
-                    </Button>
-                  </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {affiliates.map((affiliate) => (
-                        <div
-                          key={affiliate.id}
-                          className="flex items-center justify-between p-4 border rounded-lg"
-                        >
-                          <div className="flex-1">
-                            <p className="font-medium">{affiliate.email}</p>
-                            {affiliate.affiliate?.user?.full_name && (
-                              <p className="text-xs text-gray-400">{affiliate.affiliate.user.full_name}</p>
-                            )}
-                            <p className="text-sm text-gray-500">
-                              Comissão: {affiliate.commission_type === "percentage" ? `${affiliate.commission_value}%` : `R$ ${affiliate.commission_value}`}
-                            </p>
-                            <Badge variant={affiliate.status === "accepted" ? "default" : affiliate.status === "pending" ? "secondary" : "destructive"}>
-                              {affiliate.status === "accepted" ? "Aceito" : affiliate.status === "pending" ? "Pendente" : "Rejeitado"}
-                            </Badge>
-                          </div>
-                          {affiliate.status === "accepted" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setEditingAffiliate(affiliate)
-                                setShowAddAffiliate(false)
-                              }}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
           </Tabs>
                   </div>
                 )}
@@ -3305,7 +3618,7 @@ export default function EventSettingsPage() {
             <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
               <CardTitle className="text-xl flex items-center gap-2">
                 <Eye className="h-5 w-5 text-[#156634]" />
-                Cliques na Landing Page
+                Acessos na Landing Page
               </CardTitle>
               <CardDescription>
                 Estatísticas de visualizações e conversões do evento
@@ -3317,25 +3630,25 @@ export default function EventSettingsPage() {
                   <p className="text-2xl font-bold text-gray-900">{viewStats.totalViews.toLocaleString('pt-BR')}</p>
                   <p className="text-xs text-gray-600 mt-1">Total de Visualizações</p>
                 </div>
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-600">{viewStats.viewsToday.toLocaleString('pt-BR')}</p>
-                  <p className="text-xs text-blue-600 mt-1">Hoje</p>
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <p className="text-2xl font-bold text-gray-900">{viewStats.viewsToday.toLocaleString('pt-BR')}</p>
+                  <p className="text-xs text-gray-600 mt-1">Hoje</p>
+                </div>
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <p className="text-2xl font-bold text-gray-900">{viewStats.viewsLast7Days.toLocaleString('pt-BR')}</p>
+                  <p className="text-xs text-gray-600 mt-1">Últimos 7 dias</p>
+                </div>
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <p className="text-2xl font-bold text-gray-900">{viewStats.viewsLast30Days.toLocaleString('pt-BR')}</p>
+                  <p className="text-xs text-gray-600 mt-1">Últimos 30 dias</p>
                 </div>
                 <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <p className="text-2xl font-bold text-green-600">{viewStats.viewsLast7Days.toLocaleString('pt-BR')}</p>
-                  <p className="text-xs text-green-600 mt-1">Últimos 7 dias</p>
+                  <p className="text-2xl font-bold text-green-600">{viewStats.conversions.toLocaleString('pt-BR')}</p>
+                  <p className="text-xs text-green-600 mt-1">Inscrições</p>
                 </div>
-                <div className="text-center p-4 bg-purple-50 rounded-lg">
-                  <p className="text-2xl font-bold text-purple-600">{viewStats.viewsLast30Days.toLocaleString('pt-BR')}</p>
-                  <p className="text-xs text-purple-600 mt-1">Últimos 30 dias</p>
-                </div>
-                <div className="text-center p-4 bg-orange-50 rounded-lg">
-                  <p className="text-2xl font-bold text-orange-600">{viewStats.conversions.toLocaleString('pt-BR')}</p>
-                  <p className="text-xs text-orange-600 mt-1">Inscrições</p>
-                </div>
-                <div className="text-center p-4 bg-indigo-50 rounded-lg">
-                  <p className="text-2xl font-bold text-indigo-600">{viewStats.conversionRate.toFixed(2)}%</p>
-                  <p className="text-xs text-indigo-600 mt-1">Taxa de Conversão</p>
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <p className="text-2xl font-bold text-gray-900">{viewStats.conversionRate.toFixed(2)}%</p>
+                  <p className="text-xs text-gray-600 mt-1">Taxa de Conversão</p>
                 </div>
               </div>
             </CardContent>
@@ -3375,103 +3688,799 @@ export default function EventSettingsPage() {
 
             {/* Tab: Relatório de Inscrições */}
             <TabsContent value="inscricoes" className="space-y-6">
-              <Card className="border-2 shadow-sm">
-                <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
-                  <CardTitle className="text-xl flex items-center gap-2">
-                    <Users className="h-5 w-5 text-[#156634]" />
-                    Relatório de Inscrições
-                  </CardTitle>
-                  <CardDescription>
-                    Visualize todas as inscrições do evento
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <BarChart3 className="h-8 w-8 text-gray-400" />
-                    </div>
-                    <p className="text-sm text-gray-600">
-                      Relatório de inscrições em desenvolvimento
-                    </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              {reportData.loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#156634]" />
+                </div>
+              ) : (
+                <>
+                  {/* Gráfico de Inscrições ao Longo do Tempo */}
+                  <Card className="border-2 shadow-sm">
+                    <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
+                      <CardTitle className="text-xl flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-[#156634]" />
+                        Inscrições ao Longo do Tempo
+                      </CardTitle>
+                      <CardDescription>
+                        Evolução das inscrições desde o início
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      {reportData.registrationsOverTime.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={300}>
+                          <LineChart data={reportData.registrationsOverTime}>
+                            <defs>
+                              <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#22c55e" stopOpacity={0.8} />
+                                <stop offset="100%" stopColor="#156634" stopOpacity={0.3} />
+                              </linearGradient>
+                              <filter id="glow">
+                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                <feMerge>
+                                  <feMergeNode in="coloredBlur"/>
+                                  <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                              </filter>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} />
+                            <XAxis 
+                              dataKey="date" 
+                              tick={{ fontSize: 11, fill: '#9ca3af' }} 
+                              stroke="#4b5563"
+                            />
+                            <YAxis 
+                              tick={{ fontSize: 11, fill: '#9ca3af' }} 
+                              stroke="#4b5563"
+                            />
+                            <Tooltip 
+                              contentStyle={{ 
+                                    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                                    border: '1px solid #e5e7eb',
+                                borderRadius: '8px',
+                                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                              }}
+                              labelStyle={{ color: '#111827', fontWeight: '600', fontSize: '13px' }}
+                              itemStyle={{ color: '#4b5563', fontSize: '12px' }}
+                            />
+                            <Legend />
+                            <Line 
+                              type="monotone" 
+                              dataKey="count" 
+                              stroke="url(#lineGradient)" 
+                              strokeWidth={3}
+                              name="Inscrições"
+                              dot={{ fill: '#22c55e', r: 5, filter: 'url(#glow)' }}
+                              activeDot={{ r: 7, filter: 'url(#glow)' }}
+                              style={{ filter: 'url(#glow)' }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="text-center py-12 text-gray-500">
+                          Nenhuma inscrição registrada ainda
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Distribuição por Categoria */}
+                  <Card className="border-2 shadow-sm">
+                    <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
+                      <CardTitle className="text-xl flex items-center gap-2">
+                        <Package className="h-5 w-5 text-[#156634]" />
+                        Distribuição por Categoria de Ingresso
+                      </CardTitle>
+                      <CardDescription>
+                        Inscrições por tipo de ingresso
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      {reportData.ticketsByCategory.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <ResponsiveContainer width="100%" height={300}>
+                            <PieChart>
+                              <defs>
+                                <filter id="pieGlow">
+                                  <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                                  <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                  </feMerge>
+                                </filter>
+                              </defs>
+                              <Pie
+                                data={reportData.ticketsByCategory}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                label={false}
+                                outerRadius={100}
+                                innerRadius={50}
+                                fill="#8884d8"
+                                dataKey="value"
+                                paddingAngle={2}
+                              >
+                                {reportData.ticketsByCategory.map((entry, index) => {
+                                  const colors = [
+                                    'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                                    'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                                    'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                                    'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                                    'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                                    'linear-gradient(135deg, #ec4899 0%, #db2777 100%)'
+                                  ]
+                                  const solidColors = ['#22c55e', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899']
+                                  return (
+                                    <Cell 
+                                      key={`cell-${index}`} 
+                                      fill={solidColors[index % 6]}
+                                      style={{ filter: 'url(#pieGlow)' }}
+                                      stroke="none"
+                                    />
+                                  )
+                                })}
+                              </Pie>
+                              <Tooltip 
+                                contentStyle={{ 
+                                  backgroundColor: 'rgba(255, 255, 255, 0.98)', 
+                                  border: '1px solid #e5e7eb',
+                                  borderRadius: '8px',
+                                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                                }}
+                                labelStyle={{ color: '#111827', fontWeight: '600', fontSize: '13px' }}
+                                itemStyle={{ color: '#4b5563', fontSize: '12px' }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="space-y-3">
+                            {reportData.ticketsByCategory.map((item, index) => (
+                              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                  <div 
+                                    className="w-4 h-4 rounded"
+                                    style={{ backgroundColor: ['#156634', '#22c55e', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444'][index % 6] }}
+                                  />
+                                  <span className="font-medium">{item.name}</span>
+                                </div>
+                                <div className="text-right">
+                                  <div className="font-bold text-gray-900">{item.value}</div>
+                                  <div className="text-xs text-gray-500">{item.percent.toFixed(1)}%</div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 text-gray-500">
+                          Nenhuma categoria registrada ainda
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Gráficos de Gênero, Idade e Tamanho de Camiseta */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Gráfico de Gênero */}
+                    <Card className="border-2 shadow-sm">
+                      <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <Users className="h-5 w-5 text-[#156634]" />
+                          Por Gênero
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-6">
+                        {reportData.byGender.length > 0 ? (
+                          <div className="space-y-4">
+                            <ResponsiveContainer width="100%" height={200}>
+                              <PieChart>
+                                <defs>
+                                  <filter id="genderPieGlow">
+                                    <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                                    <feMerge>
+                                      <feMergeNode in="coloredBlur"/>
+                                      <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                  </filter>
+                                </defs>
+                                <Pie
+                                  data={reportData.byGender}
+                                  cx="50%"
+                                  cy="50%"
+                                  labelLine={false}
+                                  label={false}
+                                  outerRadius={75}
+                                  innerRadius={40}
+                                  fill="#8884d8"
+                                  dataKey="value"
+                                  paddingAngle={2}
+                                >
+                                  {reportData.byGender.map((entry, index) => {
+                                    const solidColors = ['#22c55e', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899']
+                                    return (
+                                      <Cell 
+                                        key={`cell-${index}`} 
+                                        fill={solidColors[index % 6]}
+                                        style={{ filter: 'url(#genderPieGlow)' }}
+                                        stroke="none"
+                                      />
+                                    )
+                                  })}
+                                </Pie>
+                                <Tooltip 
+                                  contentStyle={{ 
+                                    backgroundColor: 'rgba(255, 255, 255, 0.98)', 
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '8px',
+                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                                  }}
+                                  labelStyle={{ color: '#111827', fontWeight: '600', fontSize: '13px' }}
+                                  itemStyle={{ color: '#4b5563', fontSize: '12px' }}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                            <div className="space-y-2">
+                              {reportData.byGender.map((item, index) => (
+                                <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                  <div className="flex items-center gap-2">
+                                    <div 
+                                      className="w-3 h-3 rounded"
+                                      style={{ backgroundColor: ['#22c55e', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899'][index % 6] }}
+                                    />
+                                    <span className="text-sm font-medium">{item.name}</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="font-bold text-sm text-gray-900">{item.value}</div>
+                                    <div className="text-xs text-gray-500">{item.percent.toFixed(1)}%</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-gray-500 text-sm">
+                            Nenhum dado de gênero disponível
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Gráfico de Idade */}
+                    <Card className="border-2 shadow-sm">
+                      <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <Calendar className="h-5 w-5 text-[#156634]" />
+                          Por Idade
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-6">
+                        {reportData.byAge.length > 0 ? (
+                          <div className="space-y-4">
+                            <ResponsiveContainer width="100%" height={200}>
+                              <PieChart>
+                                <defs>
+                                  <filter id="agePieGlow">
+                                    <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                                    <feMerge>
+                                      <feMergeNode in="coloredBlur"/>
+                                      <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                  </filter>
+                                </defs>
+                                <Pie
+                                  data={reportData.byAge}
+                                  cx="50%"
+                                  cy="50%"
+                                  labelLine={false}
+                                  label={false}
+                                  outerRadius={75}
+                                  innerRadius={40}
+                                  fill="#8884d8"
+                                  dataKey="value"
+                                  paddingAngle={2}
+                                >
+                                  {reportData.byAge.map((entry, index) => {
+                                    const solidColors = ['#22c55e', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899', '#10b981']
+                                    return (
+                                      <Cell 
+                                        key={`cell-${index}`} 
+                                        fill={solidColors[index % 7]}
+                                        style={{ filter: 'url(#agePieGlow)' }}
+                                        stroke="none"
+                                      />
+                                    )
+                                  })}
+                                </Pie>
+                                <Tooltip 
+                                  contentStyle={{ 
+                                    backgroundColor: 'rgba(255, 255, 255, 0.98)', 
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '8px',
+                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                                  }}
+                                  labelStyle={{ color: '#111827', fontWeight: '600', fontSize: '13px' }}
+                                  itemStyle={{ color: '#4b5563', fontSize: '12px' }}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                            <div className="space-y-2">
+                              {reportData.byAge.map((item, index) => (
+                                <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                  <div className="flex items-center gap-2">
+                                    <div 
+                                      className="w-3 h-3 rounded"
+                                      style={{ backgroundColor: ['#22c55e', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899', '#10b981'][index % 7] }}
+                                    />
+                                    <span className="text-sm font-medium">{item.name}</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="font-bold text-sm text-gray-900">{item.value}</div>
+                                    <div className="text-xs text-gray-500">{item.percent.toFixed(1)}%</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-gray-500 text-sm">
+                            Nenhum dado de idade disponível
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Gráfico de Tamanho de Camiseta */}
+                    <Card className="border-2 shadow-sm">
+                      <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <Shirt className="h-5 w-5 text-[#156634]" />
+                          Tamanho de Camiseta
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-6">
+                        {reportData.byShirtSize.length > 0 ? (
+                          <div className="space-y-4">
+                            <ResponsiveContainer width="100%" height={200}>
+                              <PieChart>
+                                <defs>
+                                  <filter id="shirtPieGlow">
+                                    <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                                    <feMerge>
+                                      <feMergeNode in="coloredBlur"/>
+                                      <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                  </filter>
+                                </defs>
+                                <Pie
+                                  data={reportData.byShirtSize}
+                                  cx="50%"
+                                  cy="50%"
+                                  labelLine={false}
+                                  label={false}
+                                  outerRadius={75}
+                                  innerRadius={40}
+                                  fill="#8884d8"
+                                  dataKey="value"
+                                  paddingAngle={2}
+                                >
+                                  {reportData.byShirtSize.map((entry, index) => {
+                                    const solidColors = ['#22c55e', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899', '#10b981']
+                                    return (
+                                      <Cell 
+                                        key={`cell-${index}`} 
+                                        fill={solidColors[index % 7]}
+                                        style={{ filter: 'url(#shirtPieGlow)' }}
+                                        stroke="none"
+                                      />
+                                    )
+                                  })}
+                                </Pie>
+                                <Tooltip 
+                                  contentStyle={{ 
+                                    backgroundColor: 'rgba(255, 255, 255, 0.98)', 
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '8px',
+                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                                  }}
+                                  labelStyle={{ color: '#111827', fontWeight: '600', fontSize: '13px' }}
+                                  itemStyle={{ color: '#4b5563', fontSize: '12px' }}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                            <div className="space-y-2">
+                              {reportData.byShirtSize.map((item, index) => (
+                                <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                  <div className="flex items-center gap-2">
+                                    <div 
+                                      className="w-3 h-3 rounded"
+                                      style={{ backgroundColor: ['#22c55e', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899', '#10b981'][index % 7] }}
+                                    />
+                                    <span className="text-sm font-medium">{item.name}</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="font-bold text-sm text-gray-900">{item.value}</div>
+                                    <div className="text-xs text-gray-500">{item.percent.toFixed(1)}%</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-gray-500 text-sm">
+                            Nenhum dado de tamanho disponível
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </>
+              )}
+            </TabsContent>
 
             {/* Tab: Relatório Financeiro */}
             <TabsContent value="financeiro" className="space-y-6">
-              <Card className="border-2 shadow-sm">
-                <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
-                  <CardTitle className="text-xl flex items-center gap-2">
-                    <DollarSign className="h-5 w-5 text-[#156634]" />
-                    Relatório Financeiro
-                  </CardTitle>
-              <CardDescription>
-                    Visualize receitas, descontos e comissões
-              </CardDescription>
-            </CardHeader>
-                <CardContent className="pt-6">
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <BarChart3 className="h-8 w-8 text-gray-400" />
-                    </div>
-                    <p className="text-sm text-gray-600">
-                      Relatório financeiro em desenvolvimento
-                    </p>
+              {reportData.loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#156634]" />
+                </div>
+              ) : (
+                <>
+                  {/* Métricas Financeiras */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <Card className="border-2 shadow-sm">
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-green-600">
+                            R$ {reportData.financialMetrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-1">Receita Total</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-2 shadow-sm">
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-red-600">
+                            R$ {reportData.financialMetrics.totalDiscounts.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-1">Descontos</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-2 shadow-sm">
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-blue-600">
+                            R$ {reportData.financialMetrics.netRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-1">Receita Líquida</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-2 shadow-sm">
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-purple-600">
+                            R$ {reportData.financialMetrics.averageTicket.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-1">Ticket Médio</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-2 shadow-sm">
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-orange-600">
+                            R$ {reportData.financialMetrics.estimatedRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-1">Receita Estimada*</p>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
-                </CardContent>
-              </Card>
+
+                  {/* Gráfico de Receita ao Longo do Tempo */}
+                  <Card className="border-2 shadow-sm">
+                    <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
+                      <CardTitle className="text-xl flex items-center gap-2">
+                        <DollarSign className="h-5 w-5 text-[#156634]" />
+                        Receita ao Longo do Tempo
+                      </CardTitle>
+                      <CardDescription>
+                        Evolução da receita desde o início
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      {reportData.revenueOverTime.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={300}>
+                          <LineChart data={reportData.revenueOverTime}>
+                            <defs>
+                              <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.8} />
+                                <stop offset="100%" stopColor="#1e40af" stopOpacity={0.3} />
+                              </linearGradient>
+                              <filter id="revenueGlow">
+                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                <feMerge>
+                                  <feMergeNode in="coloredBlur"/>
+                                  <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                              </filter>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} />
+                            <XAxis 
+                              dataKey="date" 
+                              tick={{ fontSize: 11, fill: '#9ca3af' }} 
+                              stroke="#4b5563"
+                            />
+                            <YAxis 
+                              tick={{ fontSize: 11, fill: '#9ca3af' }} 
+                              stroke="#4b5563"
+                            />
+                            <Tooltip 
+                              formatter={(value: any) => `R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                              contentStyle={{ 
+                                    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                                    border: '1px solid #e5e7eb',
+                                borderRadius: '8px',
+                                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                              }}
+                              labelStyle={{ color: '#111827', fontWeight: '600', fontSize: '13px' }}
+                              itemStyle={{ color: '#4b5563', fontSize: '12px' }}
+                            />
+                            <Legend />
+                            <Line 
+                              type="monotone" 
+                              dataKey="amount" 
+                              stroke="url(#revenueGradient)" 
+                              strokeWidth={3}
+                              name="Receita (R$)"
+                              dot={{ fill: '#3b82f6', r: 5, filter: 'url(#revenueGlow)' }}
+                              activeDot={{ r: 7, filter: 'url(#revenueGlow)' }}
+                              style={{ filter: 'url(#revenueGlow)' }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="text-center py-12 text-gray-500">
+                          Nenhuma receita registrada ainda
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <div className="text-xs text-gray-500 italic">
+                    * Receita estimada baseada na média diária dos últimos 7 dias
+                  </div>
+                </>
+              )}
             </TabsContent>
 
             {/* Tab: Relatório de Afiliados */}
             <TabsContent value="afiliados" className="space-y-6">
-              <Card className="border-2 shadow-sm">
-                <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
-                  <CardTitle className="text-xl flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-[#156634]" />
-                    Relatório de Afiliados
-                  </CardTitle>
-                  <CardDescription>
-                    Visualize performance dos afiliados
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <BarChart3 className="h-8 w-8 text-gray-400" />
-                    </div>
-                    <p className="text-sm text-gray-600">
-                      Relatório de afiliados em desenvolvimento
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+              {reportData.loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#156634]" />
+                </div>
+              ) : (
+                <Card className="border-2 shadow-sm">
+                  <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
+                    <CardTitle className="text-xl flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-[#156634]" />
+                      Performance dos Afiliados
+                    </CardTitle>
+                    <CardDescription>
+                      Vendas e comissões por afiliado
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    {reportData.affiliatePerformance.length > 0 ? (
+                      <>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={reportData.affiliatePerformance}>
+                            <defs>
+                              <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#22c55e" stopOpacity={1} />
+                                <stop offset="100%" stopColor="#16a34a" stopOpacity={0.8} />
+                              </linearGradient>
+                              <linearGradient id="revenueBarGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
+                                <stop offset="100%" stopColor="#2563eb" stopOpacity={0.8} />
+                              </linearGradient>
+                              <filter id="barGlow">
+                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                <feMerge>
+                                  <feMergeNode in="coloredBlur"/>
+                                  <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                              </filter>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} />
+                            <XAxis 
+                              dataKey="name" 
+                              tick={{ fontSize: 11, fill: '#9ca3af' }} 
+                              stroke="#4b5563"
+                            />
+                            <YAxis 
+                              tick={{ fontSize: 11, fill: '#9ca3af' }} 
+                              stroke="#4b5563"
+                            />
+                            <Tooltip 
+                              contentStyle={{ 
+                                    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                                    border: '1px solid #e5e7eb',
+                                borderRadius: '8px',
+                                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                              }}
+                              labelStyle={{ color: '#111827', fontWeight: '600', fontSize: '13px' }}
+                              itemStyle={{ color: '#4b5563', fontSize: '12px' }}
+                            />
+                            <Legend />
+                            <Bar 
+                              dataKey="sales" 
+                              fill="url(#salesGradient)" 
+                              name="Vendas"
+                              radius={[8, 8, 0, 0]}
+                              style={{ filter: 'url(#barGlow)' }}
+                            />
+                            <Bar 
+                              dataKey="revenue" 
+                              fill="url(#revenueBarGradient)" 
+                              name="Receita (R$)"
+                              radius={[8, 8, 0, 0]}
+                              style={{ filter: 'url(#barGlow)' }}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                        <div className="mt-6 space-y-3">
+                          <h3 className="font-semibold text-lg mb-4">Detalhes por Afiliado</h3>
+                          {reportData.affiliatePerformance.map((affiliate, index) => (
+                            <div key={index} className="p-4 bg-gray-50 rounded-lg">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="font-semibold">{affiliate.name}</span>
+                                <Badge variant="outline">{affiliate.sales} vendas</Badge>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4 mt-2 text-sm">
+                                <div>
+                                  <span className="text-gray-600">Receita gerada:</span>
+                                  <span className="font-semibold ml-2 text-green-600">
+                                    R$ {affiliate.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">Comissão:</span>
+                                  <span className="font-semibold ml-2 text-blue-600">
+                                    R$ {affiliate.commission.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-12 text-gray-500">
+                        Nenhum afiliado com vendas registradas ainda
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             {/* Tab: Relatório de Cupons */}
             <TabsContent value="cupons" className="space-y-6">
-              <Card className="border-2 shadow-sm">
-                <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
-                  <CardTitle className="text-xl flex items-center gap-2">
-                    <Tag className="h-5 w-5 text-[#156634]" />
-                    Relatório de Cupons
-                  </CardTitle>
-                  <CardDescription>
-                    Visualize uso e performance dos cupons
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <BarChart3 className="h-8 w-8 text-gray-400" />
+              {reportData.loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#156634]" />
                 </div>
-                    <p className="text-sm text-gray-600">
-                      Relatório de cupons em desenvolvimento
-                    </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              ) : (
+                <Card className="border-2 shadow-sm">
+                  <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
+                    <CardTitle className="text-xl flex items-center gap-2">
+                      <Tag className="h-5 w-5 text-[#156634]" />
+                      Cupons Mais Utilizados
+                    </CardTitle>
+                    <CardDescription>
+                      Análise de uso e performance dos cupons de desconto
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    {reportData.topCoupons.length > 0 ? (
+                      <>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={reportData.topCoupons}>
+                            <defs>
+                              <linearGradient id="usesGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#22c55e" stopOpacity={1} />
+                                <stop offset="100%" stopColor="#16a34a" stopOpacity={0.8} />
+                              </linearGradient>
+                              <linearGradient id="discountGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#ef4444" stopOpacity={1} />
+                                <stop offset="100%" stopColor="#dc2626" stopOpacity={0.8} />
+                              </linearGradient>
+                              <filter id="couponBarGlow">
+                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                <feMerge>
+                                  <feMergeNode in="coloredBlur"/>
+                                  <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                              </filter>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} />
+                            <XAxis 
+                              dataKey="code" 
+                              tick={{ fontSize: 11, fill: '#9ca3af' }} 
+                              stroke="#4b5563"
+                            />
+                            <YAxis 
+                              tick={{ fontSize: 11, fill: '#9ca3af' }} 
+                              stroke="#4b5563"
+                            />
+                            <Tooltip 
+                              contentStyle={{ 
+                                    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                                    border: '1px solid #e5e7eb',
+                                borderRadius: '8px',
+                                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                              }}
+                              labelStyle={{ color: '#111827', fontWeight: '600', fontSize: '13px' }}
+                              itemStyle={{ color: '#4b5563', fontSize: '12px' }}
+                            />
+                            <Legend />
+                            <Bar 
+                              dataKey="uses" 
+                              fill="url(#usesGradient)" 
+                              name="Usos"
+                              radius={[8, 8, 0, 0]}
+                              style={{ filter: 'url(#couponBarGlow)' }}
+                            />
+                            <Bar 
+                              dataKey="discount" 
+                              fill="url(#discountGradient)" 
+                              name="Desconto Total (R$)"
+                              radius={[8, 8, 0, 0]}
+                              style={{ filter: 'url(#couponBarGlow)' }}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                        <div className="mt-6 space-y-3">
+                          <h3 className="font-semibold text-lg mb-4">Detalhes dos Cupons</h3>
+                          {reportData.topCoupons.map((coupon, index) => (
+                            <div key={index} className="p-4 bg-gray-50 rounded-lg">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <Tag className="h-4 w-4 text-[#156634]" />
+                                  <span className="font-mono font-semibold">{coupon.code}</span>
+                                </div>
+                                <Badge variant="outline">{coupon.uses} usos</Badge>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4 mt-2 text-sm">
+                                <div>
+                                  <span className="text-gray-600">Desconto total:</span>
+                                  <span className="font-semibold ml-2 text-red-600">
+                                    R$ {coupon.discount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">Receita gerada:</span>
+                                  <span className="font-semibold ml-2 text-green-600">
+                                    R$ {coupon.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-12 text-gray-500">
+                        Nenhum cupom utilizado ainda
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
       </Tabs>
       </div>
       )}

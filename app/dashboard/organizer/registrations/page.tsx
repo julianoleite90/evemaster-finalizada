@@ -776,7 +776,7 @@ export default function RegistrationsPage() {
                     className="h-8 text-xs"
                   >
                     Limpar
-                  </Button>
+          </Button>
                 </div>
                 <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto">
                   {availableFields.map((field) => (
@@ -1064,13 +1064,13 @@ export default function RegistrationsPage() {
               </div>
 
               {/* Lista de inscrições */}
-              <div className="divide-y">
+            <div className="divide-y">
                 {paginatedRegistrations.map((registration) => (
-                  <Link
-                    key={registration.id}
-                    href={`/dashboard/organizer/registrations/${registration.id}`}
-                    className="block hover:bg-gray-50/50 transition-colors"
-                  >
+                <Link
+                  key={registration.id}
+                  href={`/dashboard/organizer/registrations/${registration.id}`}
+                  className="block hover:bg-gray-50/50 transition-colors"
+                >
                     <div className="px-4 py-3">
                       {/* Desktop: Layout em grid */}
                       <div className="hidden md:grid md:grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr] gap-3 items-center">
@@ -1096,7 +1096,7 @@ export default function RegistrationsPage() {
                               <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
                             ) : null}
                           </p>
-                        </div>
+                    </div>
 
                         {/* Evento */}
                         <div>
@@ -1111,7 +1111,7 @@ export default function RegistrationsPage() {
                               <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
                             ) : null}
                           </p>
-                        </div>
+                    </div>
 
                         {/* ID */}
                         <div>
@@ -1120,12 +1120,12 @@ export default function RegistrationsPage() {
                             title={registration.numeroInscricao}
                             onClick={(e) => handleCopy(e, registration.numeroInscricao, `id-${registration.id}`)}
                           >
-                            {registration.numeroInscricao}
+                          {registration.numeroInscricao}
                             {copiedId === `id-${registration.id}` ? (
                               <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
                             ) : null}
-                          </p>
-                        </div>
+                        </p>
+                      </div>
 
                         {/* Categoria */}
                         <div>
@@ -1134,11 +1134,11 @@ export default function RegistrationsPage() {
                             className="text-[10px] cursor-pointer hover:border-green-600 transition-colors"
                             onClick={(e) => handleCopy(e, registration.categoria, `categoria-${registration.id}`)}
                           >
-                            {registration.categoria}
+                          {registration.categoria}
                             {copiedId === `categoria-${registration.id}` ? (
                               <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
                             ) : null}
-                          </Badge>
+                        </Badge>
                         </div>
 
                         {/* Valor */}
@@ -1147,12 +1147,12 @@ export default function RegistrationsPage() {
                             className="text-xs font-medium text-gray-900 cursor-pointer hover:text-green-600 transition-colors"
                             onClick={(e) => handleCopy(e, formatCurrency(Number(registration.valor) || 0), `valor-${registration.id}`)}
                           >
-                            {formatCurrency(Number(registration.valor) || 0)}
+                          {formatCurrency(Number(registration.valor) || 0)}
                             {copiedId === `valor-${registration.id}` ? (
                               <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
                             ) : null}
-                          </p>
-                        </div>
+                        </p>
+                      </div>
 
                         {/* Status */}
                         <div className="flex items-center justify-between w-full">
@@ -1176,7 +1176,7 @@ export default function RegistrationsPage() {
                             <ChevronRight className="h-4 w-4" />
                           </Link>
                         </div>
-                      </div>
+                    </div>
 
                       {/* Mobile: Layout compacto */}
                       <div className="md:hidden flex items-center gap-3">
@@ -1227,37 +1227,37 @@ export default function RegistrationsPage() {
                             className="font-mono text-[10px] text-gray-500 mb-0.5 cursor-pointer hover:text-green-600 transition-colors"
                             onClick={(e) => handleCopy(e, registration.numeroInscricao, `id-mobile-${registration.id}`)}
                           >
-                            {registration.numeroInscricao}
+                        {registration.numeroInscricao}
                             {copiedId === `id-mobile-${registration.id}` ? (
                               <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
                             ) : null}
-                          </p>
+                      </p>
                           <p className="text-[10px] text-gray-500 mb-1">{formatDate(registration.dataInscricao, true)}</p>
                           <p 
                             className="text-xs font-medium text-gray-900 cursor-pointer hover:text-green-600 transition-colors"
                             onClick={(e) => handleCopy(e, formatCurrency(Number(registration.valor) || 0), `valor-mobile-${registration.id}`)}
                           >
-                            {formatCurrency(Number(registration.valor) || 0)}
+                        {formatCurrency(Number(registration.valor) || 0)}
                             {copiedId === `valor-mobile-${registration.id}` ? (
                               <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
                             ) : null}
-                          </p>
+                      </p>
                           <Badge 
                             variant="outline" 
                             className="text-[10px] mt-1 cursor-pointer hover:border-green-600 transition-colors"
                             onClick={(e) => handleCopy(e, registration.categoria, `categoria-mobile-${registration.id}`)}
                           >
-                            {registration.categoria}
+                        {registration.categoria}
                             {copiedId === `categoria-mobile-${registration.id}` ? (
                               <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
                             ) : null}
-                          </Badge>
+                      </Badge>
                         </div>
-                      </div>
                     </div>
-                  </Link>
-                ))}
-              </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
 
               {/* Controles de Paginação */}
               <div className="border-t border-gray-200 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-4">

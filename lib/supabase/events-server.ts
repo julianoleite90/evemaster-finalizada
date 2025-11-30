@@ -48,7 +48,15 @@ export async function getEventBySlug(slug: string) {
           *,
           tickets (*)
         ),
-        event_settings (*),
+        event_settings (
+          *,
+          analytics_google_analytics_id,
+          analytics_google_analytics_enabled,
+          analytics_gtm_container_id,
+          analytics_gtm_enabled,
+          analytics_facebook_pixel_id,
+          analytics_facebook_pixel_enabled
+        ),
         event_images:event_images (
           id,
           image_url,
@@ -71,7 +79,15 @@ export async function getEventBySlug(slug: string) {
           *,
           tickets (*)
         ),
-        event_settings (*),
+        event_settings (
+          *,
+          analytics_google_analytics_id,
+          analytics_google_analytics_enabled,
+          analytics_gtm_container_id,
+          analytics_gtm_enabled,
+          analytics_facebook_pixel_id,
+          analytics_facebook_pixel_enabled
+        ),
         event_images:event_images (
           id,
           image_url,
@@ -106,17 +122,7 @@ export async function getEventBySlug(slug: string) {
             company_email: organizerData.user_email,
             events_last_year: organizerData.events_last_year || 0
           }
-          
-          console.log("📋 [DEBUG ORGANIZADOR SERVER] Dados do organizador (view padronizada):", {
-            organizer_id: event.organizer_id,
-            company_name: event.organizer.company_name,
-            company_cnpj: event.organizer.company_cnpj,
-            company_phone: event.organizer.company_phone,
-            email: event.organizer.email,
-            events_last_year: event.organizer.events_last_year
-          })
         } else {
-          console.log("⚠️ [DEBUG ORGANIZADOR SERVER] Organizador não encontrado:", organizerError?.message)
         }
       }
     } else {

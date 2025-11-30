@@ -197,6 +197,22 @@ export default function EventoLandingPage() {
         
         setEventData(eventDataWithImages)
         
+        // Buscar event_settings separadamente para garantir dados mais recentes
+        const supabase = createClient()
+        const { data: settingsData } = await supabase
+          .from("event_settings")
+          .select("*")
+          .eq("event_id", event.id)
+          .maybeSingle()
+        
+        // Atualizar eventData com os settings buscados separadamente
+        if (settingsData) {
+          setEventData((prev: any) => ({
+            ...prev,
+            event_settings: [settingsData]
+          }))
+        }
+        
         // Registrar visualização do evento
         if (event.id) {
           const supabase = createClient()
@@ -212,13 +228,10 @@ export default function EventoLandingPage() {
                 })
               
               if (error) {
-                console.error('❌ [TRACKING] Erro ao registrar visualização:', error)
-                console.error('❌ [TRACKING] Detalhes:', { event_id: event.id, error_code: error.code, error_message: error.message })
-              } else {
-                console.log('✅ [TRACKING] Visualização registrada com sucesso:', data)
+                // Erro silencioso - não afeta a experiência do usuário
               }
             } catch (err) {
-              console.error('❌ [TRACKING] Erro ao registrar visualização (catch):', err)
+              // Erro silencioso - não afeta a experiência do usuário
             }
           })()
         }
@@ -394,15 +407,11 @@ export default function EventoLandingPage() {
 
   // Extrair dados dos pixels do event_settings
   const eventSettings = eventData.event_settings?.[0] || {}
-  const googleAnalyticsId = eventSettings.analytics_google_analytics_enabled 
-    ? eventSettings.analytics_google_analytics_id 
-    : null
-  const googleTagManagerId = eventSettings.analytics_gtm_enabled 
-    ? eventSettings.analytics_gtm_container_id 
-    : null
-  const facebookPixelId = eventSettings.analytics_facebook_pixel_enabled 
-    ? eventSettings.analytics_facebook_pixel_id 
-    : null
+  
+  // Verificar se os IDs existem
+  const googleAnalyticsId = eventSettings.analytics_google_analytics_id?.trim() || null
+  const googleTagManagerId = eventSettings.analytics_gtm_container_id?.trim() || null
+  const facebookPixelId = eventSettings.analytics_facebook_pixel_id?.trim() || null
 
   return (
     <div className="min-h-screen bg-gray-50">

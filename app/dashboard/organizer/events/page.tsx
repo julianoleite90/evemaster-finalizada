@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar, MapPin, Users, Eye, Settings, Plus, Search } from "lucide-react"
+import { Calendar, MapPin, Users, Eye, Settings, Plus, Search, Copy, QrCode, ChevronDown, Download } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useState, useEffect } from "react"
@@ -14,6 +14,16 @@ import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { getOrganizerAccess } from "@/lib/supabase/organizer-access"
 import { useUserPermissions } from "@/hooks/use-user-permissions"
+import { getUserPermissions } from "@/lib/supabase/user-permissions"
+import { useRouter } from "next/navigation"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface Event {
   id: string
@@ -33,7 +43,8 @@ export default function EventsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [eventos, setEventos] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
-  const { canView, canEdit, canCreate, canDelete, isPrimary, loading: permissionsLoading } = useUserPermissions()
+  const { canViewEvents, canCreateEvents, canEditEvents, canDeleteEvents, isPrimary, loading: permissionsLoading } = useUserPermissions()
+  const router = useRouter()
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -241,6 +252,142 @@ export default function EventsPage() {
   }
 
   const EventCard = ({ event }: { event: Event }) => {
+    const [showQRDialog, setShowQRDialog] = useState(false)
+    const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null)
+    
+    const eventUrl = typeof window !== 'undefined' 
+      ? `${window.location.origin}/evento/${event.slug || event.id}`
+      : `/evento/${event.slug || event.id}`
+
+    const handleCopyLink = async () => {
+      try {
+        await navigator.clipboard.writeText(eventUrl)
+        toast.success("Link copiado para a área de transferência!")
+      } catch (error) {
+        toast.error("Erro ao copiar link")
+      }
+    }
+
+    const generateQRCode = async () => {
+      try {
+        // Gerar QR code via API route
+        const response = await fetch(
+          `/api/qrcode/generate?url=${encodeURIComponent(eventUrl)}&eventName=${encodeURIComponent(event.name)}`
+        )
+
+        if (!response.ok) {
+          throw new Error("Erro ao gerar QR code")
+        }
+
+        const data = await response.json()
+        const qrDataUrl = data.dataUrl
+
+        // Criar canvas para adicionar logo
+        const canvas = document.createElement("canvas")
+        const ctx = canvas.getContext("2d")
+        if (!ctx) {
+          setQrCodeDataUrl(qrDataUrl)
+          return
+        }
+
+        // Carregar QR code como imagem usando HTMLImageElement nativo
+        const qrImg = document.createElement("img") as HTMLImageElement
+        qrImg.crossOrigin = "anonymous"
+        
+        qrImg.onload = () => {
+          canvas.width = 400
+          canvas.height = 400
+          ctx.drawImage(qrImg, 0, 0)
+
+          // Função para adicionar logo ou "E"
+          const addLogo = (img: HTMLImageElement | null = null) => {
+            // Reduzir tamanho do logo para 15% do QR code (antes era 20%)
+            const logoSize = canvas.width * 0.15
+            const padding = 8
+            const x = (canvas.width - logoSize) / 2
+            const y = (canvas.height - logoSize) / 2
+
+            // Desenhar fundo branco para o logo
+            ctx.fillStyle = "#FFFFFF"
+            ctx.fillRect(x - padding, y - padding, logoSize + (padding * 2), logoSize + (padding * 2))
+
+            if (img && img.complete && img.naturalWidth > 0) {
+              // Calcular dimensões mantendo proporção
+              const imgAspectRatio = img.naturalWidth / img.naturalHeight
+              let drawWidth = logoSize
+              let drawHeight = logoSize
+              
+              if (imgAspectRatio > 1) {
+                // Imagem mais larga que alta
+                drawHeight = logoSize / imgAspectRatio
+              } else {
+                // Imagem mais alta que larga
+                drawWidth = logoSize * imgAspectRatio
+              }
+              
+              // Centralizar o logo
+              const drawX = x + (logoSize - drawWidth) / 2
+              const drawY = y + (logoSize - drawHeight) / 2
+              
+              // Desenhar logo mantendo proporção
+              ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
+            } else {
+              // Desenhar "E" estilizado
+              ctx.fillStyle = "#156634"
+              ctx.font = `bold ${logoSize * 0.6}px Arial`
+              ctx.textAlign = "center"
+              ctx.textBaseline = "middle"
+              ctx.fillText("E", canvas.width / 2, canvas.height / 2)
+            }
+
+            const finalDataUrl = canvas.toDataURL("image/png")
+            setQrCodeDataUrl(finalDataUrl)
+          }
+
+          // Tentar carregar logo usando HTMLImageElement nativo
+          const logoImg = document.createElement("img") as HTMLImageElement
+          logoImg.crossOrigin = "anonymous"
+          
+          logoImg.onload = () => {
+            addLogo(logoImg)
+          }
+
+          logoImg.onerror = () => {
+            addLogo(null)
+          }
+
+          logoImg.src = "/images/logo/logo.png"
+        }
+
+        qrImg.onerror = () => {
+          // Se não conseguir carregar o QR code, usar o data URL direto
+          setQrCodeDataUrl(qrDataUrl)
+        }
+
+        qrImg.src = qrDataUrl
+      } catch (error: any) {
+        console.error("Erro ao gerar QR code:", error)
+        toast.error(`Erro ao gerar QR code: ${error?.message || "Erro desconhecido"}`)
+      }
+    }
+
+    const handleShowQRCode = () => {
+      setShowQRDialog(true)
+      if (!qrCodeDataUrl) {
+        generateQRCode()
+      }
+    }
+
+    const handleDownloadQR = () => {
+      if (!qrCodeDataUrl) return
+
+      const link = document.createElement("a")
+      link.download = `qrcode-${event.name.replace(/\s+/g, "-").toLowerCase()}.png`
+      link.href = qrCodeDataUrl
+      link.click()
+      toast.success("QR code baixado com sucesso!")
+    }
+
     return (
     <Card className="hover:shadow-lg transition-all duration-200 flex flex-col h-full border-2 hover:border-[#156634]/20 overflow-hidden">
       {/* Cabeçalho com Banner */}
@@ -309,14 +456,39 @@ export default function EventsPage() {
         </div>
 
         <div className="flex items-center gap-2 pt-4 mt-auto border-t border-gray-200">
-          <Button variant="outline" size="sm" asChild className="flex-1 hover:bg-[#156634]/5 hover:border-[#156634]/30 text-gray-900 hover:text-[#156634]">
-            <Link href={`/evento/${event.slug || event.id}`} target="_blank" className="flex items-center justify-center gap-2">
-              <Eye className="h-4 w-4" />
-              <span className="hidden sm:inline">Ver Página</span>
-              <span className="sm:hidden">Ver</span>
-            </Link>
-          </Button>
-          {(canEdit || isPrimary) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="flex-1 hover:bg-[#156634]/5 hover:border-[#156634]/30 text-gray-900 hover:text-[#156634] gap-2">
+                <Eye className="h-4 w-4" />
+                <span className="hidden sm:inline">Ver Página</span>
+                <span className="sm:hidden">Ver</span>
+                <ChevronDown className="h-3 w-3 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem asChild>
+                <Link 
+                  href={`/evento/${event.slug || event.id}`} 
+                  target="_blank"
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Eye className="h-4 w-4" />
+                  Ver Página
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleCopyLink} className="flex items-center gap-2 cursor-pointer">
+                <Copy className="h-4 w-4" />
+                Copiar Link da Página
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleShowQRCode} className="flex items-center gap-2 cursor-pointer">
+                <QrCode className="h-4 w-4" />
+                Ver/Baixar QR Code
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {(canEditEvents || isPrimary) && (
             <Button variant="outline" size="sm" asChild className="flex-1 hover:bg-[#156634]/5 hover:border-[#156634]/30 text-gray-900 hover:text-[#156634]">
               <Link href={`/dashboard/organizer/events/${event.id}/settings`} className="flex items-center justify-center gap-2">
                 <Settings className="h-4 w-4" />
@@ -326,6 +498,39 @@ export default function EventsPage() {
             </Button>
           )}
         </div>
+
+        {/* Dialog do QR Code */}
+        <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>QR Code do Evento</DialogTitle>
+              <DialogDescription>
+                Escaneie este QR code para acessar a página do evento
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4 py-4">
+              {qrCodeDataUrl ? (
+                <>
+                  <div className="bg-white p-4 rounded-lg border-2 border-gray-200">
+                    <img
+                      src={qrCodeDataUrl}
+                      alt="QR Code do Evento"
+                      className="w-full max-w-[300px] h-auto"
+                    />
+                  </div>
+                  <Button onClick={handleDownloadQR} className="w-full">
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar QR Code
+                  </Button>
+                </>
+              ) : (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#156634]"></div>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
     )
@@ -351,7 +556,7 @@ export default function EventsPage() {
             Gerencie todos os seus eventos esportivos
           </p>
         </div>
-        {!permissionsLoading && (canCreate || isPrimary) && (
+        {!permissionsLoading && (canCreateEvents || isPrimary) && (
           <div className="flex gap-2">
             <Button asChild>
               <Link href="/dashboard/organizer/events/new" className="flex items-center">
@@ -407,7 +612,7 @@ export default function EventsPage() {
                 <p className="text-muted-foreground mb-4">
                   {searchTerm ? "Nenhum evento encontrado" : "Nenhum evento criado"}
                 </p>
-                {(canCreate || isPrimary) && (
+                {(canCreateEvents || isPrimary) && (
                   <Button asChild>
                     <Link href="/dashboard/organizer/events/new">
                       <Plus className="mr-2 h-4 w-4" />
