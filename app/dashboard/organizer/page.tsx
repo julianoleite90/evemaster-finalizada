@@ -99,23 +99,34 @@ export default function OrganizerDashboard() {
         }
 
         // Buscar inscrições dos últimos 7 dias
+        // Usar timezone local corretamente
         const hoje = new Date()
         hoje.setHours(0, 0, 0, 0)
+        // Converter para UTC mantendo o mesmo momento do dia
+        const hojeUTC = new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000)
+        
         const ontem = new Date(hoje)
         ontem.setDate(ontem.getDate() - 1)
+        const ontemUTC = new Date(ontem.getTime() - ontem.getTimezoneOffset() * 60000)
+        
+        // Fim do dia de hoje em UTC
+        const fimHoje = new Date(hoje)
+        fimHoje.setHours(23, 59, 59, 999)
+        const fimHojeUTC = new Date(fimHoje.getTime() - fimHoje.getTimezoneOffset() * 60000)
 
         const { data: inscricoesHojeData } = await supabase
           .from("registrations")
           .select("id, created_at")
           .in("event_id", eventIds)
-          .gte("created_at", hoje.toISOString())
+          .gte("created_at", hojeUTC.toISOString())
+          .lt("created_at", fimHojeUTC.toISOString())
 
         const { data: inscricoesOntemData } = await supabase
           .from("registrations")
           .select("id, created_at")
           .in("event_id", eventIds)
-          .gte("created_at", ontem.toISOString())
-          .lt("created_at", hoje.toISOString())
+          .gte("created_at", ontemUTC.toISOString())
+          .lt("created_at", hojeUTC.toISOString())
 
         // Buscar pagamentos
         const { data: pagamentosHoje } = await supabase
@@ -328,11 +339,13 @@ export default function OrganizerDashboard() {
         const receitaOntem = pagamentosOntem?.reduce((sum, p) => sum + Number(p.total_amount || 0), 0) || 0
 
         // Buscar visualizações dos eventos hoje e ontem
+        // Usar as mesmas datas UTC calculadas acima
         const { data: visualizacoesHoje, error: errorViewsHoje } = await supabase
           .from("event_views")
           .select("id")
           .in("event_id", eventIds)
-          .gte("viewed_at", hoje.toISOString())
+          .gte("viewed_at", hojeUTC.toISOString())
+          .lt("viewed_at", fimHojeUTC.toISOString())
 
         if (errorViewsHoje) {
           console.error("❌ [DASHBOARD] Erro ao buscar visualizações hoje:", errorViewsHoje)
@@ -342,8 +355,8 @@ export default function OrganizerDashboard() {
           .from("event_views")
           .select("id")
           .in("event_id", eventIds)
-          .gte("viewed_at", ontem.toISOString())
-          .lt("viewed_at", hoje.toISOString())
+          .gte("viewed_at", ontemUTC.toISOString())
+          .lt("viewed_at", hojeUTC.toISOString())
 
         if (errorViewsOntem) {
           console.error("❌ [DASHBOARD] Erro ao buscar visualizações ontem:", errorViewsOntem)
@@ -482,7 +495,7 @@ export default function OrganizerDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.acessosLanding.toLocaleString('pt-BR')}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Visualizações hoje
+              Últimos 30 dias
             </p>
           </CardContent>
         </Card>
