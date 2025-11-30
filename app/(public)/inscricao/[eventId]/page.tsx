@@ -590,7 +590,7 @@ export default function CheckoutPage() {
           telefone: data.user.phone || participante.telefone,
           cpf: data.user.cpf || participante.cpf,
           idade: participante.idade, // Idade não está salva na tabela users
-          genero: data.user.gender === 'male' ? 'Masculino' : data.user.gender === 'female' ? 'Feminino' : participante.genero,
+          genero: participante.genero, // Gender não está salvo na tabela users
           cep: data.user.zip_code || participante.cep,
           endereco: data.user.address || participante.endereco,
           numero: data.user.address_number || participante.numero,
