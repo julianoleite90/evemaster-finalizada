@@ -6,7 +6,7 @@ type Props = {
 }
 
 const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || 'https://www.evemaster.app'
+  process.env.NEXT_PUBLIC_SITE_URL || 'https://evemaster.app'
 const defaultTitle = 'EveMaster - Plataforma para Eventos Esportivos'
 const defaultDescription =
   'Encontre e gerencie eventos esportivos com a EveMaster, plataforma completa de ingressos e inscrições.'
@@ -15,6 +15,26 @@ const stripHtml = (value?: string) =>
   value
     ? value.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
     : ''
+
+// Função para garantir que a URL seja absoluta
+const ensureAbsoluteUrl = (url: string | null | undefined): string | null => {
+  if (!url || !url.trim()) return null
+  
+  const trimmedUrl = url.trim()
+  
+  // Se já é uma URL absoluta (começa com http:// ou https://), retornar como está
+  if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+    return trimmedUrl
+  }
+  
+  // Se é uma URL relativa, converter para absoluta usando o siteUrl
+  if (trimmedUrl.startsWith('/')) {
+    return `${siteUrl}${trimmedUrl}`
+  }
+  
+  // Se não começa com /, assumir que é relativa e adicionar /
+  return `${siteUrl}/${trimmedUrl}`
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // Suportar tanto Promise quanto objeto direto (compatibilidade Next.js 14/15)
@@ -38,7 +58,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // Se não encontrou o evento ou não tem nome, usar valores padrão
   if (!event || !event.name || !event.name.trim()) {
     return {
-      title: defaultTitle,
+      title: {
+        absolute: defaultTitle,
+      },
       description: defaultDescription,
       openGraph: {
         title: defaultTitle,
@@ -77,15 +99,29 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       : defaultDescription
 
   // USAR O BANNER DO EVENTO como imagem OG (se existir)
-  // Se não tiver banner, usar fallback
-  const ogImage = event.banner_url 
-    ? event.banner_url 
+  // Garantir que o banner_url seja uma URL absoluta válida
+  const bannerUrl = ensureAbsoluteUrl(event.banner_url)
+  const ogImage = bannerUrl 
+    ? bannerUrl 
     : `${siteUrl}/api/og/evento/${event.slug || slug}`
+  
+  // Debug: log para verificar o que está sendo usado
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[Event Metadata]', {
+      eventName: eventTitle,
+      hasBanner: !!event.banner_url,
+      bannerUrl: event.banner_url,
+      normalizedBannerUrl: bannerUrl,
+      ogImage,
+    })
+  }
     
   const canonicalUrl = `${siteUrl}/evento/${event.slug || slug}`
 
   return {
-    title: eventTitle, // TÍTULO DO EVENTO (sem sufixo do site)
+    title: {
+      absolute: eventTitle, // TÍTULO DO EVENTO (sem sufixo do site, sobrescreve completamente o layout pai)
+    },
     description,
     openGraph: {
       title: eventTitle, // TÍTULO DO EVENTO
