@@ -207,7 +207,7 @@ export default function OrganizerLoginPage() {
               status: "approved",
               is_active: true,
             })
-            .select("id")
+            .select("id, user_id, company_name")
             .single()
 
           console.log("🔍 [LOGIN ORGANIZADOR] Resultado criação organizador:", { 
@@ -218,6 +218,7 @@ export default function OrganizerLoginPage() {
           })
 
           if (newOrganizer && !createError) {
+            // newOrganizer já tem id, user_id, company_name do select acima
             organizer = newOrganizer
             toast.success("Perfil de organizador criado automaticamente!")
             window.location.href = "/dashboard/organizer"
