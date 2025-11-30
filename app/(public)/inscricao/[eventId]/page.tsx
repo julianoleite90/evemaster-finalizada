@@ -2626,7 +2626,7 @@ export default function CheckoutPage() {
                 </div>
               ) : termoBuscaParticipante ? (
                 <p className="text-sm text-gray-500 text-center py-4">
-                  Nenhum participante encontrado com "{termoBuscaParticipante}"
+                  Nenhum participante encontrado com &quot;{termoBuscaParticipante}&quot;
                 </p>
               ) : (
                 <p className="text-sm text-gray-500 text-center py-4">
