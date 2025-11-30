@@ -1203,27 +1203,36 @@ export default function CheckoutPage() {
         }
         
         // Preencher athlete_id e buyer_id (obrigatórios) e user_id (opcional)
-        if (userId) {
-          insertData.athlete_id = userId
-          insertData.buyer_id = userId
-          insertData.user_id = userId
-        } else {
-          // Se não tiver userId, precisamos criar um usuário temporário ou usar um fallback
-          // Por enquanto, vamos buscar ou criar um usuário pelo email
-          const { data: existingUser } = await supabase
+        // IMPORTANTE: Sempre verificar se o usuário existe na tabela users antes de usar
+        let athleteId = null
+        
+        // Primeiro, buscar por email na tabela users
+        const { data: existingUserByEmail } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', p.email)
+          .maybeSingle()
+        
+        if (existingUserByEmail) {
+          // Usuário já existe na tabela users
+          athleteId = existingUserByEmail.id
+        } else if (userId) {
+          // Verificar se o userId do auth existe na tabela users
+          const { data: existingUserById } = await supabase
             .from('users')
             .select('id')
-            .eq('email', p.email)
+            .eq('id', userId)
             .maybeSingle()
           
-          if (existingUser) {
-            insertData.athlete_id = existingUser.id
-            insertData.buyer_id = existingUser.id
+          if (existingUserById) {
+            athleteId = existingUserById.id
           } else {
-            // Se não encontrar, criar um usuário básico
+            // Usuário existe no auth mas não na tabela users - criar registro
+            console.log('[Inscrição] Criando registro na tabela users para userId:', userId)
             const { data: newUser, error: userError } = await supabase
               .from('users')
               .insert({
+                id: userId,
                 email: p.email,
                 full_name: p.nome,
                 role: 'ATLETA',
@@ -1232,14 +1241,55 @@ export default function CheckoutPage() {
               .single()
             
             if (newUser && !userError) {
-              insertData.athlete_id = newUser.id
-              insertData.buyer_id = newUser.id
+              athleteId = newUser.id
             } else {
-              console.error("Erro ao criar usuário para inscrição:", userError)
-              toast.error("Erro ao vincular usuário à inscrição")
-              throw new Error("Erro ao criar usuário")
+              console.error("Erro ao criar usuário na tabela users:", userError)
+              // Tentar criar sem o ID específico
+              const { data: fallbackUser, error: fallbackError } = await supabase
+                .from('users')
+                .insert({
+                  email: p.email,
+                  full_name: p.nome,
+                  role: 'ATLETA',
+                })
+                .select('id')
+                .single()
+              
+              if (fallbackUser && !fallbackError) {
+                athleteId = fallbackUser.id
+              } else {
+                console.error("Erro ao criar usuário fallback:", fallbackError)
+                toast.error("Erro ao vincular usuário à inscrição")
+                throw new Error("Erro ao criar usuário")
+              }
             }
           }
+        } else {
+          // Não tem userId do auth, criar usuário novo
+          const { data: newUser, error: userError } = await supabase
+            .from('users')
+            .insert({
+              email: p.email,
+              full_name: p.nome,
+              role: 'ATLETA',
+            })
+            .select('id')
+            .single()
+          
+          if (newUser && !userError) {
+            athleteId = newUser.id
+          } else {
+            console.error("Erro ao criar usuário para inscrição:", userError)
+            toast.error("Erro ao vincular usuário à inscrição")
+            throw new Error("Erro ao criar usuário")
+          }
+        }
+        
+        // Definir os IDs obrigatórios
+        insertData.athlete_id = athleteId
+        insertData.buyer_id = athleteId
+        if (userId) {
+          insertData.user_id = userId
         }
 
         const { data: registration, error: regError } = await supabase
