@@ -1711,9 +1711,9 @@ export default function CheckoutPage() {
                     <div className="space-y-2">
                       <Label>{idioma === "es" ? "País de Residencia" : idioma === "en" ? "Country of Residence" : "País de Residência"} *</Label>
                       <Select
-                        value={participante.paisResidencia || "brasil"}
+                        value={participante?.paisResidencia || paisEvento || "brasil"}
                         onValueChange={(value) => {
-                          console.log('🌍 [CHECKOUT] País alterado:', value)
+                          console.log('🌍 [CHECKOUT] País alterado:', value, 'Participante atual:', participante?.paisResidencia)
                           updateParticipante("paisResidencia", value)
                           // Limpar documento quando mudar o país para permitir novo formato
                           updateParticipante("cpf", "")
