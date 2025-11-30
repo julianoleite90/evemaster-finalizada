@@ -128,7 +128,7 @@ export default function RegistrationDetailsPage() {
           id: regData.id,
           numeroInscricao: regData.registration_number,
           statusPagamento: regData.status === "confirmed" ? "paid" : (paymentData?.payment_status || "pending"),
-          dataInscricao: regData.registration_date || regData.created_at,
+          dataInscricao: regData.created_at, // Usar created_at que tem o timestamp completo com horário
           horaInscricao: regData.registration_time,
           evento: {
             nome: eventInfo?.name || "N/A",
@@ -251,7 +251,7 @@ export default function RegistrationDetailsPage() {
           year: 'numeric',
           hour: '2-digit',
           minute: '2-digit',
-          hour12: false
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
         })
         // Formato retorna "30/01/2024 10:00" - substituir espaço por " às "
         return formatted.replace(/\s+/, ' às ')
@@ -259,7 +259,8 @@ export default function RegistrationDetailsPage() {
       return date.toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: '2-digit',
-        year: 'numeric'
+        year: 'numeric',
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
       })
     } catch (error) {
       return "Data inválida"
