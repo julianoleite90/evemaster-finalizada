@@ -5,6 +5,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const {
+      user_id, // userId opcional (para salvar no perfil do principal)
       full_name,
       email,
       phone,
@@ -33,9 +34,12 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
-    if (!user) {
+    // Usar userId fornecido ou do usuário autenticado
+    const targetUserId = user_id || user?.id
+
+    if (!targetUserId) {
       return NextResponse.json(
-        { error: 'Usuário não autenticado' },
+        { error: 'Usuário não identificado. Faça login ou forneça um user_id.' },
         { status: 401 }
       )
     }
@@ -46,12 +50,12 @@ export async function POST(request: NextRequest) {
     const { data: existing } = await supabase
       .from('saved_participant_profiles')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', targetUserId)
       .eq('cpf', cleanCPF)
       .maybeSingle()
 
     const profileData = {
-      user_id: user.id,
+      user_id: targetUserId,
       full_name,
       email: email.toLowerCase(),
       phone: phone?.replace(/\D/g, '') || null,

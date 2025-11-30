@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { Shield, Loader2, ChevronRight, ChevronLeft, Check, CreditCard, QrCode, FileText, User, MapPin, Wallet, Info } from "lucide-react"
+import { Shield, Loader2, ChevronRight, ChevronLeft, Check, CreditCard, QrCode, FileText, User, MapPin, Wallet, Info, CheckCircle2 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { toast } from "sonner"
@@ -440,10 +440,32 @@ export default function CheckoutPage() {
       .replace(/(\d{3})(\d{1,2})/, "$1-$2")
   }
 
+  // Função para mascarar email (exemplo: julianodesouzaleite@gmail.com → julianode*******@g******)
+  const mascararEmail = (email: string) => {
+    if (!email) return ''
+    const [local, domain] = email.split('@')
+    if (!local || !domain) return email
+    
+    // Mostrar primeiras 7 letras do local + asteriscos
+    const localMasked = local.length > 7 
+      ? local.substring(0, 7) + '*'.repeat(7) // julianode + 7 asteriscos
+      : local.substring(0, Math.min(3, local.length)) + '*'.repeat(Math.max(3, local.length - 3))
+    
+    // Mostrar primeira letra do domínio + asteriscos
+    const domainMasked = domain.length > 1
+      ? domain.substring(0, 1) + '*'.repeat(6) // g + 6 asteriscos
+      : domain
+    
+    return `${localMasked}@${domainMasked}`
+  }
+
   // Verificar CPF e oferecer login rápido
   const verificarCPF = async (cpf: string) => {
     const cleanCPF = cpf.replace(/\D/g, '')
+    console.log('🔍 [CHECKOUT] Verificando CPF:', { cpf, cleanCPF, length: cleanCPF.length })
+    
     if (cleanCPF.length !== 11) {
+      console.log('⚠️ [CHECKOUT] CPF não tem 11 dígitos:', cleanCPF.length)
       setUsuarioExiste(null)
       setMostrarLoginRapido(false)
       return
@@ -451,22 +473,40 @@ export default function CheckoutPage() {
 
     try {
       setVerificandoCPF(true)
+      console.log('📡 [CHECKOUT] Enviando requisição para /api/auth/verificar-cpf com CPF:', cleanCPF)
+      
       const res = await fetch('/api/auth/verificar-cpf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cpf: cleanCPF }),
       })
 
+      console.log('📥 [CHECKOUT] Resposta recebida:', { status: res.status, ok: res.ok })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        console.error('❌ [CHECKOUT] Erro na API:', errorData)
+        toast.error(errorData.error || 'Erro ao verificar CPF')
+        setUsuarioExiste(null)
+        setMostrarLoginRapido(false)
+        return
+      }
+
       const data = await res.json()
+      console.log('✅ [CHECKOUT] Dados recebidos da API:', data)
+      
       if (data.exists) {
+        console.log('✅ [CHECKOUT] Usuário encontrado! Email:', data.email)
         setUsuarioExiste(data)
         setMostrarLoginRapido(true)
       } else {
+        console.log('⚠️ [CHECKOUT] CPF não encontrado no banco de dados')
         setUsuarioExiste(null)
         setMostrarLoginRapido(false)
       }
     } catch (error) {
-      console.error('Erro ao verificar CPF:', error)
+      console.error('❌ [CHECKOUT] Erro ao verificar CPF:', error)
+      toast.error('Erro ao verificar CPF. Tente novamente.')
       setUsuarioExiste(null)
       setMostrarLoginRapido(false)
     } finally {
@@ -580,28 +620,18 @@ export default function CheckoutPage() {
     if (!usuarioLogado) return
 
     try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (!user) {
-        // Se não estiver logado, tentar buscar usando o userId do usuarioLogado
-        const res = await fetch('/api/participants/perfis-salvos')
-        const data = await res.json()
-        if (res.ok && data.profiles) {
-          setPerfisSalvos(data.profiles)
-        }
-      } else {
-        // Se estiver logado, buscar normalmente
-        const res = await fetch('/api/participants/perfis-salvos')
-        const data = await res.json()
-        if (res.ok && data.profiles) {
-          setPerfisSalvos(data.profiles)
-        }
+      const res = await fetch('/api/participants/perfis-salvos')
+      const data = await res.json()
+      if (res.ok && data.profiles) {
+        setPerfisSalvos(data.profiles)
       }
     } catch (error) {
       console.error('Erro ao buscar perfis salvos:', error)
     }
   }
+
+  // Alias para compatibilidade
+  const fetchPerfisSalvos = buscarPerfisSalvos
 
   // Salvar perfil de participante
   const salvarPerfilParticipante = async (index: number) => {
@@ -611,8 +641,37 @@ export default function CheckoutPage() {
       return
     }
 
-    if (!usuarioLogado) {
-      toast.error('Você precisa estar logado para salvar perfis')
+    // Obter userId do usuário principal (logado ou do primeiro participante)
+    let userIdPrincipal: string | null = null
+
+    if (usuarioLogado?.id) {
+      userIdPrincipal = usuarioLogado.id
+    } else {
+      // Tentar obter userId do primeiro participante através da API criar-conta-automatica
+      try {
+        const primeiroParticipante = participantes[0]
+        const createAccountResponse = await fetch('/api/auth/criar-conta-automatica', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: primeiroParticipante.email,
+            nome: primeiroParticipante.nome,
+            telefone: primeiroParticipante.telefone,
+            cpf: primeiroParticipante.cpf,
+          }),
+        })
+
+        if (createAccountResponse.ok) {
+          const accountResult = await createAccountResponse.json()
+          userIdPrincipal = accountResult.userId || null
+        }
+      } catch (error) {
+        console.error('Erro ao obter userId do principal:', error)
+      }
+    }
+
+    if (!userIdPrincipal) {
+      toast.error('Não foi possível salvar o perfil. Complete a inscrição primeiro.')
       return
     }
 
@@ -621,6 +680,7 @@ export default function CheckoutPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          user_id: userIdPrincipal, // Passar userId do principal
           full_name: p.nome,
           email: p.email,
           phone: p.telefone,
@@ -643,7 +703,9 @@ export default function CheckoutPage() {
       const data = await res.json()
       if (res.ok) {
         toast.success('Perfil salvo com sucesso!')
-        await buscarPerfisSalvos()
+        if (usuarioLogado) {
+          await buscarPerfisSalvos()
+        }
       } else {
         toast.error(data.error || 'Erro ao salvar perfil')
       }
@@ -813,11 +875,17 @@ export default function CheckoutPage() {
       setCurrentParticipante(currentParticipante + 1)
       setCurrentStep(1)
     } else {
-      // Último participante - verificar se deve mostrar seleção de participantes salvos
-      if (usuarioLogado && perfisSalvos.length > 0 && !mostrarSelecaoParticipantes) {
+      // Último participante
+      // Se for o primeiro participante (principal) e estiver logado, perguntar se quer inscrever mais pessoas
+      if (currentParticipante === 0 && usuarioLogado && !mostrarSelecaoParticipantes) {
+        // Buscar perfis salvos antes de mostrar o diálogo
+        fetchPerfisSalvos()
         setMostrarSelecaoParticipantes(true)
+      } else if (currentParticipante > 0) {
+        // Se for acompanhante, finalizar direto
+        handleSubmit()
       } else {
-        // Finalizar inscrição
+        // Se não estiver logado ou não tiver perfis, finalizar direto
         handleSubmit()
       }
     }
@@ -1370,8 +1438,8 @@ export default function CheckoutPage() {
                           onChange={(e) => {
                             const formatted = participante.paisResidencia === "brasil" ? formatCPF(e.target.value) : e.target.value
                             updateParticipante("cpf", formatted)
-                            // Verificar CPF após digitar 11 dígitos (apenas para Brasil)
-                            if (participante.paisResidencia === "brasil" && formatted.replace(/\D/g, '').length === 11) {
+                            // Verificar CPF após digitar 11 dígitos (apenas para Brasil e apenas no primeiro participante)
+                            if (currentParticipante === 0 && participante.paisResidencia === "brasil" && formatted.replace(/\D/g, '').length === 11) {
                               verificarCPF(formatted)
                             }
                           }}
@@ -1390,86 +1458,112 @@ export default function CheckoutPage() {
                       </div>
                       
                       {/* Diálogo de login rápido */}
-                      {mostrarLoginRapido && !usuarioLogado && (
-                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
-                          <p className="text-sm text-blue-900 font-medium">
-                            Conta encontrada! Deseja fazer login rápido?
-                          </p>
-                          <p className="text-xs text-blue-700">
-                            Email: {usuarioExiste?.email}
-                          </p>
+                      {mostrarLoginRapido && !usuarioLogado && usuarioExiste && (
+                        <div className="mt-4 p-5 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl shadow-sm space-y-4">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                              <CheckCircle2 className="h-5 w-5 text-green-600" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm text-gray-700 mb-3">
+                                Faça login rápido para preencher seus dados automaticamente.
+                              </p>
+                              <div className="text-xs text-gray-600 bg-white/60 px-3 py-1.5 rounded-md inline-block font-mono">
+                                {usuarioExiste?.email ? mascararEmail(usuarioExiste.email) : ''}
+                              </div>
+                            </div>
+                          </div>
+                          
                           {!codigoEnviado ? (
-                            <div className="flex gap-2">
+                            <div className="flex flex-col sm:flex-row gap-2 pt-2">
                               <Button
                                 type="button"
-                                size="sm"
                                 onClick={enviarCodigoLogin}
                                 disabled={enviandoCodigo}
-                                className="bg-blue-600 hover:bg-blue-700"
+                                className="flex-1 bg-[#156634] hover:bg-[#1a7a3e] text-white font-medium"
                               >
                                 {enviandoCodigo ? (
                                   <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Enviando...
+                                    Enviando código...
                                   </>
                                 ) : (
-                                  'Sim, enviar código'
+                                  <>
+                                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                                    Fazer login rápido
+                                  </>
                                 )}
                               </Button>
-                              <Button
+                              <button
                                 type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
                                   setMostrarLoginRapido(false)
                                   setUsuarioExiste(null)
                                 }}
+                                onMouseDown={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                }}
+                                style={{
+                                  color: '#374151',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = '#111827'
+                                  e.currentTarget.style.backgroundColor = '#f9fafb'
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = '#374151'
+                                  e.currentTarget.style.backgroundColor = '#ffffff'
+                                }}
+                                className="flex-1 h-10 px-4 py-2 rounded-md border border-gray-300 bg-white transition-colors font-medium text-sm"
                               >
-                                Não, continuar sem login
-                              </Button>
+                                Continuar sem login
+                              </button>
                             </div>
                           ) : (
-                            <div className="space-y-3">
-                              <p className="text-xs text-blue-700">
-                                Código enviado para {usuarioExiste?.email}. Digite o código abaixo:
-                              </p>
-                              <div className="flex gap-2">
-                                <Input
-                                  type="text"
-                                  maxLength={6}
-                                  value={codigoLogin}
-                                  onChange={(e) => setCodigoLogin(e.target.value.replace(/\D/g, ''))}
-                                  placeholder="000000"
-                                  className="font-mono text-center text-lg tracking-widest"
-                                />
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  onClick={validarCodigoLogin}
-                                  disabled={validandoCodigo || codigoLogin.length !== 6}
-                                  className="bg-blue-600 hover:bg-blue-700"
-                                >
-                                  {validandoCodigo ? (
-                                    <>
-                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                      Validando...
-                                    </>
-                                  ) : (
-                                    'Validar'
-                                  )}
-                                </Button>
+                            <div className="space-y-3 pt-2">
+                              <div className="bg-white/80 rounded-lg p-3 border border-green-200">
+                                <p className="text-xs text-gray-600 mb-2 text-center">
+                                  Código enviado para <span className="font-medium text-gray-900 font-mono">{usuarioExiste?.email ? mascararEmail(usuarioExiste.email) : ''}</span>
+                                </p>
+                                <div className="flex gap-2">
+                                  <Input
+                                    type="text"
+                                    maxLength={6}
+                                    value={codigoLogin}
+                                    onChange={(e) => setCodigoLogin(e.target.value.replace(/\D/g, ''))}
+                                    placeholder="000000"
+                                    className="flex-1 font-mono text-center text-xl tracking-[0.5em] h-12 border-2 focus:border-green-500"
+                                  />
+                                  <Button
+                                    type="button"
+                                    onClick={validarCodigoLogin}
+                                    disabled={validandoCodigo || codigoLogin.length !== 6}
+                                    className="bg-[#156634] hover:bg-[#1a7a3e] text-white px-6"
+                                  >
+                                    {validandoCodigo ? (
+                                      <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Validando...
+                                      </>
+                                    ) : (
+                                      'Validar'
+                                    )}
+                                  </Button>
+                                </div>
                               </div>
                               <Button
                                 type="button"
-                                size="sm"
                                 variant="ghost"
                                 onClick={() => {
                                   setCodigoEnviado(false)
                                   setCodigoLogin("")
                                 }}
-                                className="text-xs"
+                                className="w-full text-xs text-gray-600 hover:text-gray-900"
                               >
-                                Reenviar código
+                                Não recebeu o código? Reenviar
                               </Button>
                             </div>
                           )}
@@ -1731,7 +1825,7 @@ export default function CheckoutPage() {
                     )}
 
                     {/* Opção de salvar perfil para participantes adicionais (2+) */}
-                    {participantes.length > 1 && currentParticipante > 0 && usuarioLogado && (
+                    {participantes.length > 1 && currentParticipante > 0 && (
                       <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
                         <div className="flex items-center space-x-2">
                           <Checkbox
@@ -1745,11 +1839,13 @@ export default function CheckoutPage() {
                             }}
                           />
                           <Label htmlFor={`salvar-perfil-${currentParticipante}`} className="text-sm font-medium cursor-pointer">
-                            Salvar este perfil para usar em inscrições futuras
+                            Salvar este perfil para usar em inscrições futuras?
                           </Label>
                         </div>
                         <p className="text-xs text-gray-500 mt-1 ml-6">
-                          Os dados deste participante serão salvos no seu perfil para facilitar próximas inscrições
+                          {usuarioLogado 
+                            ? "Os dados deste participante serão salvos no seu perfil para facilitar próximas inscrições"
+                            : "Os dados serão salvos no perfil do participante principal para facilitar próximas inscrições"}
                         </p>
                       </div>
                     )}
@@ -2204,34 +2300,42 @@ export default function CheckoutPage() {
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Deseja incluir mais participantes?</DialogTitle>
-            <p className="text-sm text-gray-600 mt-2">
-              Você tem {perfisSalvos.length} perfil(is) salvo(s). Selecione os participantes que deseja inscrever:
-            </p>
+            {perfisSalvos.length > 0 ? (
+              <p className="text-sm text-gray-600 mt-2">
+                Você tem {perfisSalvos.length} perfil(is) salvo(s). Selecione os participantes que deseja inscrever:
+              </p>
+            ) : (
+              <p className="text-sm text-gray-600 mt-2">
+                Você ainda não tem perfis salvos. Complete esta inscrição e salve perfis de acompanhantes para usar em próximas inscrições.
+              </p>
+            )}
           </DialogHeader>
-          <div className="space-y-3 mt-4">
-            {perfisSalvos.map((perfil) => (
-              <Card key={perfil.id} className="border cursor-pointer hover:border-[#156634] transition-colors">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="font-medium">{perfil.full_name}</p>
-                      <p className="text-sm text-gray-600">{perfil.email}</p>
-                      {perfil.cpf && (
-                        <p className="text-xs text-gray-500">CPF: {perfil.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}</p>
-                      )}
+          {perfisSalvos.length > 0 && (
+            <div className="space-y-3 mt-4">
+              {perfisSalvos.map((perfil) => (
+                <Card key={perfil.id} className="border cursor-pointer hover:border-[#156634] transition-colors">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="font-medium">{perfil.full_name}</p>
+                        <p className="text-sm text-gray-600">{perfil.email}</p>
+                        {perfil.cpf && (
+                          <p className="text-xs text-gray-500">CPF: {perfil.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}</p>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => selecionarParticipanteSalvo(perfil)}
+                        className="bg-[#156634] hover:bg-[#1a7a3e]"
+                      >
+                        Adicionar
+                      </Button>
                     </div>
-                    <Button
-                      size="sm"
-                      onClick={() => selecionarParticipanteSalvo(perfil)}
-                      className="bg-[#156634] hover:bg-[#1a7a3e]"
-                    >
-                      Adicionar
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
             <Button
               variant="outline"

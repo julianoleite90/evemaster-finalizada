@@ -22,6 +22,13 @@ export async function POST(request: NextRequest) {
       cep?: string
     }
 
+    console.log('📝 [API] Recebido criar-conta-automatica:', {
+      email,
+      nome,
+      cpf: cpf || 'NÃO FORNECIDO',
+      cpfLength: cpf?.replace(/\D/g, '').length || 0
+    })
+
     if (!email || !nome) {
       return NextResponse.json(
         { error: 'Email e nome são obrigatórios' },
@@ -87,6 +94,17 @@ export async function POST(request: NextRequest) {
       // Usuário já existe, atualizar dados se necessário
       console.log('📧 [API] Usuário já existe:', email, 'userId:', userData.id)
       
+      // Limpar CPF antes de salvar
+      const cleanCPF = cpf?.replace(/\D/g, '') || null
+      const cleanCPFValid = cleanCPF && cleanCPF.length === 11 ? cleanCPF : null
+      
+      console.log('💾 [API] Salvando CPF:', {
+        cpfOriginal: cpf,
+        cleanCPF,
+        cleanCPFValid,
+        willSave: !!cleanCPFValid
+      })
+
       // Atualizar dados do usuário (usar upsert para garantir que sempre salve)
       const { error: updateError } = await supabase
         .from('users')
@@ -95,7 +113,7 @@ export async function POST(request: NextRequest) {
           email: email,
           full_name: nome,
           phone: telefone?.replace(/\D/g, '') || null,
-          cpf: cpf?.replace(/\D/g, '') || null,
+          cpf: cleanCPFValid, // Salvar apenas se tiver 11 dígitos
           role: 'ATLETA',
           address: endereco || null,
           address_number: numero || null,
@@ -115,7 +133,7 @@ export async function POST(request: NextRequest) {
           code: updateError.code,
           details: updateError.details,
           hint: updateError.hint,
-          cpf: cpf?.replace(/\D/g, ''),
+          cpf: cleanCPFValid,
           email: email
         })
         
@@ -125,6 +143,8 @@ export async function POST(request: NextRequest) {
         } else {
           console.warn('⚠️ [API] Erro ao atualizar dados do usuário (não crítico):', updateError.message)
         }
+      } else {
+        console.log('✅ [API] Dados atualizados com sucesso, CPF salvo:', cleanCPFValid || 'NÃO SALVO (inválido ou vazio)')
       }
 
       // Se tiver admin, atualizar metadados também
@@ -369,6 +389,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Limpar CPF antes de salvar
+    const cleanCPF = cpf?.replace(/\D/g, '') || null
+    const cleanCPFValid = cleanCPF && cleanCPF.length === 11 ? cleanCPF : null
+    
+    console.log('💾 [API] Salvando CPF (novo usuário):', {
+      cpfOriginal: cpf,
+      cleanCPF,
+      cleanCPFValid,
+      willSave: !!cleanCPFValid
+    })
+
     // Criar ou atualizar registro em public.users (usar upsert para garantir que sempre salve)
     const { error: userError } = await supabase
       .from('users')
@@ -377,7 +408,7 @@ export async function POST(request: NextRequest) {
         email,
         full_name: nome,
         phone: telefone?.replace(/\D/g, '') || null,
-        cpf: cpf?.replace(/\D/g, '') || null,
+        cpf: cleanCPFValid, // Salvar apenas se tiver 11 dígitos
         role: 'ATLETA',
         address: endereco || null,
         address_number: numero || null,
@@ -396,7 +427,7 @@ export async function POST(request: NextRequest) {
       // Não retornar erro aqui, pois o usuário já foi criado no auth
       // Os dados podem ser salvos depois no perfil
     } else {
-      console.log('✅ [API] Dados salvos na tabela users para:', email)
+      console.log('✅ [API] Dados salvos na tabela users para:', email, 'CPF:', cleanCPFValid || 'NÃO SALVO (inválido ou vazio)')
     }
 
     console.log('✅ [API] Conta criada automaticamente para:', email)

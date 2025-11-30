@@ -76,7 +76,10 @@ export async function POST(request: NextRequest) {
       .eq('id', loginCode.id)
 
     // Fazer login do usuário (criar sessão)
-    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.getUserByEmail(email)
+    // Buscar usuário pelo email usando listUsers
+    const { data: usersList, error: listError } = await supabaseAdmin.auth.admin.listUsers()
+    const authUser = usersList?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
+    const authError = listError || (!authUser ? { message: 'Usuário não encontrado' } : null)
 
     if (authError || !authUser) {
       return NextResponse.json(

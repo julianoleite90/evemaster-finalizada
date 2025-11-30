@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +22,24 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createClient()
+    
+    // Criar cliente admin para operações de autenticação
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return NextResponse.json(
+        { error: 'Configuração do Supabase não encontrada' },
+        { status: 500 }
+      )
+    }
+    
+    const supabaseAdmin = createAdminClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
 
     // Buscar clube pelo token
     const { data: club, error: clubError } = await supabase
@@ -65,19 +84,22 @@ export async function POST(request: NextRequest) {
       // Usuário já existe, apenas atualizar senha se necessário
       userId = existingUser.id
       
-      // Atualizar senha no auth
-      const { error: updateError } = await supabase.auth.admin.updateUserById(
+      // Atualizar senha no auth usando cliente admin
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
         userId,
         { password }
       )
 
       if (updateError) {
         console.error('Erro ao atualizar senha:', updateError)
-        // Não falhar se não conseguir atualizar senha
+        return NextResponse.json(
+          { error: 'Erro ao atualizar senha do usuário', details: updateError.message },
+          { status: 500 }
+        )
       }
     } else {
-      // Criar novo usuário
-      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+      // Criar novo usuário usando cliente admin
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: club.email,
         password,
         email_confirm: true,
