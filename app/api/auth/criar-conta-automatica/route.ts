@@ -130,10 +130,7 @@ export async function POST(request: NextRequest) {
           state: estado || null,
           zip_code: cep?.replace(/\D/g, '') || null,
           country: pais || null,
-          age: idade || null,
-          gender: genero || null,
-          emergency_contact_name: emergency_contact_name || null,
-          emergency_contact_phone: emergency_contact_phone?.replace(/\D/g, '') || null,
+          // NOTA: age, gender, emergency_contact_* são armazenados apenas na tabela athletes, não em users
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'id'
@@ -220,10 +217,7 @@ export async function POST(request: NextRequest) {
           state: estado || null,
           zip_code: cep?.replace(/\D/g, '') || null,
           country: pais || null,
-          age: idade || null,
-          gender: genero || null,
-          emergency_contact_name: emergency_contact_name || null,
-          emergency_contact_phone: emergency_contact_phone?.replace(/\D/g, '') || null,
+          // NOTA: age, gender, emergency_contact_* são armazenados apenas na tabela athletes, não em users
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'id'
@@ -331,10 +325,7 @@ export async function POST(request: NextRequest) {
                   state: estado || null,
                   zip_code: cep?.replace(/\D/g, '') || null,
                   country: pais || null,
-                  age: idade || null,
-                  gender: genero || null,
-                  emergency_contact_name: emergency_contact_name || null,
-                  emergency_contact_phone: emergency_contact_phone?.replace(/\D/g, '') || null,
+                  // NOTA: age, gender, emergency_contact_* são armazenados apenas na tabela athletes
                   updated_at: new Date().toISOString(),
                 }, {
                   onConflict: 'id'
@@ -460,10 +451,7 @@ export async function POST(request: NextRequest) {
         state: estado || null,
         zip_code: cep?.replace(/\D/g, '') || null,
         country: pais || null,
-        age: idade || null,
-        gender: genero || null,
-        emergency_contact_name: emergency_contact_name || null,
-        emergency_contact_phone: emergency_contact_phone?.replace(/\D/g, '') || null,
+        // NOTA: age, gender, emergency_contact_* são armazenados apenas na tabela athletes
         updated_at: new Date().toISOString(),
       }, {
         onConflict: 'id'
