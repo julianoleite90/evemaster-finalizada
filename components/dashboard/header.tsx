@@ -29,7 +29,19 @@ export function Header() {
       }
 
       toast.success("Logout realizado com sucesso")
-      router.push("/login")
+      
+      // Verificar o pathname atual para redirecionar corretamente
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : ''
+      
+      if (currentPath.startsWith('/dashboard/organizer')) {
+        router.push("/login/organizer")
+      } else if (currentPath.startsWith('/dashboard/affiliate')) {
+        router.push("/login/affiliate")
+      } else if (currentPath.startsWith('/dashboard/admin')) {
+        router.push("/login/admin")
+      } else {
+        router.push("/login")
+      }
     } catch (error) {
       console.error("Erro ao fazer logout:", error)
       toast.error("Erro ao fazer logout")

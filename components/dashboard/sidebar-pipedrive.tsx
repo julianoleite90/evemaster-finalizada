@@ -114,7 +114,17 @@ export function SidebarPipedrive({ role }: SidebarPipedriveProps) {
       }
 
       toast.success("Logout realizado com sucesso")
-      router.push("/login")
+      
+      // Redirecionar baseado no role
+      if (role === "organizer") {
+        router.push("/login/organizer")
+      } else if (role === "affiliate") {
+        router.push("/login/affiliate")
+      } else if (role === "admin") {
+        router.push("/login/admin")
+      } else {
+        router.push("/login")
+      }
     } catch (error) {
       console.error("Erro ao fazer logout:", error)
       toast.error("Erro ao fazer logout")
