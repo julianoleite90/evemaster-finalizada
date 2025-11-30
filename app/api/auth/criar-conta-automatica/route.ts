@@ -70,10 +70,10 @@ export async function POST(request: NextRequest) {
     
     if (userData) {
       // Usuário já existe, atualizar dados se necessário
-      console.log('📧 [API] Usuário já existe:', email)
+      console.log('📧 [API] Usuário já existe:', email, 'userId:', userData.id)
       
       // Atualizar dados do usuário (usar upsert para garantir que sempre salve)
-      await supabase
+      const { error: updateError } = await supabase
         .from('users')
         .upsert({
           id: userData.id,
@@ -93,6 +93,10 @@ export async function POST(request: NextRequest) {
         }, {
           onConflict: 'id'
         })
+
+      if (updateError) {
+        console.warn('⚠️ [API] Erro ao atualizar dados do usuário (não crítico):', updateError)
+      }
 
       // Se tiver admin, atualizar metadados também
       if (supabaseAdmin) {
@@ -120,6 +124,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      console.log('✅ [API] Retornando userId para usuário existente:', userData.id)
       return NextResponse.json({
         success: true,
         message: 'Conta já existia, dados atualizados',

@@ -538,18 +538,20 @@ export default function CheckoutPage() {
             }),
           })
 
-          const accountResult = await createAccountResponse.json()
-          
-          if (accountResult.success && accountResult.userId) {
-            userIdsMap.set(participante.email, accountResult.userId)
-            console.log('✅ Conta criada/atualizada para:', participante.email, accountResult.userId)
-          } else if (accountResult.userId) {
-            // Mesmo se deu erro mas retornou userId (conta já existia)
-            userIdsMap.set(participante.email, accountResult.userId)
-            console.log('ℹ️ Conta já existia, usando userId:', participante.email, accountResult.userId)
+          if (!createAccountResponse.ok) {
+            const errorData = await createAccountResponse.json().catch(() => ({}))
+            console.error('❌ Erro na API criar-conta-automatica:', createAccountResponse.status, errorData)
+            // Continuar tentando buscar/criar usuário manualmente
           } else {
-            console.log('ℹ️ Não foi possível obter userId para:', participante.email)
-            // Continuar sem user_id (será vinculado pelo email do atleta)
+            const accountResult = await createAccountResponse.json()
+            
+            if (accountResult.userId) {
+              userIdsMap.set(participante.email, accountResult.userId)
+              console.log('✅ Conta criada/atualizada para:', participante.email, 'userId:', accountResult.userId)
+            } else {
+              console.warn('⚠️ API não retornou userId para:', participante.email, 'response:', accountResult)
+              // Continuar sem user_id (será vinculado pelo email do atleta)
+            }
           }
         } catch (accountError) {
           console.error('Erro ao criar conta para', participante.email, ':', accountError)
