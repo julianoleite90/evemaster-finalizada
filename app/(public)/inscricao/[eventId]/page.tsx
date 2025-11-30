@@ -40,6 +40,8 @@ interface Participante {
   cpf: string
   tamanhoCamiseta: string
   aceiteTermo: boolean
+  contatoEmergenciaNome: string
+  contatoEmergenciaTelefone: string
 }
 
 const participanteVazio: Participante = {
@@ -59,6 +61,8 @@ const participanteVazio: Participante = {
   cpf: "",
   tamanhoCamiseta: "",
   aceiteTermo: false,
+  contatoEmergenciaNome: "",
+  contatoEmergenciaTelefone: "",
 }
 
 // Lista de países
@@ -128,14 +132,7 @@ export default function CheckoutPage() {
   const [idioma, setIdioma] = useState("pt")
   const [runningClub, setRunningClub] = useState<any>(null) // Dados do clube de corrida se houver
   
-  // Estados para login rápido
-  const [verificandoCPF, setVerificandoCPF] = useState(false)
-  const [usuarioExiste, setUsuarioExiste] = useState<any>(null)
-  const [mostrarLoginRapido, setMostrarLoginRapido] = useState(false)
-  const [enviandoCodigo, setEnviandoCodigo] = useState(false)
-  const [codigoEnviado, setCodigoEnviado] = useState(false)
-  const [codigoLogin, setCodigoLogin] = useState("")
-  const [validandoCodigo, setValidandoCodigo] = useState(false)
+  // Estados
   const [usuarioLogado, setUsuarioLogado] = useState<any>(null)
   const [perfisSalvos, setPerfisSalvos] = useState<any[]>([])
   const [mostrarSelecaoParticipantes, setMostrarSelecaoParticipantes] = useState(false)
@@ -149,6 +146,7 @@ export default function CheckoutPage() {
   const [termoBuscaParticipante, setTermoBuscaParticipante] = useState("")
   const [participanteAtualEmEdicao, setParticipanteAtualEmEdicao] = useState<number | null>(null) // Qual participante está sendo editado na busca
   const [quantidadeIngressosInicial, setQuantidadeIngressosInicial] = useState<number>(0) // Quantidade inicial de ingressos selecionados
+  const [perfisSelecionadosPopup, setPerfisSelecionadosPopup] = useState<{ perfilId: string, categoriaId: string }[]>([]) // Perfis selecionados no popup com suas categorias
 
   const footerPaymentText: Record<string, string> = {
     pt: "Aceitamos todos os cartões, Pix e Boleto",
@@ -202,6 +200,10 @@ export default function CheckoutPage() {
       ingressos: "ingresso(s)",
       selecione: "Selecione",
       tamanhoCamiseta: "Tamanho da Camiseta",
+      paisResidencia: "País de Residência",
+      plataformaDescricao: "Plataforma para gestão, compra e venda de ingressos para eventos esportivos.",
+      parceleAteCartao: "Parcelamento em até 12x no cartão",
+      usuarioEncontrado: "Usuário encontrado no sistema",
     },
     es: {
       pagamentoSeguro: "Pago 100% seguro",
@@ -247,6 +249,14 @@ export default function CheckoutPage() {
       ingressos: "entrada(s)",
       selecione: "Seleccione",
       tamanhoCamiseta: "Talla de Camiseta",
+      paisResidencia: "País de Residencia",
+      plataformaDescricao: "Plataforma para gestión, compra y venta de entradas para eventos deportivos.",
+      parceleAteCartao: "Pago en hasta 12 cuotas con tarjeta",
+      usuarioEncontrado: "Usuario encontrado en el sistema",
+      contatoEmergencia: "Contacto de Emergencia",
+      contatoEmergenciaNome: "Nombre del Contacto",
+      contatoEmergenciaTelefone: "Teléfono del Contacto",
+      contatoEmergenciaDescricao: "Proporcione un contacto para emergencias durante el evento",
     },
     en: {
       pagamentoSeguro: "100% Secure Payment",
@@ -292,6 +302,14 @@ export default function CheckoutPage() {
       ingressos: "ticket(s)",
       selecione: "Select",
       tamanhoCamiseta: "T-Shirt Size",
+      paisResidencia: "Country of Residence",
+      plataformaDescricao: "Platform for management, purchase and sale of tickets for sporting events.",
+      parceleAteCartao: "Installments up to 12x on card",
+      usuarioEncontrado: "User found in the system",
+      contatoEmergencia: "Emergency Contact",
+      contatoEmergenciaNome: "Contact Name",
+      contatoEmergenciaTelefone: "Contact Phone",
+      contatoEmergenciaDescricao: "Provide a contact for emergencies during the event",
     },
   }
 
@@ -316,7 +334,6 @@ export default function CheckoutPage() {
         // Definir país do evento e idioma
         const pais = normalizarPais(event.country)
         setPaisEvento(pais)
-        console.log('🌍 [CHECKOUT] País do evento normalizado:', pais, 'País original:', event.country)
         
         // Usar idioma do evento se disponível, senão usar país como fallback
         if (event.language && (event.language === "pt" || event.language === "es" || event.language === "en")) {
@@ -330,7 +347,6 @@ export default function CheckoutPage() {
         // Verificar se há parâmetro de clube de corrida
         const clubId = searchParams.get("club")
         if (clubId) {
-          console.log("🏃 [CHECKOUT] Clube de corrida detectado na URL:", clubId)
           const supabase = createClient()
           const { data: clubData, error: clubError } = await supabase
             .from("running_clubs")
@@ -349,16 +365,11 @@ export default function CheckoutPage() {
               const now = new Date()
               if (deadline >= now) {
                 setRunningClub(clubData)
-                console.log("✅ [CHECKOUT] Clube de corrida válido encontrado:", clubData)
-                console.log("🏃 [CHECKOUT] Desconto base:", clubData.base_discount, "%")
               } else {
-                console.warn("⚠️ [CHECKOUT] Prazo do clube expirado")
               }
             } else {
-              console.warn("⚠️ [CHECKOUT] Clube sem ingressos disponíveis")
             }
           } else {
-            console.warn("⚠️ [CHECKOUT] Clube não encontrado ou não autorizado:", clubError)
           }
         }
 
@@ -421,7 +432,6 @@ export default function CheckoutPage() {
         setQuantidadeIngressosInicial(listaIngressos.length)
         
         // Inicializar participantes com o país do evento (usar o estado já setado)
-        console.log('🌍 [CHECKOUT] Inicializando participantes com país:', pais)
         setParticipantes(listaIngressos.map(() => ({ 
           ...participanteVazio, 
           paisResidencia: pais 
@@ -476,13 +486,6 @@ export default function CheckoutPage() {
       ...novosParticipantes[currentParticipante],
       [field]: value,
     }
-    console.log('📝 [CHECKOUT] Atualizando participante:', { 
-      field, 
-      value, 
-      currentParticipante, 
-      novoValor: novosParticipantes[currentParticipante][field],
-      paisResidencia: novosParticipantes[currentParticipante].paisResidencia
-    })
     setParticipantes(novosParticipantes)
   }
 
@@ -534,287 +537,7 @@ export default function CheckoutPage() {
     return `${localMasked}@${domainMasked}`
   }
 
-  // Verificar documento (CPF para Brasil, DNI para Argentina, ID para outros)
-  // Apenas para Brasil fazemos verificação automática de login rápido e perfis salvos
-  const verificarCPF = async (documento: string) => {
-    const participanteAtual = participantes[currentParticipante]
-    const isBrasil = participanteAtual.paisResidencia === "brasil"
-    
-    // Apenas verificar automaticamente para Brasil (CPF)
-    if (!isBrasil) {
-      console.log('ℹ️ [CHECKOUT] Verificação automática apenas para CPF (Brasil)')
-      return
-    }
-    
-    const cleanCPF = documento.replace(/\D/g, '')
-    console.log('🔍 [CHECKOUT] Verificando CPF:', { documento, cleanCPF, length: cleanCPF.length, currentParticipante, usuarioLogado })
-    
-    if (cleanCPF.length !== 11) {
-      console.log('⚠️ [CHECKOUT] CPF não tem 11 dígitos:', cleanCPF.length)
-      setUsuarioExiste(null)
-      setMostrarLoginRapido(false)
-      return
-    }
 
-    try {
-      setVerificandoCPF(true)
-      
-      // Se estiver logado e for participante adicional (não o principal), buscar perfis salvos
-      if (usuarioLogado && currentParticipante > 0) {
-        console.log('🔍 [CHECKOUT] Usuário logado e participante adicional - buscando perfis salvos...')
-        
-        // Buscar perfis salvos primeiro
-        try {
-          const perfisRes = await fetch('/api/participants/perfis-salvos')
-          const perfisData = await perfisRes.json()
-          if (perfisRes.ok && perfisData.profiles) {
-            setPerfisSalvos(perfisData.profiles)
-            
-            // Buscar perfil salvo com este CPF
-            console.log('🔍 [CHECKOUT] Buscando CPF nos perfis salvos:', {
-              cleanCPF,
-              totalPerfis: perfisData.profiles.length,
-              perfis: perfisData.profiles.map((p: any) => ({
-                nome: p.full_name,
-                cpf: p.cpf,
-                cpfLimpo: p.cpf?.replace(/\D/g, '')
-              }))
-            })
-            
-            const perfilEncontrado = perfisData.profiles.find((p: any) => {
-              const cpfPerfil = p.cpf?.replace(/\D/g, '') || ''
-              const match = cpfPerfil === cleanCPF
-              console.log('🔍 [CHECKOUT] Comparando:', { cpfPerfil, cleanCPF, match })
-              return match
-            })
-            
-            if (perfilEncontrado) {
-              console.log('✅ [CHECKOUT] Perfil salvo encontrado:', perfilEncontrado)
-              // Preencher dados do perfil salvo
-              const novosParticipantes = [...participantes]
-              const participanteAtual = participantes[currentParticipante]
-              novosParticipantes[currentParticipante] = {
-                ...novosParticipantes[currentParticipante],
-                nome: perfilEncontrado.full_name || "",
-                email: perfilEncontrado.email || "",
-                telefone: perfilEncontrado.phone || "",
-                idade: perfilEncontrado.age ? String(perfilEncontrado.age) : "",
-                genero: perfilEncontrado.gender === 'male' ? 'Masculino' : perfilEncontrado.gender === 'female' ? 'Feminino' : "",
-                paisResidencia: perfilEncontrado.country || paisEvento || "brasil",
-                cep: perfilEncontrado.zip_code || "",
-                endereco: perfilEncontrado.address || "",
-                numero: perfilEncontrado.address_number || "",
-                complemento: perfilEncontrado.address_complement || "",
-                bairro: perfilEncontrado.neighborhood || "",
-                cidade: perfilEncontrado.city || "",
-                estado: perfilEncontrado.state || "",
-                cpf: perfilEncontrado.cpf ? (participanteAtual.paisResidencia === "brasil" ? formatCPF(perfilEncontrado.cpf) : perfilEncontrado.cpf) : "",
-                tamanhoCamiseta: perfilEncontrado.shirt_size || "",
-                aceiteTermo: false,
-              }
-              setParticipantes(novosParticipantes)
-              toast.success('Perfil salvo encontrado e preenchido automaticamente!')
-              setVerificandoCPF(false)
-              return
-            } else {
-              console.log('⚠️ [CHECKOUT] CPF não encontrado nos perfis salvos')
-              // Mostrar lista de perfis salvos disponíveis
-              if (perfisData.profiles.length > 0) {
-                toast.info(`Você tem ${perfisData.profiles.length} perfil(is) salvo(s). Use a busca de participantes para selecionar.`)
-              }
-            }
-          }
-        } catch (error) {
-          console.error('❌ [CHECKOUT] Erro ao buscar perfis salvos:', error)
-        }
-      }
-      
-      // Verificar se existe conta para login rápido (apenas para primeiro participante)
-      if (currentParticipante === 0) {
-        console.log('📡 [CHECKOUT] Enviando requisição para /api/auth/verificar-cpf com CPF:', cleanCPF)
-        
-        const res = await fetch('/api/auth/verificar-cpf', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cpf: cleanCPF }),
-        })
-
-        console.log('📥 [CHECKOUT] Resposta recebida:', { status: res.status, ok: res.ok })
-
-        if (!res.ok) {
-          const errorData = await res.json()
-          console.error('❌ [CHECKOUT] Erro na API:', errorData)
-          toast.error(errorData.error || 'Erro ao verificar CPF')
-          setUsuarioExiste(null)
-          setMostrarLoginRapido(false)
-          return
-        }
-
-        const data = await res.json()
-        console.log('✅ [CHECKOUT] Dados recebidos da API:', data)
-        
-        if (data.exists) {
-          console.log('✅ [CHECKOUT] Usuário encontrado! Email:', data.email)
-          setUsuarioExiste(data)
-          setMostrarLoginRapido(true)
-        } else {
-          console.log('⚠️ [CHECKOUT] CPF não encontrado no banco de dados')
-          setUsuarioExiste(null)
-          setMostrarLoginRapido(false)
-        }
-      }
-    } catch (error) {
-      console.error('❌ [CHECKOUT] Erro ao verificar CPF:', error)
-      toast.error('Erro ao verificar CPF. Tente novamente.')
-      setUsuarioExiste(null)
-      setMostrarLoginRapido(false)
-    } finally {
-      setVerificandoCPF(false)
-    }
-  }
-
-  // Enviar código de login rápido
-  const enviarCodigoLogin = async () => {
-    if (!usuarioExiste || !participante.cpf) return
-
-    try {
-      setEnviandoCodigo(true)
-      const res = await fetch('/api/auth/enviar-codigo-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: usuarioExiste.email,
-          cpf: participante.cpf.replace(/\D/g, ''),
-        }),
-      })
-
-      const data = await res.json()
-      if (res.ok) {
-        setCodigoEnviado(true)
-        toast.success('Código enviado para seu email!')
-      } else {
-        toast.error(data.error || 'Erro ao enviar código')
-      }
-    } catch (error) {
-      console.error('Erro ao enviar código:', error)
-      toast.error('Erro ao enviar código')
-    } finally {
-      setEnviandoCodigo(false)
-    }
-  }
-
-  // Validar código e fazer login
-  const validarCodigoLogin = async () => {
-    if (!codigoLogin || codigoLogin.length !== 6 || !usuarioExiste || !participante.cpf) {
-      toast.error('Digite o código de 6 dígitos')
-      return
-    }
-
-    try {
-      setValidandoCodigo(true)
-      const res = await fetch('/api/auth/validar-codigo-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: usuarioExiste.email,
-          cpf: participante.cpf.replace(/\D/g, ''),
-          code: codigoLogin,
-        }),
-      })
-
-      console.log('📥 [CHECKOUT] Resposta validar código:', { status: res.status, ok: res.ok })
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Erro desconhecido' }))
-        console.error('❌ [CHECKOUT] Erro ao validar código:', errorData)
-        toast.error(errorData.error || 'Erro ao validar código. Tente novamente.')
-        return
-      }
-
-      const data = await res.json()
-      console.log('✅ [CHECKOUT] Dados recebidos da validação:', data)
-
-      if (data.user) {
-        setUsuarioLogado(data.user)
-        setMostrarLoginRapido(false)
-        setCodigoEnviado(false)
-        setCodigoLogin("")
-        
-        // Preencher dados do usuário
-        const novosParticipantes = [...participantes]
-        // Formatar telefone se existir (remover formatação existente e reaplicar)
-        let telefoneFormatado = participante.telefone
-        if (data.user.phone) {
-          if (isBrasil) {
-            // Remover formatação existente e reaplicar
-            const telefoneLimpo = data.user.phone.replace(/\D/g, '')
-            telefoneFormatado = formatTelefone(telefoneLimpo)
-          } else {
-            telefoneFormatado = data.user.phone
-          }
-        }
-        
-        // Formatar CPF se existir
-        let cpfFormatado = participante.cpf
-        if (data.user.cpf) {
-          if (participante.paisResidencia === "brasil") {
-            const cpfLimpo = data.user.cpf.replace(/\D/g, '')
-            cpfFormatado = formatCPF(cpfLimpo)
-          } else {
-            cpfFormatado = data.user.cpf
-          }
-        }
-        
-        // Formatar CEP se existir
-        let cepFormatado = participante.cep
-        if (data.user.zip_code) {
-          const cepLimpo = data.user.zip_code.replace(/\D/g, '')
-          cepFormatado = formatCEP(cepLimpo)
-        }
-        
-        novosParticipantes[currentParticipante] = {
-          ...novosParticipantes[currentParticipante],
-          nome: data.user.full_name || participante.nome,
-          email: data.user.email || participante.email,
-          telefone: telefoneFormatado,
-          cpf: cpfFormatado,
-          idade: participante.idade, // Idade não está salva na tabela users
-          genero: participante.genero, // Gender não está salvo na tabela users
-          cep: cepFormatado,
-          endereco: data.user.address || participante.endereco,
-          numero: data.user.address_number || participante.numero,
-          complemento: data.user.address_complement || participante.complemento,
-          bairro: data.user.neighborhood || participante.bairro,
-          cidade: data.user.city || participante.cidade,
-          estado: data.user.state || participante.estado,
-        }
-        setParticipantes(novosParticipantes)
-        setPermiteEdicao(false) // Iniciar com campos bloqueados
-
-        // Fazer login no Supabase usando magic link (se disponível)
-        const supabase = createClient()
-        if (data.magicLink) {
-          // Redirecionar para o magic link para completar o login
-          // Por enquanto, apenas armazenar os dados do usuário localmente
-          // O login completo será feito quando o usuário clicar no link
-        }
-
-        // Buscar perfis salvos (mesmo sem login completo, podemos buscar se tiver userId)
-        if (data.user?.id) {
-          await buscarPerfisSalvos()
-        }
-
-        toast.success('Login realizado com sucesso! Dados preenchidos automaticamente.')
-      } else {
-        toast.error(data.error || 'Código inválido')
-      }
-    } catch (error) {
-      console.error('Erro ao validar código:', error)
-      toast.error('Erro ao validar código')
-    } finally {
-      setValidandoCodigo(false)
-    }
-  }
 
   // Buscar perfis salvos
   const buscarPerfisSalvos = async () => {
@@ -898,6 +621,8 @@ export default function CheckoutPage() {
           city: p.cidade,
           state: p.estado,
           shirt_size: p.tamanhoCamiseta,
+          emergency_contact_name: p.contatoEmergenciaNome || null,
+          emergency_contact_phone: p.contatoEmergenciaTelefone?.replace(/\D/g, "") || null,
         }),
       })
 
@@ -917,39 +642,93 @@ export default function CheckoutPage() {
   }
 
   // Selecionar participante salvo
-  // Confirmar inclusão de mais participantes
+  // Confirmar inclusão de mais participantes usando perfis salvos
   const confirmarIncluirParticipantes = async () => {
-    if (quantidadeParticipantesAdicionais < 1) {
-      toast.error('Selecione pelo menos 1 participante adicional')
+    if (perfisSelecionadosPopup.length === 0) {
+      toast.error('Selecione pelo menos 1 perfil salvo')
       return
     }
 
-    // Adicionar participantes vazios com o país do evento
+    // Verificar se todas as categorias foram selecionadas
+    const todosTemCategoria = perfisSelecionadosPopup.every(p => p.categoriaId)
+    if (!todosTemCategoria) {
+      toast.error('Selecione a categoria para todos os perfis selecionados')
+      return
+    }
+
+    // Buscar detalhes dos ingressos selecionados
+    const loteId = searchParams.get("lote")
+    const ingressosParam = searchParams.get("ingressos")
+    if (!ingressosParam || !loteId || !eventData) {
+      toast.error('Erro ao buscar informações dos ingressos')
+      return
+    }
+
+    const ingressosObj = JSON.parse(decodeURIComponent(ingressosParam))
+    const lote = eventData.ticket_batches?.find((b: any) => b.id === loteId)
+    if (!lote) {
+      toast.error('Lote não encontrado')
+      return
+    }
+
+    // Adicionar participantes usando perfis salvos selecionados
     const novosParticipantes = [...participantes]
-    const paisEventoAtual = paisEvento || "brasil"
-    for (let i = 0; i < quantidadeParticipantesAdicionais; i++) {
-      novosParticipantes.push({ ...participanteVazio, paisResidencia: paisEventoAtual })
-    }
-    setParticipantes(novosParticipantes)
-    
-    // Adicionar ingressos correspondentes (usar o mesmo ingresso do primeiro participante)
-    const ingressoPrincipal = ingressosSelecionados[0]
     const novosIngressos = [...ingressosSelecionados]
-    for (let i = 0; i < quantidadeParticipantesAdicionais; i++) {
-      novosIngressos.push({ ...ingressoPrincipal })
-    }
+    const paisEventoAtual = paisEvento || "brasil"
+
+    perfisSelecionadosPopup.forEach((selecao) => {
+      const perfil = perfisSalvos.find(p => p.id === selecao.perfilId)
+      if (!perfil) return
+
+      // Buscar ticket da categoria selecionada (pode ser ID ou category)
+      const ticket = lote.tickets?.find((t: any) => 
+        t.id === selecao.categoriaId || t.category === selecao.categoriaId
+      )
+      if (!ticket) return
+
+      // Criar participante a partir do perfil salvo
+      const novoParticipante: Participante = {
+        nome: perfil.full_name || "",
+        email: perfil.email || "",
+        telefone: perfil.phone || "",
+        idade: perfil.age ? String(perfil.age) : "",
+        genero: perfil.gender === 'male' ? 'Masculino' : perfil.gender === 'female' ? 'Feminino' : "",
+        paisResidencia: perfil.country || paisEventoAtual,
+        cep: perfil.zip_code || "",
+        endereco: perfil.address || "",
+        numero: perfil.address_number || "",
+        complemento: perfil.address_complement || "",
+        bairro: perfil.neighborhood || "",
+        cidade: perfil.city || "",
+        estado: perfil.state || "",
+        cpf: perfil.cpf ? (perfil.country === "brasil" ? formatCPF(perfil.cpf) : perfil.cpf) : "",
+        tamanhoCamiseta: perfil.shirt_size || "",
+        aceiteTermo: false,
+        contatoEmergenciaNome: perfil.emergency_contact_name || "",
+        contatoEmergenciaTelefone: perfil.emergency_contact_phone || "",
+      }
+      novosParticipantes.push(novoParticipante)
+
+      // Adicionar ingresso correspondente
+      novosIngressos.push({
+        id: ticket.id,
+        categoria: ticket.category,
+        valor: ticket.is_free ? 0 : parseFloat(ticket.price || "0"),
+        gratuito: ticket.is_free,
+        hasKit: ticket.has_kit,
+        kitItems: ticket.kit_items || [],
+        shirtSizes: ticket.shirt_sizes || [],
+      })
+    })
+
+    setParticipantes(novosParticipantes)
     setIngressosSelecionados(novosIngressos)
-    
     setMostrarPopupIncluirParticipantes(false)
-    
-    // Buscar perfis salvos se estiver logado
-    if (usuarioLogado) {
-      await fetchPerfisSalvos()
-    }
-    
-    // Mostrar busca de participantes para o primeiro participante adicional
-    setParticipanteAtualEmEdicao(1)
-    setMostrarBuscaParticipantes(true)
+    setPerfisSelecionadosPopup([])
+
+    // Ir para o primeiro participante adicional para revisão
+    setCurrentParticipante(1)
+    setCurrentStep(1)
   }
 
   // Filtrar perfis salvos por termo de busca
@@ -1058,10 +837,8 @@ export default function CheckoutPage() {
           ingressosSelecionados.length >= runningClub.progressive_discount_threshold) {
         const descontoProgressivo = (subtotal * runningClub.progressive_discount_value) / 100
         desconto += descontoProgressivo
-        console.log("🏃 [CHECKOUT] Desconto progressivo aplicado:", runningClub.progressive_discount_value, "%")
       }
       
-      console.log("🏃 [CHECKOUT] Desconto aplicado:", desconto, "de", subtotal)
     }
     
     const subtotalComDesconto = Math.max(0, subtotal - desconto)
@@ -1142,6 +919,10 @@ export default function CheckoutPage() {
         toast.error("Selecione o tamanho da camiseta")
         return false
       }
+      if (!p.contatoEmergenciaNome || !p.contatoEmergenciaTelefone) {
+        toast.error(idioma === "es" ? "Complete el contacto de emergencia" : idioma === "en" ? "Complete emergency contact" : "Preencha o contato de emergência")
+        return false
+      }
       if (!p.aceiteTermo) {
         toast.error("Você precisa aceitar o termo de responsabilidade")
         return false
@@ -1165,21 +946,29 @@ export default function CheckoutPage() {
       setCurrentStep(currentStep + 1)
     } else {
       // Último step do participante atual
-      // Se for o primeiro participante e tinha apenas 1 ingresso no início
-      if (currentParticipante === 0 && quantidadeIngressosInicial === 1) {
-        // Mostrar popup perguntando se deseja incluir mais participantes
-        setMostrarPopupIncluirParticipantes(true)
-    } else if (currentParticipante < participantes.length - 1) {
+      if (currentParticipante < participantes.length - 1) {
         // Próximo participante já existe (tinha 2+ ingressos desde o início)
-        // Mostrar busca de participantes para o próximo participante
-        setParticipanteAtualEmEdicao(currentParticipante + 1)
+        // Ir direto para o próximo participante sem popup
+        setCurrentParticipante(currentParticipante + 1)
+        setCurrentStep(1)
+      } else if (currentParticipante === 0 && quantidadeIngressosInicial === 1) {
+        // Se for o primeiro participante e tinha apenas 1 ingresso no início
+        // Mostrar popup com perfis salvos (se houver usuário logado e perfis salvos)
         if (usuarioLogado) {
           await fetchPerfisSalvos()
+          if (perfisSalvos.length > 0) {
+            setMostrarPopupIncluirParticipantes(true)
+          } else {
+            // Não tem perfis salvos, finalizar
+            handleSubmit()
+          }
+        } else {
+          // Não está logado, finalizar
+          handleSubmit()
         }
-        setMostrarBuscaParticipantes(true)
-    } else {
+      } else {
         // Último participante - finalizar inscrição
-      handleSubmit()
+        handleSubmit()
       }
     }
   }
@@ -1200,10 +989,6 @@ export default function CheckoutPage() {
       setSubmitting(true)
       const supabase = createClient()
 
-      console.log("=== INICIANDO INSCRIÇÃO ===")
-      console.log("Participantes:", participantes)
-      console.log("Ingressos:", ingressosSelecionados)
-      console.log("Event ID:", eventId)
 
       // Primeiro, criar contas automaticamente para cada participante
       const userIdsMap = new Map<string, string>() // email -> userId
@@ -1237,9 +1022,7 @@ export default function CheckoutPage() {
           
             if (accountResult.userId) {
             userIdsMap.set(participante.email, accountResult.userId)
-              console.log('✅ Conta criada/atualizada para:', participante.email, 'userId:', accountResult.userId)
           } else {
-              console.warn('⚠️ API não retornou userId para:', participante.email, 'response:', accountResult)
             // Continuar sem user_id (será vinculado pelo email do atleta)
             }
           }
@@ -1301,7 +1084,6 @@ export default function CheckoutPage() {
         // Gerar número de inscrição
         const registrationNumber = `EVE-${Date.now().toString(36).toUpperCase()}-${i + 1}`
 
-        console.log("Criando inscrição para:", p.nome, "userId:", userId)
 
         // Garantir disponibilidade do ticket antes de criar inscrição
         const { data: ticketData, error: ticketFetchError } = await supabase
@@ -1375,7 +1157,6 @@ export default function CheckoutPage() {
             }
           }
         }
-        console.log("Dados insert registration:", insertData)
 
         const { data: registration, error: regError } = await supabase
           .from("registrations")
@@ -1383,7 +1164,6 @@ export default function CheckoutPage() {
           .select("id, registration_number")
           .single()
 
-        console.log("Registration result:", registration)
 
         if (regError) {
           console.error("ERRO INSCRIÇÃO:", JSON.stringify(regError, null, 2))
@@ -1418,8 +1198,9 @@ export default function CheckoutPage() {
           city: p.cidade || null,
           state: p.estado || null,
           zip_code: p.cep?.replace(/\D/g, "") || null,
+          emergency_contact_name: p.contatoEmergenciaNome || null,
+          emergency_contact_phone: p.contatoEmergenciaTelefone?.replace(/\D/g, "") || null,
         }
-        console.log("Dados insert athlete:", athleteData)
 
         const { data: athlete, error: athleteError } = await supabase
           .from("athletes")
@@ -1427,7 +1208,6 @@ export default function CheckoutPage() {
           .select("id")
           .single()
 
-        console.log("Athlete result:", athlete)
 
         if (athleteError) {
           console.error("ERRO ATLETA:", JSON.stringify(athleteError, null, 2))
@@ -1777,7 +1557,7 @@ export default function CheckoutPage() {
                     
                     {/* País de Residência - Primeiro campo (sempre visível para permitir mudança) */}
                     <div className="space-y-2">
-                      <Label>{idioma === "es" ? "País de Residencia" : idioma === "en" ? "Country of Residence" : "País de Residência"} *</Label>
+                      <Label>{t("paisResidencia")} *</Label>
                       <Select
                         value={participante?.paisResidencia || "brasil"}
                         onValueChange={(value) => {
@@ -1790,7 +1570,6 @@ export default function CheckoutPage() {
                             cpf: "" // Limpar documento quando mudar o país para permitir novo formato
                           }
                           setParticipantes(novosParticipantes)
-                          console.log('✅ [CHECKOUT] País atualizado no estado:', novosParticipantes[currentParticipante].paisResidencia)
                         }}
                       >
                         <SelectTrigger>
@@ -1827,12 +1606,6 @@ export default function CheckoutPage() {
                           onChange={(e) => {
                             const formatted = formatDocumento(e.target.value, participante.paisResidencia)
                             updateParticipante("cpf", formatted)
-                            // Verificar apenas para Brasil após digitar 11 dígitos
-                            if (participante.paisResidencia === "brasil" && formatted.replace(/\D/g, '').length === 11) {
-                              // Para primeiro participante: verificar login rápido
-                              // Para participantes adicionais: buscar perfis salvos (se logado)
-                              verificarCPF(formatted)
-                            }
                           }}
                           placeholder={
                             participante.paisResidencia === "brasil" 
@@ -1843,123 +1616,7 @@ export default function CheckoutPage() {
                           }
                           disabled={!!usuarioLogado && currentParticipante === 0 && !permiteEdicao}
                         />
-                        {verificandoCPF && (
-                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
-                        )}
                       </div>
-                      
-                      {/* Diálogo de login rápido */}
-                      {mostrarLoginRapido && !usuarioLogado && usuarioExiste && (
-                        <div className="mt-4 p-5 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl shadow-sm space-y-4">
-                          <div className="flex items-start gap-3">
-                            <div className="flex-shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                              <CheckCircle2 className="h-5 w-5 text-green-600" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm text-gray-700 mb-3">
-                                Faça login rápido para preencher seus dados automaticamente.
-                              </p>
-                              <div className="text-xs text-gray-600 bg-white/60 px-3 py-1.5 rounded-md inline-block font-mono">
-                                {usuarioExiste?.email ? mascararEmail(usuarioExiste.email) : ''}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {!codigoEnviado ? (
-                            <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                              <Button
-                                type="button"
-                                onClick={enviarCodigoLogin}
-                                disabled={enviandoCodigo}
-                                className="flex-1 bg-[#156634] hover:bg-[#1a7a3e] text-white font-medium"
-                              >
-                                {enviandoCodigo ? (
-                                  <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Enviando código...
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                                    Fazer login rápido
-                                  </>
-                                )}
-                              </Button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  setMostrarLoginRapido(false)
-                                  setUsuarioExiste(null)
-                                }}
-                                onMouseDown={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                }}
-                                style={{
-                                  color: '#374151',
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.color = '#111827'
-                                  e.currentTarget.style.backgroundColor = '#f9fafb'
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.color = '#374151'
-                                  e.currentTarget.style.backgroundColor = '#ffffff'
-                                }}
-                                className="flex-1 h-10 px-4 py-2 rounded-md border border-gray-300 bg-white transition-colors font-medium text-sm"
-                              >
-                                Continuar sem login
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="space-y-3 pt-2">
-                              <div className="bg-white/80 rounded-lg p-3 border border-green-200">
-                                <p className="text-xs text-gray-600 mb-2 text-center">
-                                  Código enviado para <span className="font-medium text-gray-900 font-mono">{usuarioExiste?.email ? mascararEmail(usuarioExiste.email) : ''}</span>
-                                </p>
-                                <div className="flex gap-2">
-                                  <Input
-                                    type="text"
-                                    maxLength={6}
-                                    value={codigoLogin}
-                                    onChange={(e) => setCodigoLogin(e.target.value.replace(/\D/g, ''))}
-                                    placeholder="000000"
-                                    className="flex-1 font-mono text-center text-xl tracking-[0.5em] h-12 border-2 focus:border-green-500"
-                                  />
-                                  <Button
-                                    type="button"
-                                    onClick={validarCodigoLogin}
-                                    disabled={validandoCodigo || codigoLogin.length !== 6}
-                                    className="bg-[#156634] hover:bg-[#1a7a3e] text-white px-6"
-                                  >
-                                    {validandoCodigo ? (
-                                      <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Validando...
-                                      </>
-                                    ) : (
-                                      'Validar'
-                                    )}
-                                  </Button>
-                                </div>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                onClick={() => {
-                                  setCodigoEnviado(false)
-                                  setCodigoLogin("")
-                                }}
-                                className="w-full text-xs text-gray-600 hover:text-gray-900"
-                              >
-                                Não recebeu o código? Reenviar
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -2182,41 +1839,9 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
-                {/* Step 3: CPF/Documento e Pagamento */}
+                {/* Step 3: Tamanho Camiseta, Contato de Emergência, Termos e Pagamento */}
                 {currentStep === 3 && (
                   <div className="space-y-6">
-                    {/* CPF já foi preenchido no Step 1, apenas mostrar se não foi preenchido */}
-                    {!participante.cpf && (
-                    <div className="space-y-2">
-                        <Label htmlFor="cpf-step3">
-                        {participante.paisResidencia === "brasil" 
-                          ? "CPF" 
-                          : participante.paisResidencia === "argentina"
-                          ? "DNI"
-                          : idioma === "es" ? "Documento" : idioma === "en" ? "ID Document" : "Documento"} *
-                      </Label>
-                      <Input
-                          id="cpf-step3"
-                        value={participante.cpf}
-                          onChange={(e) => {
-                            const formatted = formatDocumento(e.target.value, participante.paisResidencia)
-                            updateParticipante("cpf", formatted)
-                            // Verificar apenas para Brasil após digitar 11 dígitos
-                            if (participante.paisResidencia === "brasil" && formatted.replace(/\D/g, '').length === 11) {
-                              verificarCPF(formatted)
-                            }
-                          }}
-                        placeholder={
-                          participante.paisResidencia === "brasil" 
-                            ? "000.000.000-00" 
-                            : participante.paisResidencia === "argentina"
-                            ? "12.345.678"
-                            : idioma === "es" ? "Número de documento" : "Document number"
-                        }
-                      />
-                    </div>
-                    )}
-
                     {/* Opção de salvar perfil para participantes adicionais (2+) */}
                     {participantes.length > 1 && currentParticipante > 0 && (
                       <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
@@ -2243,6 +1868,35 @@ export default function CheckoutPage() {
                       </div>
                     )}
 
+                    {/* Nome Contato de Emergência */}
+                    <div className="space-y-2">
+                      <Label htmlFor="contato-emergencia-nome">
+                        {idioma === "es" ? "Nombre del Contacto de Emergencia" : idioma === "en" ? "Emergency Contact Name" : "Nome do Contato de Emergência"} *
+                      </Label>
+                      <Input
+                        id="contato-emergencia-nome"
+                        value={participante.contatoEmergenciaNome}
+                        onChange={(e) => updateParticipante("contatoEmergenciaNome", e.target.value)}
+                        placeholder={idioma === "es" ? "Nombre completo" : idioma === "en" ? "Full name" : "Nome completo"}
+                      />
+                    </div>
+
+                    {/* Telefone Contato de Emergência */}
+                    <div className="space-y-2">
+                      <Label htmlFor="contato-emergencia-telefone">
+                        {idioma === "es" ? "Teléfono del Contacto de Emergencia" : idioma === "en" ? "Emergency Contact Phone" : "Telefone do Contato de Emergência"} *
+                      </Label>
+                      <Input
+                        id="contato-emergencia-telefone"
+                        value={participante.contatoEmergenciaTelefone}
+                        onChange={(e) => {
+                          const formatted = isBrasil ? formatTelefone(e.target.value) : e.target.value
+                          updateParticipante("contatoEmergenciaTelefone", formatted)
+                        }}
+                        placeholder={isBrasil ? "(00) 00000-0000" : "+00 000 000 0000"}
+                      />
+                    </div>
+
                     {/* Tamanho da Camiseta (se houver kit com camiseta) */}
                     {temCamiseta && ingresso?.kitItems?.includes("camiseta") && (
                       <div className="space-y-2">
@@ -2255,7 +1909,7 @@ export default function CheckoutPage() {
                               variant={participante.tamanhoCamiseta === tamanho ? "default" : "outline"}
                               size="sm"
                               onClick={() => updateParticipante("tamanhoCamiseta", tamanho)}
-                              className={participante.tamanhoCamiseta === tamanho ? "bg-[#156634]" : ""}
+                              className={participante.tamanhoCamiseta === tamanho ? "bg-[#156634] text-white hover:bg-[#1a7a3e]" : ""}
                             >
                               {tamanho}
                             </Button>
@@ -2264,16 +1918,78 @@ export default function CheckoutPage() {
                       </div>
                     )}
 
+                    {/* Termo de Responsabilidade */}
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          id={`aceite-${currentParticipante}`}
+                          checked={participante.aceiteTermo}
+                          onCheckedChange={(checked) => {
+                            const novosParticipantes = [...participantes]
+                            novosParticipantes[currentParticipante] = {
+                              ...novosParticipantes[currentParticipante],
+                              aceiteTermo: checked === true,
+                            }
+                            setParticipantes(novosParticipantes)
+                          }}
+                          className="mt-1"
+                        />
+                        <div className="flex-1">
+                          <Label 
+                            htmlFor={`aceite-${currentParticipante}`} 
+                            className="text-sm font-medium cursor-pointer flex items-center gap-2"
+                          >
+                            {t("liAceito")} *
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <button type="button" className="text-blue-600 hover:text-blue-800">
+                                  <Info className="h-4 w-4" />
+                                </button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                                <DialogHeader>
+                                  <DialogTitle>{t("termoResponsabilidade")}</DialogTitle>
+                                </DialogHeader>
+                                <div className="text-sm text-gray-600 space-y-3">
+                                  <p>
+                                    {idioma === "es" 
+                                      ? "Declaro estar consciente de que la práctica deportiva implica riesgos inherentes a la actividad física."
+                                      : idioma === "en"
+                                      ? "I declare that I am aware that sports practice involves risks inherent to physical activity."
+                                      : "Declaro que estou ciente de que a prática esportiva envolve riscos inerentes à atividade física."}
+                                  </p>
+                                  <p>
+                                    {idioma === "es"
+                                      ? "Certifico estar en plenas condiciones de salud para participar en este evento, habiendo realizado exámenes médicos y obtenido autorización para la práctica deportiva."
+                                      : idioma === "en"
+                                      ? "I certify that I am in full health condition to participate in this event, having undergone medical examinations and obtained clearance for sports practice."
+                                      : "Atesto estar em plenas condições de saúde para participar deste evento, tendo realizado exames médicos e obtido liberação para a prática esportiva."}
+                                  </p>
+                                  <p>
+                                    {idioma === "es"
+                                      ? "Eximo a los organizadores de cualquier responsabilidad por accidentes o problemas de salud derivados de mi participación."
+                                      : idioma === "en"
+                                      ? "I exempt the organizers from any liability for accidents or health problems arising from my participation."
+                                      : "Isento os organizadores de quaisquer responsabilidades por acidentes ou problemas de saúde decorrentes da minha participação."}
+                                  </p>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          </Label>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Meios de Pagamento (se não for gratuito) */}
                     {!isGratuito() && (
-                      <div className="space-y-4">
-                        <Label>{t("formaPagamento")} *</Label>
+                      <div className="space-y-4 pt-2">
+                        <Label className="text-base font-semibold">{t("formaPagamento")} *</Label>
                         <RadioGroup
                           value={meioPagamento}
                           onValueChange={setMeioPagamento}
                           className="space-y-3"
                         >
-                          <div className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50 ${meioPagamento === "pix" ? "border-[#156634] bg-green-50" : ""}`}>
+                          <div className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${meioPagamento === "pix" ? "border-[#156634] bg-green-50" : ""}`}>
                             <RadioGroupItem value="pix" id="pix" />
                             <Label htmlFor="pix" className="flex items-center gap-3 cursor-pointer flex-1">
                               <QrCode className="h-5 w-5 text-green-600" />
@@ -2283,7 +1999,7 @@ export default function CheckoutPage() {
                               </div>
                             </Label>
                           </div>
-                          <div className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50 ${meioPagamento === "cartao" ? "border-[#156634] bg-green-50" : ""}`}>
+                          <div className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${meioPagamento === "cartao" ? "border-[#156634] bg-green-50" : ""}`}>
                             <RadioGroupItem value="cartao" id="cartao" />
                             <Label htmlFor="cartao" className="flex items-center gap-3 cursor-pointer flex-1">
                               <CreditCard className="h-5 w-5 text-blue-600" />
@@ -2293,7 +2009,7 @@ export default function CheckoutPage() {
                               </div>
                             </Label>
                           </div>
-                          <div className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50 ${meioPagamento === "boleto" ? "border-[#156634] bg-green-50" : ""}`}>
+                          <div className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${meioPagamento === "boleto" ? "border-[#156634] bg-green-50" : ""}`}>
                             <RadioGroupItem value="boleto" id="boleto" />
                             <Label htmlFor="boleto" className="flex items-center gap-3 cursor-pointer flex-1">
                               <FileText className="h-5 w-5 text-orange-600" />
@@ -2306,63 +2022,6 @@ export default function CheckoutPage() {
                         </RadioGroup>
                       </div>
                     )}
-
-                    {/* Termo de Responsabilidade */}
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id={`aceite-${currentParticipante}`}
-                        checked={participante.aceiteTermo}
-                        onCheckedChange={(checked) => {
-                          const novosParticipantes = [...participantes]
-                          novosParticipantes[currentParticipante] = {
-                            ...novosParticipantes[currentParticipante],
-                            aceiteTermo: checked === true,
-                          }
-                          setParticipantes(novosParticipantes)
-                        }}
-                      />
-                      <Label 
-                        htmlFor={`aceite-${currentParticipante}`} 
-                        className="text-sm cursor-pointer"
-                      >
-                        {t("liAceito")} *
-                      </Label>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <button type="button" className="text-gray-400 hover:text-gray-600">
-                            <Info className="h-4 w-4" />
-                          </button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>{t("termoResponsabilidade")}</DialogTitle>
-                          </DialogHeader>
-                          <div className="text-sm text-gray-600 space-y-3">
-                            <p>
-                              {idioma === "es" 
-                                ? "Declaro estar consciente de que la práctica deportiva implica riesgos inherentes a la actividad física."
-                                : idioma === "en"
-                                ? "I declare that I am aware that sports practice involves risks inherent to physical activity."
-                                : "Declaro que estou ciente de que a prática esportiva envolve riscos inerentes à atividade física."}
-                            </p>
-                            <p>
-                              {idioma === "es"
-                                ? "Certifico estar en plenas condiciones de salud para participar en este evento, habiendo realizado exámenes médicos y obtenido autorización para la práctica deportiva."
-                                : idioma === "en"
-                                ? "I certify that I am in full health condition to participate in this event, having undergone medical examinations and obtained clearance for sports practice."
-                                : "Atesto estar em plenas condições de saúde para participar deste evento, tendo realizado exames médicos e obtido liberação para a prática esportiva."}
-                            </p>
-                            <p>
-                              {idioma === "es"
-                                ? "Eximo a los organizadores de cualquier responsabilidad por accidentes o problemas de salud derivados de mi participación."
-                                : idioma === "en"
-                                ? "I exempt the organizers from any liability for accidents or health problems arising from my participation."
-                                : "Isento os organizadores de quaisquer responsabilidades por acidentes ou problemas de saúde decorrentes da minha participação."}
-                            </p>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
                   </div>
                 )}
 
@@ -2550,7 +2209,7 @@ export default function CheckoutPage() {
                   />
                 </div>
                 <p className="text-xs text-gray-500 leading-relaxed max-w-xs text-center md:text-left">
-                  Plataforma para gestão, compra e venda de ingressos para eventos esportivos.
+                  {t("plataformaDescricao")}
                 </p>
             </div>
 
@@ -2611,7 +2270,7 @@ export default function CheckoutPage() {
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1 text-center md:text-left">
-                  <span className="text-[#156634]">Parcelamento em até 12x</span> no cartão
+                  <span className="text-[#156634]">{t("parceleAteCartao")}</span>
                 </p>
               </div>
 
@@ -2688,56 +2347,115 @@ export default function CheckoutPage() {
         </div>
       </footer>
 
-      {/* Popup elaborado: Deseja incluir mais participantes? */}
+      {/* Popup: Selecionar perfis salvos para incluir */}
       <Dialog open={mostrarPopupIncluirParticipantes} onOpenChange={setMostrarPopupIncluirParticipantes}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl text-center mb-2">Deseja incluir mais participantes?</DialogTitle>
+            <DialogTitle className="text-2xl text-center mb-2">Selecione os participantes adicionais</DialogTitle>
             <p className="text-sm text-gray-600 text-center">
-              Você pode adicionar participantes adicionais à sua inscrição
+              Escolha os perfis salvos que deseja incluir e selecione a categoria de cada um
             </p>
           </DialogHeader>
           <div className="space-y-4 mt-6">
-            <div className="space-y-2">
-              <Label htmlFor="quantidade">Quantos participantes adicionais?</Label>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setQuantidadeParticipantesAdicionais(Math.max(1, quantidadeParticipantesAdicionais - 1))}
-                  disabled={quantidadeParticipantesAdicionais <= 1}
-                >
-                  -
-                </Button>
-                <Input
-                  id="quantidade"
-                  type="number"
-                  min="1"
-                  max="10"
-                  value={quantidadeParticipantesAdicionais}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) || 1
-                    setQuantidadeParticipantesAdicionais(Math.max(1, Math.min(10, val)))
-                  }}
-                  className="text-center w-20"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setQuantidadeParticipantesAdicionais(Math.min(10, quantidadeParticipantesAdicionais + 1))}
-                  disabled={quantidadeParticipantesAdicionais >= 10}
-                >
-                  +
-                </Button>
+            {perfisSalvos.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>Você não tem perfis salvos ainda.</p>
+                <p className="text-sm mt-2">Os perfis serão salvos após completar inscrições.</p>
               </div>
-            </div>
-            <div className="flex gap-2 pt-4">
+            ) : (
+              <div className="space-y-3">
+                {perfisSalvos.map((perfil) => {
+                  const isSelecionado = perfisSelecionadosPopup.some(p => p.perfilId === perfil.id)
+                  const selecaoAtual = perfisSelecionadosPopup.find(p => p.perfilId === perfil.id)
+                  
+                  // Buscar categorias disponíveis do evento
+                  const loteId = searchParams.get("lote")
+                  const ingressosParam = searchParams.get("ingressos")
+                  let categoriasDisponiveis: any[] = []
+                  if (loteId && ingressosParam && eventData) {
+                    const ingressosObj = JSON.parse(decodeURIComponent(ingressosParam))
+                    const lote = eventData.ticket_batches?.find((b: any) => b.id === loteId)
+                    if (lote && lote.tickets) {
+                      categoriasDisponiveis = lote.tickets.filter((t: any) => {
+                        const quantidade = Number(ingressosObj[t.category] || 0)
+                        return quantidade > 0
+                      })
+                    }
+                  }
+
+                  return (
+                    <div
+                      key={perfil.id}
+                      className={`border rounded-lg p-4 space-y-3 ${
+                        isSelecionado ? 'border-[#156634] bg-green-50' : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          checked={isSelecionado}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              const primeiraCategoria = categoriasDisponiveis[0]
+                              setPerfisSelecionadosPopup([
+                                ...perfisSelecionadosPopup,
+                                { perfilId: perfil.id, categoriaId: primeiraCategoria?.id || primeiraCategoria?.category || '' }
+                              ])
+                            } else {
+                              setPerfisSelecionadosPopup(
+                                perfisSelecionadosPopup.filter(p => p.perfilId !== perfil.id)
+                              )
+                            }
+                          }}
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium">{perfil.full_name || 'Sem nome'}</div>
+                          <div className="text-sm text-gray-600">{perfil.email}</div>
+                          {perfil.cpf && (
+                            <div className="text-xs text-gray-500">
+                              {perfil.country === "brasil" ? "CPF" : perfil.country === "argentina" ? "DNI" : "Doc"}: {perfil.cpf}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {isSelecionado && (
+                        <div className="ml-7 space-y-2">
+                          <Label className="text-sm">Categoria do ingresso:</Label>
+                          <Select
+                            value={selecaoAtual?.categoriaId || ''}
+                            onValueChange={(value) => {
+                              setPerfisSelecionadosPopup(
+                                perfisSelecionadosPopup.map(p =>
+                                  p.perfilId === perfil.id ? { ...p, categoriaId: value } : p
+                                )
+                              )
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione a categoria" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {categoriasDisponiveis.map((ticket: any) => (
+                                <SelectItem key={ticket.id || ticket.category} value={ticket.id || ticket.category || ''}>
+                                  {ticket.category} {ticket.is_free ? '(Gratuito)' : `- R$ ${parseFloat(ticket.price || "0").toFixed(2)}`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            
+            <div className="flex gap-2 pt-4 border-t">
               <Button
                 variant="outline"
                 onClick={() => {
                   setMostrarPopupIncluirParticipantes(false)
+                  setPerfisSelecionadosPopup([])
                   handleSubmit()
                 }}
                 className="flex-1"
@@ -2746,9 +2464,10 @@ export default function CheckoutPage() {
               </Button>
               <Button
                 onClick={confirmarIncluirParticipantes}
+                disabled={perfisSelecionadosPopup.length === 0}
                 className="flex-1 bg-[#156634] hover:bg-[#1a7a3e]"
               >
-                Sim, incluir {quantidadeParticipantesAdicionais} participante{quantidadeParticipantesAdicionais > 1 ? 's' : ''}
+                Continuar com {perfisSelecionadosPopup.length} participante{perfisSelecionadosPopup.length !== 1 ? 's' : ''}
               </Button>
             </div>
           </div>

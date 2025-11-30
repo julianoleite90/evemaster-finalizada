@@ -23,6 +23,8 @@ export default function MyProfilePage() {
     city: "",
     state: "",
     zip_code: "",
+    emergency_contact_name: "",
+    emergency_contact_phone: "",
   })
 
   useEffect(() => {
@@ -67,6 +69,8 @@ export default function MyProfilePage() {
             city: userData.city || "",
             state: userData.state || "",
             zip_code: userData.zip_code || "",
+            emergency_contact_name: userData.emergency_contact_name || "",
+            emergency_contact_phone: userData.emergency_contact_phone || "",
           })
         } else {
           console.log("ℹ️ [Profile] Usuário não encontrado na tabela users, usando metadados")
@@ -83,6 +87,8 @@ export default function MyProfilePage() {
             city: metadata.city || "",
             state: metadata.state || "",
             zip_code: metadata.zip_code || "",
+            emergency_contact_name: metadata.emergency_contact_name || "",
+            emergency_contact_phone: metadata.emergency_contact_phone || "",
           })
         }
       } catch (error) {
@@ -137,6 +143,8 @@ export default function MyProfilePage() {
           city: userData.city,
           state: userData.state,
           zip_code: userData.zip_code,
+          emergency_contact_name: userData.emergency_contact_name || null,
+          emergency_contact_phone: userData.emergency_contact_phone?.replace(/\D/g, '') || null,
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'id'
@@ -320,6 +328,40 @@ export default function MyProfilePage() {
                     }
                     placeholder="UF"
                     maxLength={2}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Contato de Emergência */}
+            <div className="space-y-4 pt-4 border-t">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Contato de Emergência</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Informe um contato para emergências durante eventos
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="emergency_contact_name">Nome do Contato *</Label>
+                  <Input
+                    id="emergency_contact_name"
+                    value={userData.emergency_contact_name}
+                    onChange={(e) =>
+                      setUserData({ ...userData, emergency_contact_name: e.target.value })
+                    }
+                    placeholder="Nome completo"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emergency_contact_phone">Telefone do Contato *</Label>
+                  <Input
+                    id="emergency_contact_phone"
+                    value={userData.emergency_contact_phone}
+                    onChange={(e) =>
+                      setUserData({ ...userData, emergency_contact_phone: e.target.value })
+                    }
+                    placeholder="(00) 00000-0000"
                   />
                 </div>
               </div>

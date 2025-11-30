@@ -45,6 +45,7 @@ import {
   Copy,
   Check,
   Send,
+  AlertCircle,
 } from "lucide-react"
 import { useParams, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
@@ -155,6 +156,10 @@ export default function RegistrationDetailsPage() {
             tamanhoCamiseta: regData.shirt_size,
             possuiKit: ticketInfo?.has_kit || false,
             possuiSeguro: false,
+            contatoEmergencia: {
+              nome: athleteData.emergency_contact_name || null,
+              telefone: athleteData.emergency_contact_phone || null,
+            },
           } : null,
           comprador: null,
           financeiro: paymentData ? {
@@ -520,6 +525,34 @@ export default function RegistrationDetailsPage() {
                             </p>
                           </div>
                 </div>
+                      )}
+                      {registration.atleta.contatoEmergencia?.nome && (
+                        <div className="flex items-start gap-3 pt-3 border-t">
+                          <AlertCircle className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-500 mb-2 font-semibold">Contato de Emergência</p>
+                            <div className="space-y-2">
+                              <div>
+                                <p className="text-xs text-gray-500 mb-0.5">Nome</p>
+                                <p className="text-sm text-gray-900">{registration.atleta.contatoEmergencia.nome}</p>
+                              </div>
+                              {registration.atleta.contatoEmergencia.telefone && (
+                                <div>
+                                  <p className="text-xs text-gray-500 mb-0.5">Telefone</p>
+                                  <p 
+                                    className="text-sm text-gray-900 cursor-pointer hover:text-green-600 transition-colors inline-flex items-center gap-2"
+                                    onClick={(e) => handleCopy(e, registration.atleta.contatoEmergencia.telefone, 'telefone emergência')}
+                                  >
+                                    {registration.atleta.contatoEmergencia.telefone}
+                                    {copiedId === 'telefone emergência' ? (
+                                      <Check className="h-3 w-3 text-green-600" />
+                                    ) : null}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       )}
                 </div>
               </div>

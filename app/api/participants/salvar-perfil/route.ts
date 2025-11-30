@@ -22,6 +22,8 @@ export async function POST(request: NextRequest) {
       city,
       state,
       shirt_size,
+      emergency_contact_name,
+      emergency_contact_phone,
     } = body
 
     if (!full_name || !email || !cpf) {
@@ -72,6 +74,8 @@ export async function POST(request: NextRequest) {
       city: city || null,
       state: state || null,
       shirt_size: shirt_size || null,
+      emergency_contact_name: emergency_contact_name || null,
+      emergency_contact_phone: emergency_contact_phone?.replace(/\D/g, '') || null,
     }
 
     let result
