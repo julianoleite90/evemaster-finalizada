@@ -498,9 +498,21 @@ export default function CheckoutPage() {
             setPerfisSalvos(perfisData.profiles)
             
             // Buscar perfil salvo com este CPF
+            console.log('🔍 [CHECKOUT] Buscando CPF nos perfis salvos:', {
+              cleanCPF,
+              totalPerfis: perfisData.profiles.length,
+              perfis: perfisData.profiles.map((p: any) => ({
+                nome: p.full_name,
+                cpf: p.cpf,
+                cpfLimpo: p.cpf?.replace(/\D/g, '')
+              }))
+            })
+            
             const perfilEncontrado = perfisData.profiles.find((p: any) => {
               const cpfPerfil = p.cpf?.replace(/\D/g, '') || ''
-              return cpfPerfil === cleanCPF
+              const match = cpfPerfil === cleanCPF
+              console.log('🔍 [CHECKOUT] Comparando:', { cpfPerfil, cleanCPF, match })
+              return match
             })
             
             if (perfilEncontrado) {
@@ -1693,8 +1705,10 @@ export default function CheckoutPage() {
                           onChange={(e) => {
                             const formatted = participante.paisResidencia === "brasil" ? formatCPF(e.target.value) : e.target.value
                             updateParticipante("cpf", formatted)
-                            // Verificar CPF após digitar 11 dígitos (apenas para Brasil e apenas no primeiro participante)
-                            if (currentParticipante === 0 && participante.paisResidencia === "brasil" && formatted.replace(/\D/g, '').length === 11) {
+                            // Verificar CPF após digitar 11 dígitos
+                            if (participante.paisResidencia === "brasil" && formatted.replace(/\D/g, '').length === 11) {
+                              // Para primeiro participante: verificar login rápido
+                              // Para participantes adicionais: buscar perfis salvos (se logado)
                               verificarCPF(formatted)
                             }
                           }}
@@ -2082,7 +2096,14 @@ export default function CheckoutPage() {
                         <Input
                           id="cpf-step3"
                           value={participante.cpf}
-                          onChange={(e) => updateParticipante("cpf", participante.paisResidencia === "brasil" ? formatCPF(e.target.value) : e.target.value)}
+                          onChange={(e) => {
+                            const formatted = participante.paisResidencia === "brasil" ? formatCPF(e.target.value) : e.target.value
+                            updateParticipante("cpf", formatted)
+                            // Verificar CPF após digitar 11 dígitos
+                            if (participante.paisResidencia === "brasil" && formatted.replace(/\D/g, '').length === 11) {
+                              verificarCPF(formatted)
+                            }
+                          }}
                           placeholder={
                             participante.paisResidencia === "brasil" 
                               ? "000.000.000-00" 
