@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 // @ts-ignore
 import jsPDF from 'jspdf'
 import QRCode from 'qrcode'
@@ -20,9 +21,22 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createClient()
+    
+    // Verificar se o usuário está autenticado
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Não autenticado' },
+        { status: 401 }
+      )
+    }
 
-    // Buscar a inscrição com todos os dados necessários
-    const { data: registration, error: regError } = await supabase
+    // Tentar buscar com o cliente normal primeiro (respeitando RLS)
+    let registration = null
+    let regError = null
+    
+    const { data: regData, error: regErr } = await supabase
       .from('registrations')
       .select(`
         *,
@@ -54,11 +68,76 @@ export async function POST(request: NextRequest) {
         )
       `)
       .eq('id', registrationId)
+      .or(`athlete_id.eq.${user.id},buyer_id.eq.${user.id}`)
       .single()
 
+    registration = regData
+    regError = regErr
+
+    // Se não encontrou com RLS, tentar com admin client (bypass RLS)
     if (regError || !registration) {
+      const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+      if (supabaseUrl && supabaseServiceKey) {
+        const supabaseAdmin = createAdminClient(supabaseUrl, supabaseServiceKey, {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
+        })
+
+        const { data: adminRegData, error: adminRegErr } = await supabaseAdmin
+          .from('registrations')
+          .select(`
+            *,
+            event:events(
+              id,
+              name,
+              slug,
+              event_date,
+              start_time,
+              location,
+              address,
+              description,
+              banner_url
+            ),
+            ticket:tickets(
+              id,
+              category,
+              price,
+              is_free
+            ),
+            athletes(
+              full_name,
+              email,
+              category
+            ),
+            payments(
+              total_amount,
+              payment_status
+            )
+          `)
+          .eq('id', registrationId)
+          .single()
+
+        // Verificar se a inscrição pertence ao usuário mesmo usando admin
+        if (adminRegData && (adminRegData.athlete_id === user.id || adminRegData.buyer_id === user.id)) {
+          registration = adminRegData
+          regError = null
+        } else if (adminRegData) {
+          return NextResponse.json(
+            { error: 'Você não tem permissão para acessar esta inscrição' },
+            { status: 403 }
+          )
+        }
+      }
+    }
+
+    if (regError || !registration) {
+      console.error('Erro ao buscar inscrição:', regError)
       return NextResponse.json(
-        { error: 'Inscrição não encontrada' },
+        { error: 'Inscrição não encontrada', details: regError?.message },
         { status: 404 }
       )
     }
