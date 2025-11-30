@@ -1203,7 +1203,7 @@ export default function RegistrationsPage() {
                           >
                             <ChevronRight className="h-4 w-4" />
                           </Link>
-                        </div>
+                      </div>
                     </div>
 
                       {/* Mobile: Layout compacto */}

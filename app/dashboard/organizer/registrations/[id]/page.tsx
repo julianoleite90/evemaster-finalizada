@@ -337,7 +337,7 @@ export default function RegistrationDetailsPage() {
     <div className="space-y-6 pb-8">
       {/* Header Principal */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b">
-        <div>
+          <div>
           <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
             {registration.atleta?.nome || "Inscrição"}
           </h1>
@@ -420,20 +420,20 @@ export default function RegistrationDetailsPage() {
                     <p className="text-sm text-gray-900">
                       {formatDate(registration.evento.data)}
                     </p>
-                  </div>
-                  <div>
+              </div>
+                <div>
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
                       Categoria
                     </p>
                     <Badge variant="outline" className="text-xs font-medium">
                       {registration.evento.categoria}
                     </Badge>
-                  </div>
-                  <div>
+                </div>
+                <div>
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
                       <MapPin className="h-3 w-3" />
                       Local
-                    </p>
+                  </p>
                     <p className="text-sm text-gray-900">
                       {registration.evento.local}
                     </p>
@@ -444,18 +444,18 @@ export default function RegistrationDetailsPage() {
           </Card>
 
           {/* Card: Dados do Participante */}
-          {registration.atleta && (
+        {registration.atleta && (
             <Card className="border-gray-200 shadow-sm">
               <CardHeader className="pb-4 border-b border-gray-100">
                 <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
                   <User className="h-5 w-5 text-gray-500" />
                   Dados do Participante
                 </CardTitle>
-              </CardHeader>
+            </CardHeader>
               <CardContent className="pt-6">
                 <div className="space-y-6">
                   {/* Nome e Contato */}
-                  <div>
+                <div>
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
                       Informações de Contato
                     </p>
@@ -508,10 +508,10 @@ export default function RegistrationDetailsPage() {
                               ) : null}
                             </p>
                           </div>
-                        </div>
+                </div>
                       )}
-                    </div>
-                  </div>
+                </div>
+              </div>
 
                   <Separator />
 
@@ -540,7 +540,7 @@ export default function RegistrationDetailsPage() {
                           <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
                             <Cake className="h-3 w-3" />
                             Data de Nascimento
-                          </p>
+                    </p>
                           <p className="text-sm text-gray-900">
                             {formatDate(registration.atleta.dataNascimento)}
                             {registration.atleta.idade && (
@@ -573,23 +573,23 @@ export default function RegistrationDetailsPage() {
                           {registration.atleta.endereco.rua && (
                             <p>{registration.atleta.endereco.rua}</p>
                           )}
-                          {registration.atleta.endereco.cidade && (
+                      {registration.atleta.endereco.cidade && (
                             <p>
                               {registration.atleta.endereco.cidade}
                               {registration.atleta.endereco.estado && ` - ${registration.atleta.endereco.estado}`}
                             </p>
-                          )}
-                          {registration.atleta.endereco.cep && (
+                      )}
+                      {registration.atleta.endereco.cep && (
                             <p className="text-gray-500">CEP: {registration.atleta.endereco.cep}</p>
-                          )}
+                      )}
                         </div>
-                      </div>
-                    </>
-                  )}
+                  </div>
+                </>
+              )}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+            </CardContent>
+          </Card>
+        )}
 
           {/* Card: Participação e Kit */}
           <Card className="border-gray-200 shadow-sm">
@@ -598,54 +598,54 @@ export default function RegistrationDetailsPage() {
                 <Package className="h-5 w-5 text-gray-500" />
                 Participação
               </CardTitle>
-            </CardHeader>
+          </CardHeader>
             <CardContent className="pt-6">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                {registration.atleta?.tamanhoCamiseta && (
-                  <div>
+            {registration.atleta?.tamanhoCamiseta && (
+              <div>
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
-                      <Shirt className="h-3 w-3" />
+                  <Shirt className="h-3 w-3" />
                       Tamanho da Camiseta
-                    </p>
+                </p>
                     <Badge variant="outline" className="text-sm font-medium px-3 py-1.5">
                       {registration.atleta.tamanhoCamiseta}
                     </Badge>
-                  </div>
-                )}
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
-                    <Package className="h-3 w-3" />
-                    Kit
-                  </p>
-                  {registration.atleta?.possuiKit ? (
-                    <Badge className="bg-green-50 text-green-700 border-green-200 text-sm font-medium px-3 py-1.5">
-                      Incluído
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-sm font-medium px-3 py-1.5">
-                      Não incluído
-                    </Badge>
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
-                    <Shield className="h-3 w-3" />
-                    Seguro
-                  </p>
-                  {registration.atleta?.possuiSeguro ? (
-                    <Badge className="bg-green-50 text-green-700 border-green-200 text-sm font-medium px-3 py-1.5">
-                      Incluído
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-sm font-medium px-3 py-1.5">
-                      Não incluído
-                    </Badge>
-                  )}
-                </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            )}
+              <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <Package className="h-3 w-3" />
+                  Kit
+                </p>
+                {registration.atleta?.possuiKit ? (
+                    <Badge className="bg-green-50 text-green-700 border-green-200 text-sm font-medium px-3 py-1.5">
+                      Incluído
+                    </Badge>
+                ) : (
+                    <Badge variant="outline" className="text-sm font-medium px-3 py-1.5">
+                      Não incluído
+                    </Badge>
+                )}
+              </div>
+              <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <Shield className="h-3 w-3" />
+                  Seguro
+                </p>
+                {registration.atleta?.possuiSeguro ? (
+                    <Badge className="bg-green-50 text-green-700 border-green-200 text-sm font-medium px-3 py-1.5">
+                      Incluído
+                    </Badge>
+                ) : (
+                    <Badge variant="outline" className="text-sm font-medium px-3 py-1.5">
+                      Não incluído
+                    </Badge>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
         {/* Coluna Direita - Sidebar */}
         <div className="space-y-6">
@@ -685,72 +685,72 @@ export default function RegistrationDetailsPage() {
           </Card>
 
           {/* Card: Detalhes Financeiros */}
-          {registration.financeiro && (
+      {registration.financeiro && (
             <Card className="border-gray-200 shadow-sm">
               <CardHeader className="pb-4 border-b border-gray-100">
                 <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
                   <DollarSign className="h-5 w-5 text-gray-500" />
-                  Detalhes Financeiros
-                </CardTitle>
-              </CardHeader>
+              Detalhes Financeiros
+            </CardTitle>
+          </CardHeader>
               <CardContent className="pt-6">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Valor Base</span>
                     <span className="font-medium text-gray-900">
                       {formatCurrency(registration.financeiro.valorBase || 0)}
                     </span>
-                  </div>
-                  {registration.financeiro.desconto > 0 && (
-                    <div className="flex items-center justify-between text-sm">
+              </div>
+              {registration.financeiro.desconto > 0 && (
+                <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-600">Desconto</span>
-                      <span className="font-medium text-green-600">
-                        -{formatCurrency(registration.financeiro.desconto)}
-                      </span>
-                    </div>
-                  )}
+                  <span className="font-medium text-green-600">
+                    -{formatCurrency(registration.financeiro.desconto)}
+                  </span>
+                </div>
+              )}
                   {registration.financeiro.taxaPlataforma > 0 && (
-                    <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-600">Taxa da Plataforma</span>
                       <span className="font-medium text-gray-900">
                         {formatCurrency(registration.financeiro.taxaPlataforma || 0)}
                       </span>
-                    </div>
+              </div>
                   )}
                   {registration.financeiro.taxaProcessamento > 0 && (
-                    <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-600">Taxa de Processamento</span>
                       <span className="font-medium text-gray-900">
                         {formatCurrency(registration.financeiro.taxaProcessamento || 0)}
                       </span>
-                    </div>
+              </div>
                   )}
-                  <Separator />
+              <Separator />
                   <div className="flex items-center justify-between pt-2">
                     <span className="text-base font-semibold text-gray-900">Total</span>
                     <span className="text-xl font-bold text-[#156634]">
-                      {formatCurrency(registration.financeiro.total || 0)}
-                    </span>
-                  </div>
-                  <Separator />
+                  {formatCurrency(registration.financeiro.total || 0)}
+                </span>
+              </div>
+              <Separator />
                   <div className="space-y-3 pt-2">
-                    <div>
+                <div>
                       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
-                        <CreditCard className="h-3 w-3" />
-                        Método de Pagamento
-                      </p>
+                    <CreditCard className="h-3 w-3" />
+                    Método de Pagamento
+                  </p>
                       <p className="text-sm font-medium text-gray-900">
                         {registration.financeiro.metodoPagamento || "N/A"}
                       </p>
-                      {registration.financeiro.ultimos4Digitos && (
+                  {registration.financeiro.ultimos4Digitos && (
                         <p className="text-xs text-gray-500 mt-1">
-                          Final {registration.financeiro.ultimos4Digitos}
-                          {registration.financeiro.parcelas > 1 && ` • ${registration.financeiro.parcelas}x`}
-                        </p>
-                      )}
-                    </div>
-                    {registration.financeiro.dataPagamento && (
-                      <div>
+                      Final {registration.financeiro.ultimos4Digitos}
+                      {registration.financeiro.parcelas > 1 && ` • ${registration.financeiro.parcelas}x`}
+                    </p>
+                  )}
+                </div>
+                {registration.financeiro.dataPagamento && (
+                  <div>
                         <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
                           Data do Pagamento
                         </p>
@@ -773,13 +773,13 @@ export default function RegistrationDetailsPage() {
                             <Check className="h-3 w-3 text-green-600" />
                           ) : null}
                         </p>
-                      </div>
-                    )}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
         </div>
       </div>
 

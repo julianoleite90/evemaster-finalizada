@@ -71,7 +71,7 @@ export async function getEventBySlug(slug: string) {
     error = idError
   } else {
     // Buscar por slug
-      const { data: eventsBySlug, error: slugError } = await supabase
+    const { data: eventsBySlug, error: slugError } = await supabase
       .from("events")
       .select(`
         *,

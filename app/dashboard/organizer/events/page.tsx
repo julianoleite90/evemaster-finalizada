@@ -154,34 +154,34 @@ export default function EventsPage() {
         const eventosFormatados: Event[] = events
           .filter((event: any) => event.status !== "cancelled") // Não mostrar eventos deletados
           .map((event: any) => {
-            const stats = statsByEvent[event.id] || { inscritos: 0, receita: 0 }
-            
-            // Usar capacidade calculada dos lotes, ou fallback para total_capacity do evento
-            let capacidade = capacidadeByEvent[event.id]
-            if (capacidade === undefined) {
-              // Se não há lotes, usar total_capacity do evento
-              capacidade = event.total_capacity && event.total_capacity > 0 
-                ? event.total_capacity 
-                : null
-            } else if (capacidade === 0) {
-              // Se a soma for 0, considerar ilimitado
-              capacidade = null
-            }
-            
-            return {
-              id: event.id,
-              slug: event.slug,
-              name: event.name,
-              description: event.description || "",
-              date: event.event_date,
-              location: event.location || event.address || "Local a definir",
-              status: event.status as "draft" | "active" | "finished" | "cancelled",
-              inscritos: stats.inscritos,
-              capacidade: capacidade,
-              receita: stats.receita,
-              imagem: event.banner_url,
-            }
-          })
+          const stats = statsByEvent[event.id] || { inscritos: 0, receita: 0 }
+          
+          // Usar capacidade calculada dos lotes, ou fallback para total_capacity do evento
+          let capacidade = capacidadeByEvent[event.id]
+          if (capacidade === undefined) {
+            // Se não há lotes, usar total_capacity do evento
+            capacidade = event.total_capacity && event.total_capacity > 0 
+              ? event.total_capacity 
+              : null
+          } else if (capacidade === 0) {
+            // Se a soma for 0, considerar ilimitado
+            capacidade = null
+          }
+          
+          return {
+            id: event.id,
+            slug: event.slug,
+            name: event.name,
+            description: event.description || "",
+            date: event.event_date,
+            location: event.location || event.address || "Local a definir",
+            status: event.status as "draft" | "active" | "finished" | "cancelled",
+            inscritos: stats.inscritos,
+            capacidade: capacidade,
+            receita: stats.receita,
+            imagem: event.banner_url,
+          }
+        })
 
         setEventos(eventosFormatados)
       } catch (error: any) {
@@ -459,9 +459,9 @@ export default function EventsPage() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="flex-1 hover:bg-[#156634]/5 hover:border-[#156634]/30 text-gray-900 hover:text-[#156634] gap-2">
-                <Eye className="h-4 w-4" />
-                <span className="hidden sm:inline">Ver Página</span>
-                <span className="sm:hidden">Ver</span>
+              <Eye className="h-4 w-4" />
+              <span className="hidden sm:inline">Ver Página</span>
+              <span className="sm:hidden">Ver</span>
                 <ChevronDown className="h-3 w-3 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
@@ -474,7 +474,7 @@ export default function EventsPage() {
                 >
                   <Eye className="h-4 w-4" />
                   Ver Página
-                </Link>
+            </Link>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleCopyLink} className="flex items-center gap-2 cursor-pointer">
                 <Copy className="h-4 w-4" />

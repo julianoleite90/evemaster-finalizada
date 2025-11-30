@@ -200,7 +200,7 @@ export default function EventSettingsPage() {
 
   // Dados para relatórios
   const [reportData, setReportData] = useState({
-    registrationsOverTime: [] as Array<{ date: string; count: number }>,
+    registrationsOverTime: [] as Array<{ date: string; count: number; views: number }>,
     revenueOverTime: [] as Array<{ date: string; amount: number }>,
     ticketsByCategory: [] as Array<{ name: string; value: number; percent: number }>,
     topCoupons: [] as Array<{ code: string; uses: number; discount: number; revenue: number }>,
@@ -222,12 +222,27 @@ export default function EventSettingsPage() {
   const fetchViewStats = async () => {
     try {
       const supabase = createClient()
-      const hoje = new Date()
-      hoje.setHours(0, 0, 0, 0)
-      const seteDiasAtras = new Date(hoje)
+      // Calcular início e fim do dia no timezone local
+      const getStartOfDayUTC = (date: Date) => {
+        const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0)
+        return localDate.toISOString()
+      }
+      
+      const agora = new Date()
+      const inicioHojeUTC = getStartOfDayUTC(agora)
+      
+      const hojeFim = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 23, 59, 59, 999)
+      const fimHojeUTC = hojeFim.toISOString()
+      
+      // 7 dias atrás
+      const seteDiasAtras = new Date(agora)
       seteDiasAtras.setDate(seteDiasAtras.getDate() - 7)
-      const trintaDiasAtras = new Date(hoje)
+      const seteDiasAtrasUTC = getStartOfDayUTC(seteDiasAtras)
+      
+      // 30 dias atrás
+      const trintaDiasAtras = new Date(agora)
       trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30)
+      const trintaDiasAtrasUTC = getStartOfDayUTC(trintaDiasAtras)
 
       // Buscar visualizações
       const [viewsToday, viewsLast7Days, viewsLast30Days, totalViews, registrations] = await Promise.all([
@@ -235,17 +250,18 @@ export default function EventSettingsPage() {
           .from("event_views")
           .select("*", { count: "exact", head: true })
           .eq("event_id", eventId)
-          .gte("viewed_at", hoje.toISOString()),
+          .gte("viewed_at", inicioHojeUTC)
+          .lt("viewed_at", fimHojeUTC),
         supabase
           .from("event_views")
           .select("*", { count: "exact", head: true })
           .eq("event_id", eventId)
-          .gte("viewed_at", seteDiasAtras.toISOString()),
+          .gte("viewed_at", seteDiasAtrasUTC),
         supabase
           .from("event_views")
           .select("*", { count: "exact", head: true })
           .eq("event_id", eventId)
-          .gte("viewed_at", trintaDiasAtras.toISOString()),
+          .gte("viewed_at", trintaDiasAtrasUTC),
         supabase
           .from("event_views")
           .select("*", { count: "exact", head: true })
@@ -445,18 +461,18 @@ export default function EventSettingsPage() {
 
           // Carregar configurações do evento (incluindo pixels)
           // Sempre buscar separadamente para garantir que temos os dados mais recentes
-          const { data: settingsData } = await supabase
-            .from("event_settings")
-            .select("*")
-            .eq("event_id", eventId)
-            .maybeSingle()
-          
-          if (settingsData) {
-            setPixels({
-              google_analytics_id: settingsData.analytics_google_analytics_id || "",
-              google_tag_manager_id: settingsData.analytics_gtm_container_id || "",
-              facebook_pixel_id: settingsData.analytics_facebook_pixel_id || "",
-            })
+            const { data: settingsData } = await supabase
+              .from("event_settings")
+              .select("*")
+              .eq("event_id", eventId)
+              .maybeSingle()
+            
+            if (settingsData) {
+              setPixels({
+                google_analytics_id: settingsData.analytics_google_analytics_id || "",
+                google_tag_manager_id: settingsData.analytics_gtm_container_id || "",
+                facebook_pixel_id: settingsData.analytics_facebook_pixel_id || "",
+              })
           } else if (event.event_settings && event.event_settings.length > 0) {
             // Fallback para event_settings do join
             const settings = event.event_settings[0] || {}
@@ -548,7 +564,7 @@ export default function EventSettingsPage() {
 
       console.log("📊 [REPORTS] IDs de tickets:", ticketIds.length)
 
-      const [ticketsData, paymentsData, athletesDataResult] = await Promise.all([
+      const [ticketsData, paymentsData, athletesDataResult, viewsData] = await Promise.all([
         ticketIds.length > 0 ? supabase
           .from("tickets")
           .select("id, category, price")
@@ -560,7 +576,11 @@ export default function EventSettingsPage() {
         registrationIds.length > 0 ? supabase
           .from("athletes")
           .select("registration_id, gender, birth_date, age")
-          .in("registration_id", registrationIds) : { data: [], error: null }
+          .in("registration_id", registrationIds) : { data: [], error: null },
+        supabase
+          .from("event_views")
+          .select("viewed_at")
+          .eq("event_id", eventId)
       ])
 
       const athletesData = athletesDataResult.error ? { data: [], error: athletesDataResult.error } : athletesDataResult
@@ -592,6 +612,7 @@ export default function EventSettingsPage() {
       console.log("📊 [REPORTS] Amostra de registrations com shirt_size:", registrations.filter((r: any) => r.shirt_size).slice(0, 3))
 
       const registrationsByDate = new Map<string, number>()
+      const viewsByDate = new Map<string, number>()
       const revenueByDate = new Map<string, number>()
       const categoryMap = new Map<string, number>()
       const couponMap = new Map<string, { uses: number; discount: number; revenue: number }>()
@@ -748,8 +769,30 @@ export default function EventSettingsPage() {
         return `${day} ${month} ${year}`
       }
 
-      const registrationsOverTime = Array.from(registrationsByDate.entries())
-        .map(([date, count]) => ({ date: formatDate(date), count, originalDate: date }))
+      // Processar visualizações por data
+      if (viewsData.data) {
+        viewsData.data.forEach((view: any) => {
+          const viewDate = new Date(view.viewed_at)
+          const year = viewDate.getFullYear()
+          const month = String(viewDate.getMonth() + 1).padStart(2, '0')
+          const day = String(viewDate.getDate()).padStart(2, '0')
+          const date = `${year}-${month}-${day}`
+          viewsByDate.set(date, (viewsByDate.get(date) || 0) + 1)
+        })
+      }
+
+      // Combinar todas as datas (inscrições e visualizações) para ter um conjunto completo
+      const allDates = new Set([
+        ...Array.from(registrationsByDate.keys()),
+        ...Array.from(viewsByDate.keys())
+      ])
+
+      const registrationsOverTime = Array.from(allDates)
+        .map((date) => {
+          const count = registrationsByDate.get(date) || 0
+          const views = viewsByDate.get(date) || 0
+          return { date: formatDate(date), count, views, originalDate: date }
+        })
         .sort((a, b) => a.originalDate.localeCompare(b.originalDate))
 
       const revenueOverTime = Array.from(revenueByDate.entries())
@@ -1376,11 +1419,11 @@ export default function EventSettingsPage() {
         } else {
           // Se não existe, criar
           const { error, data } = await supabase
-            .from("event_settings")
-            .insert({
-              event_id: eventId,
-              ...pixelsData,
-            })
+          .from("event_settings")
+          .insert({
+            event_id: eventId,
+            ...pixelsData,
+          })
             .select()
 
           if (error) {
@@ -1517,14 +1560,14 @@ export default function EventSettingsPage() {
       <div className="bg-white border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">
-                {eventData.name || "Editar Evento"}
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Gerencie todas as configurações do seu evento
-              </p>
-            </div>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">
+                  {eventData.name || "Editar Evento"}
+                </h1>
+                <p className="text-sm text-gray-600 mt-1">
+                  Gerencie todas as configurações do seu evento
+                </p>
+              </div>
             <div className="flex items-center gap-3">
               {(canDelete || isPrimary) && (
                 <Button 
@@ -1544,29 +1587,29 @@ export default function EventSettingsPage() {
                   Deletar Evento
                 </Button>
               )}
-              {(canEdit || isPrimary) ? (
-                <Button 
-                  onClick={handleSaveEventData} 
-                  disabled={saving} 
-                  className="bg-[#156634] hover:bg-[#1a7a3e] text-white shadow-md"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Salvando...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      Salvar Evento
-                    </>
-                  )}
-                </Button>
-              ) : (
-                <Badge variant="outline" className="text-sm px-3 py-1.5">
-                  Apenas visualização
-                </Badge>
-              )}
+            {(canEdit || isPrimary) ? (
+              <Button 
+                onClick={handleSaveEventData} 
+                disabled={saving} 
+                className="bg-[#156634] hover:bg-[#1a7a3e] text-white shadow-md"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Salvar Evento
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Badge variant="outline" className="text-sm px-3 py-1.5">
+                Apenas visualização
+              </Badge>
+            )}
             </div>
           </div>
         </div>
@@ -1677,11 +1720,11 @@ export default function EventSettingsPage() {
                 <div>
                   <CardTitle className="text-lg font-semibold flex items-center gap-2">
                     <FileText className="h-4 w-4 text-[#156634]" />
-                    Informações Básicas
-                  </CardTitle>
+                Informações Básicas
+              </CardTitle>
                   <CardDescription className="text-xs mt-1">
                     Dados principais do evento
-                  </CardDescription>
+              </CardDescription>
                 </div>
                 <Button
                   type="button"
@@ -1791,7 +1834,7 @@ export default function EventSettingsPage() {
                           onChange={() => setEventData({ ...eventData, show_in_showcase: true })}
                           className="h-4 w-4 text-[#156634]"
                           disabled={fieldDisabled || !editingBlocks.basic}
-                        />
+                      />
                         <Label htmlFor="show_in_showcase_sim" className="font-normal cursor-pointer">Sim</Label>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -1953,7 +1996,7 @@ export default function EventSettingsPage() {
                   </CardTitle>
                   <CardDescription className="text-xs mt-1">
                     Onde o evento será realizado
-                  </CardDescription>
+              </CardDescription>
                 </div>
                 <Button
                   type="button"
@@ -2006,7 +2049,7 @@ export default function EventSettingsPage() {
                     className="h-10"
                   />
                 </div>
-              </div>
+                </div>
 
                   <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
@@ -2058,11 +2101,11 @@ export default function EventSettingsPage() {
                     <div>
                       <CardTitle className="text-lg font-semibold flex items-center gap-2">
                         <FileText className="h-4 w-4 text-[#156634]" />
-                        Descrição do Evento
-                      </CardTitle>
+                    Descrição do Evento
+                  </CardTitle>
                       <CardDescription className="text-xs mt-1">
-                        Texto que será exibido na página do evento
-                      </CardDescription>
+                    Texto que será exibido na página do evento
+                  </CardDescription>
                     </div>
                     <Button
                       type="button"
@@ -2109,11 +2152,11 @@ export default function EventSettingsPage() {
                 <div>
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <Upload className="h-4 w-4 text-[#156634]" />
-                    Banner do Evento
-                  </CardTitle>
+                Banner do Evento
+              </CardTitle>
                   <CardDescription className="text-xs mt-1">
                     Imagem principal do evento. Proporção recomendada: 21:9
-                  </CardDescription>
+              </CardDescription>
                 </div>
                 <Button
                   type="button"
@@ -2144,10 +2187,10 @@ export default function EventSettingsPage() {
                   {eventData.banner_url ? "Trocar Banner" : "Adicionar Banner"}
                 </Label>
                 <div className="relative">
-                  <Input
-                    id="newBanner"
-                    type="file"
-                    accept="image/*"
+                <Input
+                  id="newBanner"
+                  type="file"
+                  accept="image/*"
                     onChange={(e) => {
                       const file = e.target.files?.[0] || null
                       setNewBanner(file)
@@ -2157,7 +2200,7 @@ export default function EventSettingsPage() {
                     }}
                     className="h-24 cursor-pointer opacity-0 absolute inset-0 z-10"
                     disabled={fieldDisabled || !editingBlocks.banner}
-                  />
+                />
                   <div className={`h-24 border-dashed border-2 rounded-md flex flex-col items-center justify-center ${newBanner ? 'border-[#156634] bg-[#156634]/5' : 'border-gray-300 bg-gray-50/50 hover:border-[#156634]/50 transition-colors'}`}>
                     {!newBanner && (
                       <>
@@ -2166,7 +2209,7 @@ export default function EventSettingsPage() {
                         <p className="text-[10px] text-gray-400 mt-0.5">ou arraste e solte aqui</p>
                       </>
                     )}
-                    {newBanner && (
+                {newBanner && (
                       <>
                         <div className="h-6 w-6 rounded-full bg-[#156634] flex items-center justify-center mb-2">
                           <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2308,10 +2351,10 @@ export default function EventSettingsPage() {
                           ))}
                         </div>
                       </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                )}
+              </div>
+            </CardContent>
+          </Card>
               </div>
           </div>
         </TabsContent>
@@ -2320,14 +2363,14 @@ export default function EventSettingsPage() {
         <TabsContent value="lotes" className="space-y-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b">
             <div className="flex items-center gap-3 flex-1">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <Trophy className="h-6 w-6 text-[#156634]" />
-                  Lotes e Ingressos
-                </h2>
-                <p className="text-sm text-gray-600 mt-1">
-                  Gerencie os lotes de venda e os ingressos do evento
-                </p>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <Trophy className="h-6 w-6 text-[#156634]" />
+                Lotes e Ingressos
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Gerencie os lotes de venda e os ingressos do evento
+              </p>
               </div>
               <Button
                 type="button"
@@ -2882,12 +2925,12 @@ export default function EventSettingsPage() {
         <TabsContent value="mapas" className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 flex-1">
-                      <div>
-                        <h2 className="text-2xl font-bold">Mapas e Percursos GPX</h2>
-                        <p className="text-muted-foreground">
-                          Gerencie os arquivos GPX e opções de exibição para cada distância
-                        </p>
-                      </div>
+                    <div>
+              <h2 className="text-2xl font-bold">Mapas e Percursos GPX</h2>
+              <p className="text-muted-foreground">
+                Gerencie os arquivos GPX e opções de exibição para cada distância
+                      </p>
+                    </div>
                       <Button
                         type="button"
                         variant="ghost"
@@ -2989,14 +3032,14 @@ export default function EventSettingsPage() {
                                         <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                         </svg>
-                                      </div>
+                  </div>
                                       <p className="text-xs font-medium text-[#156634] truncate max-w-[90%] px-2 text-center">
                                         {ticket.newGpxFile ? ticket.newGpxFile.name : ticket.gpx_file_url?.split('/').pop() || 'GPX carregado'}
                                       </p>
-                                      {ticket.newGpxFile && (
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
+                                {ticket.newGpxFile && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
                                           size="sm"
                                           className="h-6 mt-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
                                           onClick={(e) => {
@@ -3004,11 +3047,11 @@ export default function EventSettingsPage() {
                                             updateTicket(batch.id, ticket.id, "newGpxFile", null)
                                           }}
                                           disabled={!editingBlocks.maps}
-                                        >
+                                  >
                                           <X className="h-3 w-3 mr-1" />
                                           Remover
-                                        </Button>
-                                      )}
+                                  </Button>
+                )}
                                     </>
                                   )}
                                 </div>
@@ -3614,45 +3657,45 @@ export default function EventSettingsPage() {
       {mainMenu === "relatorios" && (
         <div className="mb-6 space-y-6">
           {/* Card de Estatísticas de Visualizações */}
-          <Card className="border-2 shadow-sm">
+              <Card className="border-2 shadow-sm">
             <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
               <CardTitle className="text-xl flex items-center gap-2">
                 <Eye className="h-5 w-5 text-[#156634]" />
                 Acessos na Landing Page
               </CardTitle>
-              <CardDescription>
+                    <CardDescription>
                 Estatísticas de visualizações e conversões do evento
-              </CardDescription>
-            </CardHeader>
+                    </CardDescription>
+                  </CardHeader>
             <CardContent className="pt-6">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
                   <p className="text-2xl font-bold text-gray-900">{viewStats.totalViews.toLocaleString('pt-BR')}</p>
                   <p className="text-xs text-gray-600 mt-1">Total de Visualizações</p>
-                </div>
+                    </div>
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
                   <p className="text-2xl font-bold text-gray-900">{viewStats.viewsToday.toLocaleString('pt-BR')}</p>
                   <p className="text-xs text-gray-600 mt-1">Hoje</p>
-                </div>
+                    </div>
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
                   <p className="text-2xl font-bold text-gray-900">{viewStats.viewsLast7Days.toLocaleString('pt-BR')}</p>
                   <p className="text-xs text-gray-600 mt-1">Últimos 7 dias</p>
-                </div>
+                    </div>
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
                   <p className="text-2xl font-bold text-gray-900">{viewStats.viewsLast30Days.toLocaleString('pt-BR')}</p>
                   <p className="text-xs text-gray-600 mt-1">Últimos 30 dias</p>
-                </div>
+                    </div>
                 <div className="text-center p-4 bg-green-50 rounded-lg">
                   <p className="text-2xl font-bold text-green-600">{viewStats.conversions.toLocaleString('pt-BR')}</p>
                   <p className="text-xs text-green-600 mt-1">Inscrições</p>
-                </div>
+                    </div>
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
                   <p className="text-2xl font-bold text-gray-900">{viewStats.conversionRate.toFixed(2)}%</p>
                   <p className="text-xs text-gray-600 mt-1">Taxa de Conversão</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                  </div>
+                          </div>
+                </CardContent>
+              </Card>
 
           <Tabs value={subMenu} onValueChange={setSubMenu} className="space-y-6">
             <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-2 bg-gray-100 p-1 rounded-lg">
@@ -3695,17 +3738,17 @@ export default function EventSettingsPage() {
               ) : (
                 <>
                   {/* Gráfico de Inscrições ao Longo do Tempo */}
-                  <Card className="border-2 shadow-sm">
-                    <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
-                      <CardTitle className="text-xl flex items-center gap-2">
+              <Card className="border-2 shadow-sm">
+                <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
+                  <CardTitle className="text-xl flex items-center gap-2">
                         <TrendingUp className="h-5 w-5 text-[#156634]" />
                         Inscrições ao Longo do Tempo
-                      </CardTitle>
-                      <CardDescription>
+                  </CardTitle>
+                  <CardDescription>
                         Evolução das inscrições desde o início
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pt-6">
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
                       {reportData.registrationsOverTime.length > 0 ? (
                         <ResponsiveContainer width="100%" height={300}>
                           <LineChart data={reportData.registrationsOverTime}>
@@ -3713,6 +3756,10 @@ export default function EventSettingsPage() {
                               <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#22c55e" stopOpacity={0.8} />
                                 <stop offset="100%" stopColor="#156634" stopOpacity={0.3} />
+                              </linearGradient>
+                              <linearGradient id="viewsGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.8} />
+                                <stop offset="100%" stopColor="#1e40af" stopOpacity={0.3} />
                               </linearGradient>
                               <filter id="glow">
                                 <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
@@ -3753,12 +3800,22 @@ export default function EventSettingsPage() {
                               activeDot={{ r: 7, filter: 'url(#glow)' }}
                               style={{ filter: 'url(#glow)' }}
                             />
+                            <Line 
+                              type="monotone" 
+                              dataKey="views" 
+                              stroke="url(#viewsGradient)" 
+                              strokeWidth={3}
+                              name="Visualizações"
+                              dot={{ fill: '#3b82f6', r: 5, filter: 'url(#glow)' }}
+                              activeDot={{ r: 7, filter: 'url(#glow)' }}
+                              style={{ filter: 'url(#glow)' }}
+                            />
                           </LineChart>
                         </ResponsiveContainer>
                       ) : (
                         <div className="text-center py-12 text-gray-500">
                           Nenhuma inscrição registrada ainda
-                        </div>
+                    </div>
                       )}
                     </CardContent>
                   </Card>
@@ -3841,7 +3898,7 @@ export default function EventSettingsPage() {
                                     style={{ backgroundColor: ['#156634', '#22c55e', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444'][index % 6] }}
                                   />
                                   <span className="font-medium">{item.name}</span>
-                                </div>
+              </div>
                                 <div className="text-right">
                                   <div className="font-bold text-gray-900">{item.value}</div>
                                   <div className="text-xs text-gray-500">{item.percent.toFixed(1)}%</div>
@@ -3855,8 +3912,8 @@ export default function EventSettingsPage() {
                           Nenhuma categoria registrada ainda
                         </div>
                       )}
-                    </CardContent>
-                  </Card>
+            </CardContent>
+          </Card>
 
                   {/* Gráficos de Gênero, Idade e Tamanho de Camiseta */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -4114,7 +4171,7 @@ export default function EventSettingsPage() {
                   </div>
                 </>
               )}
-            </TabsContent>
+        </TabsContent>
 
             {/* Tab: Relatório Financeiro */}
             <TabsContent value="financeiro" className="space-y-6">
@@ -4179,17 +4236,17 @@ export default function EventSettingsPage() {
                   </div>
 
                   {/* Gráfico de Receita ao Longo do Tempo */}
-                  <Card className="border-2 shadow-sm">
-                    <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
-                      <CardTitle className="text-xl flex items-center gap-2">
-                        <DollarSign className="h-5 w-5 text-[#156634]" />
+              <Card className="border-2 shadow-sm">
+                <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <DollarSign className="h-5 w-5 text-[#156634]" />
                         Receita ao Longo do Tempo
-                      </CardTitle>
-                      <CardDescription>
+                  </CardTitle>
+              <CardDescription>
                         Evolução da receita desde o início
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pt-6">
+              </CardDescription>
+            </CardHeader>
+                <CardContent className="pt-6">
                       {reportData.revenueOverTime.length > 0 ? (
                         <ResponsiveContainer width="100%" height={300}>
                           <LineChart data={reportData.revenueOverTime}>
@@ -4243,10 +4300,10 @@ export default function EventSettingsPage() {
                       ) : (
                         <div className="text-center py-12 text-gray-500">
                           Nenhuma receita registrada ainda
-                        </div>
+                    </div>
                       )}
-                    </CardContent>
-                  </Card>
+                </CardContent>
+              </Card>
 
                   <div className="text-xs text-gray-500 italic">
                     * Receita estimada baseada na média diária dos últimos 7 dias
@@ -4262,17 +4319,17 @@ export default function EventSettingsPage() {
                   <Loader2 className="h-8 w-8 animate-spin text-[#156634]" />
                 </div>
               ) : (
-                <Card className="border-2 shadow-sm">
-                  <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
-                    <CardTitle className="text-xl flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5 text-[#156634]" />
+              <Card className="border-2 shadow-sm">
+                <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-[#156634]" />
                       Performance dos Afiliados
-                    </CardTitle>
-                    <CardDescription>
+                  </CardTitle>
+                  <CardDescription>
                       Vendas e comissões por afiliado
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-6">
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
                     {reportData.affiliatePerformance.length > 0 ? (
                       <>
                         <ResponsiveContainer width="100%" height={300}>
@@ -4338,14 +4395,14 @@ export default function EventSettingsPage() {
                               <div className="flex items-center justify-between mb-2">
                                 <span className="font-semibold">{affiliate.name}</span>
                                 <Badge variant="outline">{affiliate.sales} vendas</Badge>
-                              </div>
+                    </div>
                               <div className="grid grid-cols-2 gap-4 mt-2 text-sm">
                                 <div>
                                   <span className="text-gray-600">Receita gerada:</span>
                                   <span className="font-semibold ml-2 text-green-600">
                                     R$ {affiliate.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </span>
-                                </div>
+                  </div>
                                 <div>
                                   <span className="text-gray-600">Comissão:</span>
                                   <span className="font-semibold ml-2 text-blue-600">
@@ -4362,8 +4419,8 @@ export default function EventSettingsPage() {
                         Nenhum afiliado com vendas registradas ainda
                       </div>
                     )}
-                  </CardContent>
-                </Card>
+                </CardContent>
+              </Card>
               )}
             </TabsContent>
 
@@ -4374,17 +4431,17 @@ export default function EventSettingsPage() {
                   <Loader2 className="h-8 w-8 animate-spin text-[#156634]" />
                 </div>
               ) : (
-                <Card className="border-2 shadow-sm">
-                  <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
-                    <CardTitle className="text-xl flex items-center gap-2">
-                      <Tag className="h-5 w-5 text-[#156634]" />
+              <Card className="border-2 shadow-sm">
+                <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <Tag className="h-5 w-5 text-[#156634]" />
                       Cupons Mais Utilizados
-                    </CardTitle>
-                    <CardDescription>
+                  </CardTitle>
+                  <CardDescription>
                       Análise de uso e performance dos cupons de desconto
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-6">
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
                     {reportData.topCoupons.length > 0 ? (
                       <>
                         <ResponsiveContainer width="100%" height={300}>
@@ -4451,9 +4508,9 @@ export default function EventSettingsPage() {
                                 <div className="flex items-center gap-2">
                                   <Tag className="h-4 w-4 text-[#156634]" />
                                   <span className="font-mono font-semibold">{coupon.code}</span>
-                                </div>
+                </div>
                                 <Badge variant="outline">{coupon.uses} usos</Badge>
-                              </div>
+              </div>
                               <div className="grid grid-cols-2 gap-4 mt-2 text-sm">
                                 <div>
                                   <span className="text-gray-600">Desconto total:</span>
@@ -4477,10 +4534,10 @@ export default function EventSettingsPage() {
                         Nenhum cupom utilizado ainda
                       </div>
                     )}
-                  </CardContent>
-                </Card>
+            </CardContent>
+          </Card>
               )}
-            </TabsContent>
+        </TabsContent>
       </Tabs>
       </div>
       )}

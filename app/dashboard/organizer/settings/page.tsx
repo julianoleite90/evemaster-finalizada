@@ -880,18 +880,18 @@ export default function OrganizerSettingsPage() {
                         <div className="space-y-2">
                           <Label className="text-sm font-medium text-gray-700">Dashboard</Label>
                           <div className="space-y-2 pl-4">
-                            <div className="flex items-center space-x-2">
-                              <Checkbox
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
                                 id="can_view_dashboard"
                                 checked={newUserPermissions.can_view_dashboard}
-                                onCheckedChange={(checked) =>
+                              onCheckedChange={(checked) =>
                                   setNewUserPermissions({ ...newUserPermissions, can_view_dashboard: !!checked })
-                                }
-                              />
+                              }
+                            />
                               <Label htmlFor="can_view_dashboard" className="cursor-pointer text-sm">
                                 Visualizar dashboard e estatísticas
-                              </Label>
-                            </div>
+                            </Label>
+                          </div>
                           </div>
                         </div>
 
@@ -899,41 +899,41 @@ export default function OrganizerSettingsPage() {
                         <div className="space-y-2">
                           <Label className="text-sm font-medium text-gray-700">Eventos</Label>
                           <div className="space-y-2 pl-4">
-                            <div className="flex items-center space-x-2">
-                              <Checkbox
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
                                 id="can_view_events"
                                 checked={newUserPermissions.can_view_events}
-                                onCheckedChange={(checked) =>
+                              onCheckedChange={(checked) =>
                                   setNewUserPermissions({ ...newUserPermissions, can_view_events: !!checked })
-                                }
-                              />
+                              }
+                            />
                               <Label htmlFor="can_view_events" className="cursor-pointer text-sm">
                                 Visualizar eventos
-                              </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Checkbox
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
                                 id="can_create_events"
                                 checked={newUserPermissions.can_create_events}
-                                onCheckedChange={(checked) =>
+                              onCheckedChange={(checked) =>
                                   setNewUserPermissions({ ...newUserPermissions, can_create_events: !!checked })
-                                }
-                              />
+                              }
+                            />
                               <Label htmlFor="can_create_events" className="cursor-pointer text-sm">
                                 Criar novos eventos
-                              </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Checkbox
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
                                 id="can_edit_events"
                                 checked={newUserPermissions.can_edit_events}
-                                onCheckedChange={(checked) =>
+                              onCheckedChange={(checked) =>
                                   setNewUserPermissions({ ...newUserPermissions, can_edit_events: !!checked })
-                                }
-                              />
+                              }
+                            />
                               <Label htmlFor="can_edit_events" className="cursor-pointer text-sm">
                                 Editar eventos existentes
-                              </Label>
+                            </Label>
                             </div>
                             <div className="flex items-center space-x-2">
                               <Checkbox
@@ -1363,21 +1363,21 @@ export default function OrganizerSettingsPage() {
               </div>
               
               {/* Dashboard */}
-              <div className="space-y-2">
+            <div className="space-y-2">
                 <Label className="text-sm font-medium text-gray-700">Dashboard</Label>
                 <div className="space-y-2 pl-4">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
+                <div className="flex items-center space-x-2">
+                  <Checkbox
                       id="edit_can_view_dashboard"
                       checked={editUserPermissions.can_view_dashboard}
-                      onCheckedChange={(checked) =>
+                    onCheckedChange={(checked) =>
                         setEditUserPermissions({ ...editUserPermissions, can_view_dashboard: !!checked })
-                      }
-                    />
+                    }
+                  />
                     <Label htmlFor="edit_can_view_dashboard" className="cursor-pointer text-sm font-normal">
                       Visualizar dashboard e estatísticas
-                    </Label>
-                  </div>
+                  </Label>
+                </div>
                 </div>
               </div>
 
@@ -1385,41 +1385,41 @@ export default function OrganizerSettingsPage() {
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-gray-700">Eventos</Label>
                 <div className="space-y-2 pl-4">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
+                <div className="flex items-center space-x-2">
+                  <Checkbox
                       id="edit_can_view_events"
                       checked={editUserPermissions.can_view_events}
-                      onCheckedChange={(checked) =>
+                    onCheckedChange={(checked) =>
                         setEditUserPermissions({ ...editUserPermissions, can_view_events: !!checked })
-                      }
-                    />
+                    }
+                  />
                     <Label htmlFor="edit_can_view_events" className="cursor-pointer text-sm font-normal">
                       Visualizar eventos
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
                       id="edit_can_create_events"
                       checked={editUserPermissions.can_create_events}
-                      onCheckedChange={(checked) =>
+                    onCheckedChange={(checked) =>
                         setEditUserPermissions({ ...editUserPermissions, can_create_events: !!checked })
-                      }
-                    />
+                    }
+                  />
                     <Label htmlFor="edit_can_create_events" className="cursor-pointer text-sm font-normal">
                       Criar novos eventos
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
                       id="edit_can_edit_events"
                       checked={editUserPermissions.can_edit_events}
-                      onCheckedChange={(checked) =>
+                    onCheckedChange={(checked) =>
                         setEditUserPermissions({ ...editUserPermissions, can_edit_events: !!checked })
-                      }
-                    />
+                    }
+                  />
                     <Label htmlFor="edit_can_edit_events" className="cursor-pointer text-sm font-normal">
                       Editar eventos existentes
-                    </Label>
+                  </Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -1640,7 +1640,7 @@ export default function OrganizerSettingsPage() {
               Cancelar
             </Button>
             <Button
-                  onClick={async () => {
+              onClick={async () => {
                 if (!editingUser || !organizerId) return
 
                 try {

@@ -99,35 +99,40 @@ export default function OrganizerDashboard() {
         }
 
         // Buscar inscrições dos últimos 7 dias
-        // Calcular início e fim do dia no timezone local
+        // Função auxiliar para converter início do dia local para UTC ISO string
+        const getStartOfDayUTC = (date: Date) => {
+          const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0)
+          // getTime() retorna timestamp UTC que representa o momento local
+          // Para obter a string ISO correta, usamos toISOString() que já faz a conversão
+          return localDate.toISOString()
+        }
+        
+        const getEndOfDayUTC = (date: Date) => {
+          const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999)
+          return localDate.toISOString()
+        }
+        
         const agora = new Date()
-        const timezoneOffset = agora.getTimezoneOffset() * 60000 // offset em milissegundos
+        const inicioHojeUTC = getStartOfDayUTC(agora)
+        const fimHojeUTC = getEndOfDayUTC(agora)
         
-        // Início do dia de hoje no timezone local
-        const hojeLocal = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 0, 0, 0, 0)
-        const inicioHojeUTC = new Date(hojeLocal.getTime() - timezoneOffset)
-        
-        // Fim do dia de hoje no timezone local
-        const fimHojeLocal = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 23, 59, 59, 999)
-        const fimHojeUTC = new Date(fimHojeLocal.getTime() - timezoneOffset)
-        
-        // Início do dia de ontem no timezone local
-        const ontemLocal = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() - 1, 0, 0, 0, 0)
-        const inicioOntemUTC = new Date(ontemLocal.getTime() - timezoneOffset)
+        const ontem = new Date(agora)
+        ontem.setDate(ontem.getDate() - 1)
+        const inicioOntemUTC = getStartOfDayUTC(ontem)
 
         const { data: inscricoesHojeData } = await supabase
           .from("registrations")
           .select("id, created_at")
           .in("event_id", eventIds)
-          .gte("created_at", inicioHojeUTC.toISOString())
-          .lt("created_at", fimHojeUTC.toISOString())
+          .gte("created_at", inicioHojeUTC)
+          .lt("created_at", fimHojeUTC)
 
         const { data: inscricoesOntemData } = await supabase
           .from("registrations")
           .select("id, created_at")
           .in("event_id", eventIds)
-          .gte("created_at", inicioOntemUTC.toISOString())
-          .lt("created_at", inicioHojeUTC.toISOString())
+          .gte("created_at", inicioOntemUTC)
+          .lt("created_at", inicioHojeUTC)
 
         // Buscar pagamentos
         const { data: pagamentosHoje } = await supabase
@@ -345,8 +350,8 @@ export default function OrganizerDashboard() {
           .from("event_views")
           .select("id")
           .in("event_id", eventIds)
-          .gte("viewed_at", inicioHojeUTC.toISOString())
-          .lt("viewed_at", fimHojeUTC.toISOString())
+          .gte("viewed_at", inicioHojeUTC)
+          .lt("viewed_at", fimHojeUTC)
 
         if (errorViewsHoje) {
           console.error("❌ [DASHBOARD] Erro ao buscar visualizações hoje:", errorViewsHoje)
@@ -356,21 +361,22 @@ export default function OrganizerDashboard() {
           .from("event_views")
           .select("id")
           .in("event_id", eventIds)
-          .gte("viewed_at", inicioOntemUTC.toISOString())
-          .lt("viewed_at", inicioHojeUTC.toISOString())
+          .gte("viewed_at", inicioOntemUTC)
+          .lt("viewed_at", inicioHojeUTC)
 
         if (errorViewsOntem) {
           console.error("❌ [DASHBOARD] Erro ao buscar visualizações ontem:", errorViewsOntem)
         }
 
         // Calcular total de visualizações (últimos 30 dias)
-        const trintaDiasAtrasLocal = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() - 30, 0, 0, 0, 0)
-        const trintaDiasAtrasUTC = new Date(trintaDiasAtrasLocal.getTime() - timezoneOffset)
+        const trintaDiasAtras = new Date(agora)
+        trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30)
+        const trintaDiasAtrasUTC = getStartOfDayUTC(trintaDiasAtras)
         const { count: totalVisualizacoes, error: errorTotalViews } = await supabase
           .from("event_views")
           .select("*", { count: "exact", head: true })
           .in("event_id", eventIds)
-          .gte("viewed_at", trintaDiasAtrasUTC.toISOString())
+          .gte("viewed_at", trintaDiasAtrasUTC)
 
         if (errorTotalViews) {
           console.error("❌ [DASHBOARD] Erro ao buscar total de visualizações:", errorTotalViews)
