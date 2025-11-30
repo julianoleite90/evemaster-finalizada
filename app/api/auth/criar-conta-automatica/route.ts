@@ -129,8 +129,7 @@ export async function POST(request: NextRequest) {
           city: cidade || null,
           state: estado || null,
           zip_code: cep?.replace(/\D/g, '') || null,
-          country: pais || null,
-          // NOTA: age, gender, emergency_contact_* são armazenados apenas na tabela athletes, não em users
+          // NOTA: country, age, gender, emergency_contact_* são armazenados apenas na tabela athletes, não em users
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'id'
@@ -216,8 +215,7 @@ export async function POST(request: NextRequest) {
           city: cidade || null,
           state: estado || null,
           zip_code: cep?.replace(/\D/g, '') || null,
-          country: pais || null,
-          // NOTA: age, gender, emergency_contact_* são armazenados apenas na tabela athletes, não em users
+          // NOTA: country, age, gender, emergency_contact_* são armazenados apenas na tabela athletes, não em users
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'id'
@@ -324,8 +322,7 @@ export async function POST(request: NextRequest) {
                   city: cidade || null,
                   state: estado || null,
                   zip_code: cep?.replace(/\D/g, '') || null,
-                  country: pais || null,
-                  // NOTA: age, gender, emergency_contact_* são armazenados apenas na tabela athletes
+                  // NOTA: country, age, gender, emergency_contact_* são armazenados apenas na tabela athletes
                   updated_at: new Date().toISOString(),
                 }, {
                   onConflict: 'id'
@@ -450,8 +447,7 @@ export async function POST(request: NextRequest) {
         city: cidade || null,
         state: estado || null,
         zip_code: cep?.replace(/\D/g, '') || null,
-        country: pais || null,
-        // NOTA: age, gender, emergency_contact_* são armazenados apenas na tabela athletes
+        // NOTA: country, age, gender, emergency_contact_* são armazenados apenas na tabela athletes
         updated_at: new Date().toISOString(),
       }, {
         onConflict: 'id'
