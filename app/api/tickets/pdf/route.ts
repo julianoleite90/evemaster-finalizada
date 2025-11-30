@@ -80,29 +80,26 @@ export async function POST(request: NextRequest) {
     const grayColorG = 114
     const grayColorB = 128
 
-    // Header com gradiente simulado
-    doc.setFillColor(primaryColorR, primaryColorG, primaryColorB)
-    doc.rect(0, 0, 210, 50, 'F')
-    
-    // Logo/Texto
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(28)
+    // Header simples sem fundo colorido
+    doc.setFontSize(24)
     doc.setFont('helvetica', 'bold')
-    doc.text('EVEMASTER', 105, 20, { align: 'center' })
+    doc.setTextColor(primaryColorR, primaryColorG, primaryColorB)
+    doc.text('EVEMASTER', 15, 20)
     
-    doc.setFontSize(14)
+    doc.setFontSize(12)
     doc.setFont('helvetica', 'normal')
-    doc.text('Ingresso de Inscrição', 105, 30, { align: 'center' })
+    doc.setTextColor(grayColorR, grayColorG, grayColorB)
+    doc.text('Ingresso de Inscrição', 15, 28)
 
     // Linha tracejada decorativa
     doc.setDrawColor(primaryColorR, primaryColorG, primaryColorB)
     doc.setLineWidth(0.5)
-    let yPos = 55
+    let yPos = 40
     for (let i = 0; i < 210; i += 5) {
       doc.line(i, yPos, i + 3, yPos)
     }
 
-    yPos = 65
+    yPos = 50
 
     // Nome do evento
     doc.setTextColor(primaryColorR, primaryColorG, primaryColorB)
@@ -197,36 +194,36 @@ export async function POST(request: NextRequest) {
     doc.text(registration.status === 'confirmed' ? '✓ INSCRIÇÃO CONFIRMADA' : '⏳ AGUARDANDO PAGAMENTO', 105, yPos, { align: 'center' })
     yPos += 15
 
-    // QR Code
+    // Código da inscrição
     const qrCodeData = registration.registration_number || registrationId
-    try {
-      const qrCodeDataURL = await QRCode.toDataURL(qrCodeData, {
-        width: 80,
-        margin: 1,
-        color: {
-          dark: '#156634',
-          light: '#FFFFFF'
-        }
-      })
-      
-      doc.addImage(qrCodeDataURL, 'PNG', 65, yPos, 80, 80)
-      yPos += 85
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(grayColorR, grayColorG, grayColorB)
+    doc.text('Código de Inscrição', 15, yPos)
+    yPos += 6
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(primaryColorR, primaryColorG, primaryColorB)
+    doc.text(qrCodeData, 15, yPos)
+    yPos += 10
 
-      doc.setFontSize(10)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(grayColorR, grayColorG, grayColorB)
-      doc.text('Código de Inscrição', 105, yPos, { align: 'center' })
-      yPos += 5
-      doc.setFontSize(16)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(primaryColorR, primaryColorG, primaryColorB)
-      doc.text(qrCodeData, 105, yPos, { align: 'center' })
-    } catch (qrError) {
-      // Se falhar o QR code, apenas mostrar o código
-      doc.setFontSize(16)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(primaryColorR, primaryColorG, primaryColorB)
-      doc.text(qrCodeData, 105, yPos, { align: 'center' })
+    // Imagem do evento pequena (se disponível)
+    if (event?.banner_url) {
+      try {
+        // Tentar carregar a imagem
+        const imageResponse = await fetch(event.banner_url)
+        if (imageResponse.ok) {
+          const imageBuffer = await imageResponse.arrayBuffer()
+          const imageBase64 = Buffer.from(imageBuffer).toString('base64')
+          const imageDataURL = `data:${imageResponse.headers.get('content-type') || 'image/jpeg'};base64,${imageBase64}`
+          
+          // Adicionar imagem pequena (40x40mm)
+          doc.addImage(imageDataURL, 'JPEG', 15, yPos, 40, 40)
+        }
+      } catch (imgError) {
+        // Se falhar ao carregar imagem, continuar sem ela
+        console.error('Erro ao carregar imagem do evento:', imgError)
+      }
     }
 
     // Footer
@@ -239,7 +236,8 @@ export async function POST(request: NextRequest) {
     doc.text('www.evemaster.com.br', 105, pageHeight - 10, { align: 'center' })
 
     // Gerar buffer do PDF
-    const pdfBuffer = Buffer.from(doc.output('arraybuffer'))
+    const pdfArrayBuffer = doc.output('arraybuffer') as ArrayBuffer
+    const pdfBuffer = Buffer.from(pdfArrayBuffer)
 
     return new NextResponse(pdfBuffer, {
       headers: {

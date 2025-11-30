@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Ticket, Calendar, MapPin, Clock, User, Download, Wallet, QrCode, ChevronRight } from "lucide-react"
+import { Ticket, Calendar, MapPin, Clock, User, Download, Wallet } from "lucide-react"
 import Image from "next/image"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -55,20 +55,8 @@ export function TicketCard({ inscricao, onDownloadPDF, onAddToWallet }: TicketCa
         <div className="absolute left-1/2 top-0 bottom-0 w-0.5 border-l-2 border-dashed border-gray-300 group-hover:border-[#156634] transition-colors z-10"></div>
         
         <div className="flex">
-          {/* Lado esquerdo - Imagem e dados principais */}
+          {/* Lado esquerdo - Dados principais */}
           <div className="flex-1 p-6 pr-3 relative">
-            {/* Imagem do evento */}
-            {event?.banner_url && (
-              <div className="absolute top-0 left-0 right-0 h-24 overflow-hidden opacity-10">
-                <Image
-                  src={event.banner_url}
-                  alt={event.name || "Evento"}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-            )}
-            
             <div className="relative z-10">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
@@ -133,15 +121,20 @@ export function TicketCard({ inscricao, onDownloadPDF, onAddToWallet }: TicketCa
               )}
             </div>
 
-            <div className="flex items-center justify-end mt-auto pt-4">
-              <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-[#156634] transition-colors" />
-            </div>
+            {/* Imagem do evento pequena no lugar do QR code */}
+            {event?.banner_url && (
+              <div className="mt-auto pt-4 flex items-center justify-end">
+                <div className="relative w-16 h-16 rounded overflow-hidden border border-gray-200">
+                  <Image
+                    src={event.banner_url}
+                    alt={event.name || "Evento"}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-
-        {/* QR Code visual (pequeno) */}
-        <div className="absolute bottom-4 right-4 opacity-20 group-hover:opacity-30 transition-opacity">
-          <QrCode className="h-16 w-16 text-[#156634]" />
         </div>
       </Card>
 
@@ -259,7 +252,7 @@ export function TicketCard({ inscricao, onDownloadPDF, onAddToWallet }: TicketCa
                 </Button>
               )}
               {onAddToWallet && (
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 w-full">
                   <Button onClick={() => onAddToWallet('apple')} className="w-full bg-[#156634] hover:bg-[#1a7a3e]">
                     <Wallet className="h-4 w-4 mr-2" />
                     Adicionar à Apple Wallet
@@ -269,13 +262,6 @@ export function TicketCard({ inscricao, onDownloadPDF, onAddToWallet }: TicketCa
                     Adicionar ao Google Wallet
                   </Button>
                 </div>
-              )}
-              {event?.slug && (
-                <Button variant="outline" asChild className="flex-1 min-w-[150px]">
-                  <a href={`/evento/${event.slug}`} target="_blank" rel="noopener noreferrer">
-                    Ver Evento
-                  </a>
-                </Button>
               )}
             </div>
           </div>
