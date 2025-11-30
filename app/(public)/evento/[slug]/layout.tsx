@@ -105,16 +105,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     ? bannerUrl 
     : `${siteUrl}/api/og/evento/${event.slug || slug}`
   
-  // Debug: log para verificar o que está sendo usado
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[Event Metadata]', {
-      eventName: eventTitle,
-      hasBanner: !!event.banner_url,
-      bannerUrl: event.banner_url,
-      normalizedBannerUrl: bannerUrl,
-      ogImage,
-    })
-  }
+  // Debug: log para verificar o que está sendo usado (sempre logar em produção também para debug)
+  console.log('[Event Metadata - generateMetadata]', {
+    slug,
+    eventName: eventTitle,
+    hasBanner: !!event.banner_url,
+    bannerUrl: event.banner_url,
+    normalizedBannerUrl: bannerUrl,
+    ogImage,
+    canonicalUrl,
+  })
     
   const canonicalUrl = `${siteUrl}/evento/${event.slug || slug}`
 
