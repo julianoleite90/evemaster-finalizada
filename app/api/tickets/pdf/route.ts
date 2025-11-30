@@ -122,15 +122,36 @@ export async function POST(request: NextRequest) {
           .eq('id', registrationId)
           .single()
 
-        // Verificar se a inscrição pertence ao usuário mesmo usando admin
-        if (adminRegData && (adminRegData.athlete_id === user.id || adminRegData.buyer_id === user.id)) {
-          registration = adminRegData
-          regError = null
-        } else if (adminRegData) {
-          return NextResponse.json(
-            { error: 'Você não tem permissão para acessar esta inscrição' },
-            { status: 403 }
-          )
+        if (adminRegData) {
+          // Verificar se a inscrição pertence ao usuário de várias formas:
+          // 1. athlete_id ou buyer_id corresponde ao user.id
+          // 2. Email do atleta corresponde ao email do usuário
+          const userEmail = user.email?.toLowerCase()
+          const athleteEmail = adminRegData.athletes?.[0]?.email?.toLowerCase() || adminRegData.athletes?.email?.toLowerCase()
+          
+          const isOwner = 
+            adminRegData.athlete_id === user.id || 
+            adminRegData.buyer_id === user.id ||
+            adminRegData.user_id === user.id ||
+            (userEmail && athleteEmail && userEmail === athleteEmail)
+          
+          if (isOwner) {
+            registration = adminRegData
+            regError = null
+          } else {
+            console.log('Acesso negado:', {
+              registrationId,
+              userId: user.id,
+              userEmail,
+              athleteId: adminRegData.athlete_id,
+              buyerId: adminRegData.buyer_id,
+              athleteEmail
+            })
+            return NextResponse.json(
+              { error: 'Você não tem permissão para acessar esta inscrição' },
+              { status: 403 }
+            )
+          }
         }
       }
     }
