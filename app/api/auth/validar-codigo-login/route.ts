@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     
     const { data: userData, error: userDataError } = await supabase
       .from('users')
-      .select('id, email, full_name, cpf, phone, birth_date, gender, address, address_number, address_complement, neighborhood, city, state, zip_code')
+      .select('id, email, full_name, cpf, phone, gender, address, address_number, address_complement, neighborhood, city, state, zip_code')
       .eq('email', email.toLowerCase())
       .eq('cpf', cleanCPF)
       .maybeSingle()
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       // Se falhar com cliente normal, tentar com admin (pode ser problema de RLS)
       const { data: userDataAdmin, error: userErrorAdmin } = await supabaseAdmin
         .from('users')
-        .select('id, email, full_name, cpf, phone, birth_date, gender, address, address_number, address_complement, neighborhood, city, state, zip_code')
+        .select('id, email, full_name, cpf, phone, gender, address, address_number, address_complement, neighborhood, city, state, zip_code')
         .eq('email', email.toLowerCase())
         .eq('cpf', cleanCPF)
         .maybeSingle()
@@ -171,7 +171,6 @@ export async function POST(request: NextRequest) {
         full_name: user.full_name,
         cpf: user.cpf,
         phone: user.phone,
-        birth_date: user.birth_date,
         gender: user.gender,
         address: user.address,
         address_number: user.address_number,
