@@ -336,16 +336,16 @@ export function gerarTemplateEmail(dados: EmailInscricao): string {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="padding: 10px 0 30px;">
-                    <a href="https://evemaster.app/my-account" 
+                    <a href="https://evemaster.app/login" 
                        style="display: inline-block; background-color: #156634; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-size: 16px; font-weight: 600;">
-                      Acessar Área de Membros
+                      Acessar Minha Conta
                     </a>
                   </td>
                 </tr>
               </table>
 
               <p style="color: #999999; font-size: 13px; line-height: 1.6; margin: 0; text-align: center;">
-                Você também pode gerenciar suas inscrições, baixar comprovantes e acompanhar o status do pagamento na sua área de membros.
+                Faça login para gerenciar suas inscrições, baixar comprovantes e acompanhar o status do pagamento.
               </p>
             </td>
           </tr>
