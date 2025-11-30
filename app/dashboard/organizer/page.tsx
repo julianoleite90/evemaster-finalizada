@@ -364,13 +364,13 @@ export default function OrganizerDashboard() {
         }
 
         // Calcular total de visualizações (últimos 30 dias)
-        const trintaDiasAtras = new Date(hoje)
-        trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30)
+        const trintaDiasAtrasLocal = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() - 30, 0, 0, 0, 0)
+        const trintaDiasAtrasUTC = new Date(trintaDiasAtrasLocal.getTime() - timezoneOffset)
         const { count: totalVisualizacoes, error: errorTotalViews } = await supabase
           .from("event_views")
           .select("*", { count: "exact", head: true })
           .in("event_id", eventIds)
-          .gte("viewed_at", trintaDiasAtras.toISOString())
+          .gte("viewed_at", trintaDiasAtrasUTC.toISOString())
 
         if (errorTotalViews) {
           console.error("❌ [DASHBOARD] Erro ao buscar total de visualizações:", errorTotalViews)

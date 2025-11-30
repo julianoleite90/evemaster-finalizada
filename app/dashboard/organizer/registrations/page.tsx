@@ -310,10 +310,23 @@ export default function RegistrationsPage() {
       if (isNaN(date.getTime())) {
         return "Data inválida"
       }
+      // Usar toLocaleString que já converte corretamente para timezone local
       if (includeTime) {
-        return format(date, "dd/MM/yyyy HH:mm")
+        return date.toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        })
       }
-      return format(date, "dd/MM/yyyy")
+      return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      })
     } catch (error) {
       return "Data inválida"
     }
@@ -1054,10 +1067,11 @@ export default function RegistrationsPage() {
           {filteredRegistrations.length > 0 ? (
             <>
               {/* Cabeçalho da tabela */}
-              <div className="hidden md:grid md:grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr] gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+              <div className="hidden md:grid md:grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr_1fr] gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wide">
                 <div>Nome</div>
                 <div>Evento</div>
                 <div>ID</div>
+                <div>Data/Hora</div>
                 <div>Categoria</div>
                 <div>Valor</div>
                 <div>Status</div>
@@ -1073,7 +1087,7 @@ export default function RegistrationsPage() {
                 >
                     <div className="px-4 py-3">
                       {/* Desktop: Layout em grid */}
-                      <div className="hidden md:grid md:grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr] gap-3 items-center">
+                      <div className="hidden md:grid md:grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr_1fr] gap-3 items-center">
                         {/* Nome e Email */}
                         <div>
                           <p 
@@ -1126,6 +1140,20 @@ export default function RegistrationsPage() {
                             ) : null}
                         </p>
                       </div>
+
+                        {/* Data/Hora */}
+                        <div>
+                          <p 
+                            className="text-xs text-gray-600 cursor-pointer hover:text-green-600 transition-colors" 
+                            title={formatDate(registration.dataInscricao, true)}
+                            onClick={(e) => handleCopy(e, formatDate(registration.dataInscricao, true), `data-${registration.id}`)}
+                          >
+                            {formatDate(registration.dataInscricao, true)}
+                            {copiedId === `data-${registration.id}` ? (
+                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
+                            ) : null}
+                          </p>
+                        </div>
 
                         {/* Categoria */}
                         <div>

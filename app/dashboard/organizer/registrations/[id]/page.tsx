@@ -232,10 +232,25 @@ export default function RegistrationDetailsPage() {
       if (isNaN(date.getTime())) {
         return "Data inválida"
       }
+      // Usar toLocaleString que já converte corretamente para timezone local
       if (includeTime) {
-        return format(date, "dd/MM/yyyy 'às' HH:mm")
+        const formatted = date.toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        })
+        // Formato retorna "30/01/2024 10:00" - substituir espaço por " às "
+        return formatted.replace(/\s+/, ' às ')
       }
-      return format(date, "dd/MM/yyyy")
+      return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      })
     } catch (error) {
       return "Data inválida"
     }
