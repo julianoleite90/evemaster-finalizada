@@ -190,19 +190,7 @@ export default function EventSettingsPage() {
     is_active: true,
   })
 
-  // Clube de Corrida
-  const [runningClubs, setRunningClubs] = useState<any[]>([])
-  const [showAddClub, setShowAddClub] = useState(false)
-  const [newClub, setNewClub] = useState({
-    email: "",
-    tickets_allocated: "",
-    base_discount: "",
-    progressive_discount_threshold: "",
-    progressive_discount_value: "",
-    deadline: "",
-    extend_on_deadline: false,
-    release_after_deadline: true,
-  })
+  // Clube de Corrida - estados removidos (agora gerenciados abaixo)
 
   // Estatísticas de visualizações
   const [viewStats, setViewStats] = useState({
@@ -535,7 +523,7 @@ export default function EventSettingsPage() {
     }
   }, [subMenu, eventId])
 
-  // Estado para clubes de corrida
+  // Estado para clubes de corrida (movido para cá para evitar duplicação)
   const [runningClubs, setRunningClubs] = useState<any[]>([])
   const [loadingRunningClubs, setLoadingRunningClubs] = useState(false)
 
