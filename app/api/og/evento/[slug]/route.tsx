@@ -1,7 +1,45 @@
 import { ImageResponse } from 'next/og'
-import { getEventBySlug } from '@/lib/supabase/events-server'
+import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'edge'
+
+// Função para buscar evento diretamente no Edge Runtime (sem usar cookies)
+async function getEventBySlugEdge(slug: string) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing Supabase environment variables')
+  }
+
+  // Criar cliente direto do Supabase (sem SSR/cookies) para Edge Runtime
+  const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+  // Verificar se é UUID
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+  if (uuidRegex.test(slug)) {
+    const { data: event, error } = await supabase
+      .from('events')
+      .select('*')
+      .eq('id', slug)
+      .single()
+
+    if (error) return null
+    return event
+  } else {
+    // Buscar por slug
+    const { data: events, error } = await supabase
+      .from('events')
+      .select('*')
+      .eq('slug', slug)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (error || !events || events.length === 0) return null
+    return events[0]
+  }
+}
 
 export async function GET(
   request: Request,
@@ -14,7 +52,7 @@ export async function GET(
     
     let event = null
     try {
-      event = await getEventBySlug(slug)
+      event = await getEventBySlugEdge(slug)
     } catch (error: any) {
       // Se o erro for "not found", retornar 404
       if (error?.code === 'PGRST116' || error?.message?.includes('not found')) {
@@ -30,13 +68,21 @@ export async function GET(
     }
 
     // Parse a data no formato YYYY-MM-DD como data local (não UTC)
-    const [year, month, day] = event.event_date.split('-').map(Number)
-    const date = new Date(year, month - 1, day) // month é 0-indexed
-    const eventDate = date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    })
+    let eventDate = 'Data a definir'
+    if (event.event_date) {
+      try {
+        const [year, month, day] = event.event_date.split('-').map(Number)
+        const date = new Date(year, month - 1, day) // month é 0-indexed
+        eventDate = date.toLocaleDateString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        })
+      } catch (error) {
+        // Se houver erro ao parsear a data, usar a string original
+        eventDate = event.event_date
+      }
+    }
 
     return new ImageResponse(
       (
