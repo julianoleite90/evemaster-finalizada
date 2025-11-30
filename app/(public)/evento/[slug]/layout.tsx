@@ -1,6 +1,10 @@
 import { Metadata } from 'next'
 import { getEventBySlug } from '@/lib/supabase/events-server'
 
+// Forçar renderização dinâmica - NÃO CACHEAR
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 type Props = {
   params: Promise<{ slug: string }> | { slug: string }
 }
