@@ -123,11 +123,14 @@ export default function OrganizerLoginPage() {
         await new Promise(resolve => setTimeout(resolve, 1500))
 
         console.log("🔍 [LOGIN ORGANIZADOR] Verificando acesso de organizador...")
+        console.log("🔍 [LOGIN ORGANIZADOR] User ID:", data.user.id)
+        console.log("🔍 [LOGIN ORGANIZADOR] User Email:", data.user.email)
+        console.log("🔍 [LOGIN ORGANIZADOR] Email Confirmado:", data.user.email_confirmed_at ? 'SIM' : 'NÃO')
         
         // Buscar dados do usuário primeiro para verificar role
         const { data: userData, error: userDataError } = await supabase
           .from("users")
-          .select("role, full_name, id")
+          .select("role, full_name, id, email")
           .eq("id", data.user.id)
           .maybeSingle()
 
@@ -135,9 +138,17 @@ export default function OrganizerLoginPage() {
           userData,
           role: userData?.role,
           fullName: userData?.full_name,
+          email: userData?.email,
           error: userDataError?.message,
           errorCode: userDataError?.code
         })
+        
+        // Se não encontrou na tabela users, pode ser problema
+        if (!userData && !userDataError) {
+          console.error("❌ [LOGIN ORGANIZADOR] Usuário não encontrado na tabela users!")
+          console.error("  - Isso pode indicar que o registro não foi criado pelo middleware")
+          console.error("  - User ID:", data.user.id)
+        }
 
         // Verificar se é organizador principal (tem perfil próprio)
         let { data: organizer, error: organizerError } = await supabase
@@ -163,26 +174,79 @@ export default function OrganizerLoginPage() {
 
         // Se não encontrou, verificar se é membro de uma organização
         console.log("🔍 [LOGIN ORGANIZADOR] Não é organizador principal. Verificando membership...")
+        console.log("🔍 [LOGIN ORGANIZADOR] Buscando membership para user_id:", data.user.id)
+        
+        // Tentar buscar TODOS os memberships primeiro (para debug) - sem filtro is_active
+        const { data: allMemberships, error: allMembershipsError } = await supabase
+          .from("organization_users")
+          .select("organizer_id, is_active, user_id, id, can_view, can_edit, can_create, can_delete")
+          .eq("user_id", data.user.id)
+        
+        console.log("🔍 [LOGIN ORGANIZADOR] TODOS os memberships (sem filtro is_active):", { 
+          count: allMemberships?.length || 0,
+          memberships: allMemberships,
+          error: allMembershipsError?.message,
+          errorCode: allMembershipsError?.code,
+          errorDetails: allMembershipsError
+        })
+        
+        // Se RLS está bloqueando, isso é um problema crítico
+        if (allMembershipsError && (allMembershipsError.code === 'PGRST301' || allMembershipsError.message?.includes('permission') || allMembershipsError.message?.includes('policy') || allMembershipsError.message?.includes('RLS'))) {
+          console.error("❌ [LOGIN ORGANIZADOR] RLS ESTÁ BLOQUEANDO! Erro:", allMembershipsError)
+          console.error("  - Isso indica que as políticas RLS não permitem que este usuário veja seus próprios dados")
+          console.error("  - A política 'Organization users can view own data' deveria permitir quando user_id = auth.uid()")
+          console.error("  - Verificar se auth.uid() está retornando o ID correto")
+          console.error("  - User ID autenticado:", data.user.id)
+        }
+        
+        // Buscar apenas os ativos (se RLS permitir)
         const { data: orgMembership, error: orgError } = await supabase
           .from("organization_users")
-          .select("organizer_id, is_active")
+          .select("organizer_id, is_active, user_id, id, can_view, can_edit, can_create, can_delete")
           .eq("user_id", data.user.id)
           .eq("is_active", true)
           .maybeSingle()
 
-        console.log("🔍 [LOGIN ORGANIZADOR] Resultado busca membership:", { 
+        console.log("🔍 [LOGIN ORGANIZADOR] Resultado busca membership ATIVO:", { 
           membership: orgMembership,
           organizerId: orgMembership?.organizer_id,
           isActive: orgMembership?.is_active,
+          userId: orgMembership?.user_id,
+          canView: orgMembership?.can_view,
           error: orgError?.message,
-          errorCode: orgError?.code
+          errorCode: orgError?.code,
+          errorDetails: orgError
         })
-
+        
+        // Se encontrou membership ativo, permitir login
         if (orgMembership) {
           console.log("✅ [LOGIN ORGANIZADOR] Usuário é membro de organização. Permitindo login.")
+          console.log("  - Membership ID:", orgMembership.id)
+          console.log("  - Organizer ID:", orgMembership.organizer_id)
+          console.log("  - Is Active:", orgMembership.is_active)
+          console.log("  - Permissions:", {
+            can_view: orgMembership.can_view,
+            can_edit: orgMembership.can_edit,
+            can_create: orgMembership.can_create,
+            can_delete: orgMembership.can_delete
+          })
           toast.success("Login realizado com sucesso!")
           window.location.href = "/dashboard/organizer"
           return
+        }
+        
+        // Se não encontrou membership ativo, mas encontrou inativo, informar
+        if (!orgMembership && allMemberships && allMemberships.length > 0) {
+          const inactiveMemberships = allMemberships.filter(m => !m.is_active)
+          if (inactiveMemberships.length > 0) {
+            console.error("❌ [LOGIN ORGANIZADOR] Usuário tem membership mas está INATIVO!")
+            console.error("  - Membership IDs inativos:", inactiveMemberships.map(m => m.id))
+            console.error("  - Organizer IDs:", inactiveMemberships.map(m => m.organizer_id))
+            console.error("  - Isso pode ser a causa do problema!")
+            console.error("  - O usuário precisa ter is_active = true na tabela organization_users")
+            toast.error("Seu acesso à organização está inativo. Entre em contato com o administrador.")
+            return
+          }
         }
 
         // Se não é membro nem tem perfil, verificar role e tentar criar perfil

@@ -429,7 +429,7 @@ export default function EventSettingsPage() {
             end_time: event.end_time || "",
             location: event.location || "",
             address: event.address || "",
-            address_number: (event as any).address_number || "",
+            address_number: "", // Campo não existe na tabela events, mantido apenas para UI
             city: event.city || "",
             state: event.state || "",
             zip_code: event.zip_code || "",
@@ -1020,7 +1020,6 @@ export default function EventSettingsPage() {
         end_time: eventData.end_time || null,
         location: eventData.location,
         address: eventData.address,
-        address_number: eventData.address_number || null,
         city: eventData.city,
         state: eventData.state,
         zip_code: eventData.zip_code,
