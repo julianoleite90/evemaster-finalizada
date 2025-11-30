@@ -67,14 +67,6 @@ export default function OrganizerLoginPage() {
           console.error("  - Email está confirmado no Supabase?")
           console.error("  - Usuário existe no Supabase Auth?")
           
-          // Tentar verificar se o usuário existe
-          try {
-            const { data: userCheck } = await supabase.auth.admin?.getUserByEmail(cleanEmail)
-            console.log("🔍 [LOGIN ORGANIZADOR] Verificação de usuário:", userCheck)
-          } catch (checkError) {
-            console.log("ℹ️ [LOGIN ORGANIZADOR] Não foi possível verificar usuário (normal em client-side)")
-          }
-          
           toast.error("Email ou senha incorretos. Verifique suas credenciais ou redefina a senha.")
         } else if (error.message.includes("Email not confirmed") || error.message.includes("not confirmed")) {
           console.error("❌ [LOGIN ORGANIZADOR] Email não confirmado")

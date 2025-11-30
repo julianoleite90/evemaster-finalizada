@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { logError } from '@/lib/logger'
 
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
+  let body: any = {}
   try {
-    const body = await request.json()
+    body = await request.json()
     
     const { email, nome, telefone, cpf, endereco, numero, complemento, bairro, cidade, estado, cep, pais, idade, genero, emergency_contact_name, emergency_contact_phone } = body as {
       email: string
