@@ -924,6 +924,116 @@ export async function enviarEmailParticipanteClube(dados: {
   }
 }
 
+export async function enviarEmailCodigoLogin(email: string, nome: string, codigo: string) {
+  if (!resendClient) {
+    console.error('❌ [Resend] Cliente Resend não inicializado')
+    return { success: false, error: 'Cliente Resend não inicializado' }
+  }
+
+  try {
+    const emailPayload = {
+      from: resendFromEmail,
+      to: email,
+      subject: 'Código de Login Rápido - Evemaster',
+      html: gerarTemplateEmailCodigoLogin(nome, codigo),
+    }
+
+    const response = await resendClient.emails.send(emailPayload)
+
+    if (response.error) {
+      console.error('❌ [Resend] Erro ao enviar email:', response.error)
+      return { success: false, error: response.error.message || 'Erro ao enviar email' }
+    }
+
+    console.log('✅ [Resend] Email de código de login enviado com sucesso:', response.data?.id)
+    return { success: true, id: response.data?.id }
+  } catch (error: any) {
+    console.error('❌ [Resend] Erro ao enviar email:', error)
+    return { success: false, error: error.message || error }
+  }
+}
+
+function gerarTemplateEmailCodigoLogin(nome: string, codigo: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Código de Login Rápido</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #156634 0%, #1a7a3e 100%); padding: 40px 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">
+                🔐 Login Rápido
+              </h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 16px;">
+                Seu código de acesso
+              </p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+                Olá ${nome || 'usuário'},
+              </p>
+              
+              <p style="color: #666666; font-size: 15px; line-height: 1.6; margin: 0 0 20px;">
+                Você solicitou um login rápido. Use o código abaixo para acessar sua conta:
+              </p>
+
+              <!-- Código -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; border-radius: 8px; margin-bottom: 30px; padding: 30px;">
+                <tr>
+                  <td align="center">
+                    <div style="background-color: #ffffff; border: 2px dashed #156634; border-radius: 8px; padding: 20px; display: inline-block;">
+                      <p style="color: #156634; font-size: 36px; font-weight: 700; letter-spacing: 8px; margin: 0; font-family: 'Courier New', monospace;">
+                        ${codigo}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 0 0 10px;">
+                ⏰ Este código expira em <strong>10 minutos</strong>.
+              </p>
+
+              <p style="color: #999999; font-size: 13px; line-height: 1.6; margin: 0;">
+                Se você não solicitou este código, ignore este email.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f9fa; padding: 25px 30px; text-align: center; border-top: 1px solid #eeeeee;">
+              <p style="color: #999999; font-size: 12px; margin: 0 0 10px;">
+                © ${new Date().getFullYear()} Evemaster. Todos os direitos reservados.
+              </p>
+              <p style="color: #999999; font-size: 12px; margin: 0;">
+                Este é um email automático, por favor não responda.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `
+}
+
 function gerarTemplateEmailParticipanteClube(dados: {
   nomeEvento: string
   dataEvento?: string

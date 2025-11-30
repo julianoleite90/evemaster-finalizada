@@ -95,6 +95,19 @@ export default function CheckoutPage() {
   const [paisEvento, setPaisEvento] = useState("brasil")
   const [idioma, setIdioma] = useState("pt")
   const [runningClub, setRunningClub] = useState<any>(null) // Dados do clube de corrida se houver
+  
+  // Estados para login rápido
+  const [verificandoCPF, setVerificandoCPF] = useState(false)
+  const [usuarioExiste, setUsuarioExiste] = useState<any>(null)
+  const [mostrarLoginRapido, setMostrarLoginRapido] = useState(false)
+  const [enviandoCodigo, setEnviandoCodigo] = useState(false)
+  const [codigoEnviado, setCodigoEnviado] = useState(false)
+  const [codigoLogin, setCodigoLogin] = useState("")
+  const [validandoCodigo, setValidandoCodigo] = useState(false)
+  const [usuarioLogado, setUsuarioLogado] = useState<any>(null)
+  const [perfisSalvos, setPerfisSalvos] = useState<any[]>([])
+  const [mostrarSelecaoParticipantes, setMostrarSelecaoParticipantes] = useState(false)
+  const [salvarPerfil, setSalvarPerfil] = useState<{ [key: number]: boolean }>({})
 
   const footerPaymentText: Record<string, string> = {
     pt: "Aceitamos todos os cartões, Pix e Boleto",
@@ -427,6 +440,247 @@ export default function CheckoutPage() {
       .replace(/(\d{3})(\d{1,2})/, "$1-$2")
   }
 
+  // Verificar CPF e oferecer login rápido
+  const verificarCPF = async (cpf: string) => {
+    const cleanCPF = cpf.replace(/\D/g, '')
+    if (cleanCPF.length !== 11) {
+      setUsuarioExiste(null)
+      setMostrarLoginRapido(false)
+      return
+    }
+
+    try {
+      setVerificandoCPF(true)
+      const res = await fetch('/api/auth/verificar-cpf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cpf: cleanCPF }),
+      })
+
+      const data = await res.json()
+      if (data.exists) {
+        setUsuarioExiste(data)
+        setMostrarLoginRapido(true)
+      } else {
+        setUsuarioExiste(null)
+        setMostrarLoginRapido(false)
+      }
+    } catch (error) {
+      console.error('Erro ao verificar CPF:', error)
+      setUsuarioExiste(null)
+      setMostrarLoginRapido(false)
+    } finally {
+      setVerificandoCPF(false)
+    }
+  }
+
+  // Enviar código de login rápido
+  const enviarCodigoLogin = async () => {
+    if (!usuarioExiste || !participante.cpf) return
+
+    try {
+      setEnviandoCodigo(true)
+      const res = await fetch('/api/auth/enviar-codigo-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: usuarioExiste.email,
+          cpf: participante.cpf.replace(/\D/g, ''),
+        }),
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        setCodigoEnviado(true)
+        toast.success('Código enviado para seu email!')
+      } else {
+        toast.error(data.error || 'Erro ao enviar código')
+      }
+    } catch (error) {
+      console.error('Erro ao enviar código:', error)
+      toast.error('Erro ao enviar código')
+    } finally {
+      setEnviandoCodigo(false)
+    }
+  }
+
+  // Validar código e fazer login
+  const validarCodigoLogin = async () => {
+    if (!codigoLogin || codigoLogin.length !== 6 || !usuarioExiste || !participante.cpf) {
+      toast.error('Digite o código de 6 dígitos')
+      return
+    }
+
+    try {
+      setValidandoCodigo(true)
+      const res = await fetch('/api/auth/validar-codigo-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: usuarioExiste.email,
+          cpf: participante.cpf.replace(/\D/g, ''),
+          code: codigoLogin,
+        }),
+      })
+
+      const data = await res.json()
+      if (res.ok && data.user) {
+        setUsuarioLogado(data.user)
+        setMostrarLoginRapido(false)
+        setCodigoEnviado(false)
+        setCodigoLogin("")
+        
+        // Preencher dados do usuário
+        const novosParticipantes = [...participantes]
+        novosParticipantes[currentParticipante] = {
+          ...novosParticipantes[currentParticipante],
+          nome: data.user.full_name || participante.nome,
+          email: data.user.email || participante.email,
+          telefone: data.user.phone || participante.telefone,
+          cpf: data.user.cpf || participante.cpf,
+          idade: data.user.birth_date ? String(new Date().getFullYear() - new Date(data.user.birth_date).getFullYear()) : participante.idade,
+          genero: data.user.gender === 'male' ? 'Masculino' : data.user.gender === 'female' ? 'Feminino' : participante.genero,
+          cep: data.user.zip_code || participante.cep,
+          endereco: data.user.address || participante.endereco,
+          numero: data.user.address_number || participante.numero,
+          complemento: data.user.address_complement || participante.complemento,
+          bairro: data.user.neighborhood || participante.bairro,
+          cidade: data.user.city || participante.cidade,
+          estado: data.user.state || participante.estado,
+        }
+        setParticipantes(novosParticipantes)
+
+        // Fazer login no Supabase usando magic link
+        const supabase = createClient()
+        if (data.magicLink) {
+          // Redirecionar para o magic link para completar o login
+          // Por enquanto, apenas armazenar os dados do usuário localmente
+          // O login completo será feito quando o usuário clicar no link
+        }
+
+        // Buscar perfis salvos (mesmo sem login completo, podemos buscar se tiver userId)
+        if (data.user?.id) {
+          await buscarPerfisSalvos()
+        }
+
+        toast.success('Login realizado com sucesso! Dados preenchidos automaticamente.')
+      } else {
+        toast.error(data.error || 'Código inválido')
+      }
+    } catch (error) {
+      console.error('Erro ao validar código:', error)
+      toast.error('Erro ao validar código')
+    } finally {
+      setValidandoCodigo(false)
+    }
+  }
+
+  // Buscar perfis salvos
+  const buscarPerfisSalvos = async () => {
+    if (!usuarioLogado) return
+
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        // Se não estiver logado, tentar buscar usando o userId do usuarioLogado
+        const res = await fetch('/api/participants/perfis-salvos')
+        const data = await res.json()
+        if (res.ok && data.profiles) {
+          setPerfisSalvos(data.profiles)
+        }
+      } else {
+        // Se estiver logado, buscar normalmente
+        const res = await fetch('/api/participants/perfis-salvos')
+        const data = await res.json()
+        if (res.ok && data.profiles) {
+          setPerfisSalvos(data.profiles)
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao buscar perfis salvos:', error)
+    }
+  }
+
+  // Salvar perfil de participante
+  const salvarPerfilParticipante = async (index: number) => {
+    const p = participantes[index]
+    if (!p.nome || !p.email || !p.cpf) {
+      toast.error('Preencha nome, email e CPF para salvar o perfil')
+      return
+    }
+
+    if (!usuarioLogado) {
+      toast.error('Você precisa estar logado para salvar perfis')
+      return
+    }
+
+    try {
+      const res = await fetch('/api/participants/salvar-perfil', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: p.nome,
+          email: p.email,
+          phone: p.telefone,
+          cpf: p.cpf.replace(/\D/g, ''),
+          birth_date: p.idade ? new Date(new Date().getFullYear() - parseInt(p.idade), 0, 1).toISOString().split('T')[0] : null,
+          age: p.idade ? parseInt(p.idade) : null,
+          gender: p.genero === 'Masculino' ? 'male' : p.genero === 'Feminino' ? 'female' : p.genero || null,
+          country: p.paisResidencia || 'brasil',
+          zip_code: p.cep,
+          address: p.endereco,
+          address_number: p.numero,
+          address_complement: p.complemento,
+          neighborhood: p.bairro,
+          city: p.cidade,
+          state: p.estado,
+          shirt_size: p.tamanhoCamiseta,
+        }),
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        toast.success('Perfil salvo com sucesso!')
+        await buscarPerfisSalvos()
+      } else {
+        toast.error(data.error || 'Erro ao salvar perfil')
+      }
+    } catch (error) {
+      console.error('Erro ao salvar perfil:', error)
+      toast.error('Erro ao salvar perfil')
+    }
+  }
+
+  // Selecionar participante salvo
+  const selecionarParticipanteSalvo = (perfil: any) => {
+    const novosParticipantes = [...participantes]
+    const novoIndex = participantes.length
+    novosParticipantes.push({
+      nome: perfil.full_name || "",
+      email: perfil.email || "",
+      telefone: perfil.phone || "",
+      idade: perfil.age ? String(perfil.age) : "",
+      genero: perfil.gender === 'male' ? 'Masculino' : perfil.gender === 'female' ? 'Feminino' : "",
+      paisResidencia: perfil.country || "brasil",
+      cep: perfil.zip_code || "",
+      endereco: perfil.address || "",
+      numero: perfil.address_number || "",
+      complemento: perfil.address_complement || "",
+      bairro: perfil.neighborhood || "",
+      cidade: perfil.city || "",
+      estado: perfil.state || "",
+      cpf: perfil.cpf || "",
+      tamanhoCamiseta: perfil.shirt_size || "",
+      aceiteTermo: false,
+    })
+    setParticipantes(novosParticipantes)
+    setCurrentParticipante(novoIndex)
+    setMostrarSelecaoParticipantes(false)
+    toast.success('Participante adicionado! Revise e edite os dados se necessário.')
+  }
+
   // Formatar telefone
   const formatTelefone = (value: string) => {
     return value
@@ -490,12 +744,17 @@ export default function CheckoutPage() {
     const p = participantes[currentParticipante]
     
     if (currentStep === 1) {
-      if (!p.nome || !p.email || !p.telefone || !p.idade || !p.genero) {
+      if (!p.cpf || !p.nome || !p.email || !p.telefone || !p.idade || !p.genero) {
         toast.error("Preencha todos os campos obrigatórios")
         return false
       }
       if (!p.email.includes("@")) {
         toast.error("Email inválido")
+        return false
+      }
+      // Validar CPF brasileiro
+      if (p.paisResidencia === "brasil" && p.cpf.replace(/\D/g, '').length !== 11) {
+        toast.error("CPF inválido")
         return false
       }
     }
@@ -554,8 +813,13 @@ export default function CheckoutPage() {
       setCurrentParticipante(currentParticipante + 1)
       setCurrentStep(1)
     } else {
-      // Finalizar
-      handleSubmit()
+      // Último participante - verificar se deve mostrar seleção de participantes salvos
+      if (usuarioLogado && perfisSalvos.length > 0 && !mostrarSelecaoParticipantes) {
+        setMostrarSelecaoParticipantes(true)
+      } else {
+        // Finalizar inscrição
+        handleSubmit()
+      }
     }
   }
 
@@ -1090,6 +1354,129 @@ export default function CheckoutPage() {
                 {/* Step 1: Dados Pessoais */}
                 {currentStep === 1 && (
                   <div className="space-y-4">
+                    {/* CPF como primeiro campo */}
+                    <div className="space-y-2">
+                      <Label htmlFor="cpf">
+                        {participante.paisResidencia === "brasil" 
+                          ? "CPF" 
+                          : participante.paisResidencia === "argentina"
+                          ? "DNI"
+                          : idioma === "es" ? "Documento" : idioma === "en" ? "ID Document" : "Documento"} *
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="cpf"
+                          value={participante.cpf}
+                          onChange={(e) => {
+                            const formatted = participante.paisResidencia === "brasil" ? formatCPF(e.target.value) : e.target.value
+                            updateParticipante("cpf", formatted)
+                            // Verificar CPF após digitar 11 dígitos (apenas para Brasil)
+                            if (participante.paisResidencia === "brasil" && formatted.replace(/\D/g, '').length === 11) {
+                              verificarCPF(formatted)
+                            }
+                          }}
+                          placeholder={
+                            participante.paisResidencia === "brasil" 
+                              ? "000.000.000-00" 
+                              : participante.paisResidencia === "argentina"
+                              ? "12.345.678"
+                              : idioma === "es" ? "Número de documento" : "Document number"
+                          }
+                          disabled={!!usuarioLogado}
+                        />
+                        {verificandoCPF && (
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+                        )}
+                      </div>
+                      
+                      {/* Diálogo de login rápido */}
+                      {mostrarLoginRapido && !usuarioLogado && (
+                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+                          <p className="text-sm text-blue-900 font-medium">
+                            Conta encontrada! Deseja fazer login rápido?
+                          </p>
+                          <p className="text-xs text-blue-700">
+                            Email: {usuarioExiste?.email}
+                          </p>
+                          {!codigoEnviado ? (
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={enviarCodigoLogin}
+                                disabled={enviandoCodigo}
+                                className="bg-blue-600 hover:bg-blue-700"
+                              >
+                                {enviandoCodigo ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Enviando...
+                                  </>
+                                ) : (
+                                  'Sim, enviar código'
+                                )}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setMostrarLoginRapido(false)
+                                  setUsuarioExiste(null)
+                                }}
+                              >
+                                Não, continuar sem login
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              <p className="text-xs text-blue-700">
+                                Código enviado para {usuarioExiste?.email}. Digite o código abaixo:
+                              </p>
+                              <div className="flex gap-2">
+                                <Input
+                                  type="text"
+                                  maxLength={6}
+                                  value={codigoLogin}
+                                  onChange={(e) => setCodigoLogin(e.target.value.replace(/\D/g, ''))}
+                                  placeholder="000000"
+                                  className="font-mono text-center text-lg tracking-widest"
+                                />
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={validarCodigoLogin}
+                                  disabled={validandoCodigo || codigoLogin.length !== 6}
+                                  className="bg-blue-600 hover:bg-blue-700"
+                                >
+                                  {validandoCodigo ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Validando...
+                                    </>
+                                  ) : (
+                                    'Validar'
+                                  )}
+                                </Button>
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setCodigoEnviado(false)
+                                  setCodigoLogin("")
+                                }}
+                                className="text-xs"
+                              >
+                                Reenviar código
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     <div className="space-y-2">
                       <Label htmlFor="nome">{t("nomeCompleto")} *</Label>
                       <Input
@@ -1097,6 +1484,7 @@ export default function CheckoutPage() {
                         value={participante.nome}
                         onChange={(e) => updateParticipante("nome", e.target.value)}
                         placeholder={t("nomeCompleto")}
+                        disabled={!!usuarioLogado && currentParticipante === 0}
                       />
                     </div>
 
@@ -1133,6 +1521,7 @@ export default function CheckoutPage() {
                           value={participante.idade}
                           onChange={(e) => updateParticipante("idade", e.target.value)}
                           placeholder="Ex: 30"
+                          disabled={!!usuarioLogado && currentParticipante === 0}
                         />
                       </div>
                       <div className="space-y-2">
@@ -1140,6 +1529,7 @@ export default function CheckoutPage() {
                         <Select
                           value={participante.genero}
                           onValueChange={(value) => updateParticipante("genero", value)}
+                          disabled={!!usuarioLogado && currentParticipante === 0}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder={t("selecione")} />
@@ -1315,27 +1705,54 @@ export default function CheckoutPage() {
                 {/* Step 3: CPF/Documento e Pagamento */}
                 {currentStep === 3 && (
                   <div className="space-y-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="cpf">
-                        {participante.paisResidencia === "brasil" 
-                          ? "CPF" 
-                          : participante.paisResidencia === "argentina"
-                          ? "DNI"
-                          : idioma === "es" ? "Documento" : idioma === "en" ? "ID Document" : "Documento"} *
-                      </Label>
-                      <Input
-                        id="cpf"
-                        value={participante.cpf}
-                        onChange={(e) => updateParticipante("cpf", participante.paisResidencia === "brasil" ? formatCPF(e.target.value) : e.target.value)}
-                        placeholder={
-                          participante.paisResidencia === "brasil" 
-                            ? "000.000.000-00" 
+                    {/* CPF já foi preenchido no Step 1, apenas mostrar se não foi preenchido */}
+                    {!participante.cpf && (
+                      <div className="space-y-2">
+                        <Label htmlFor="cpf-step3">
+                          {participante.paisResidencia === "brasil" 
+                            ? "CPF" 
                             : participante.paisResidencia === "argentina"
-                            ? "12.345.678"
-                            : idioma === "es" ? "Número de documento" : "Document number"
-                        }
-                      />
-                    </div>
+                            ? "DNI"
+                            : idioma === "es" ? "Documento" : idioma === "en" ? "ID Document" : "Documento"} *
+                        </Label>
+                        <Input
+                          id="cpf-step3"
+                          value={participante.cpf}
+                          onChange={(e) => updateParticipante("cpf", participante.paisResidencia === "brasil" ? formatCPF(e.target.value) : e.target.value)}
+                          placeholder={
+                            participante.paisResidencia === "brasil" 
+                              ? "000.000.000-00" 
+                              : participante.paisResidencia === "argentina"
+                              ? "12.345.678"
+                              : idioma === "es" ? "Número de documento" : "Document number"
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {/* Opção de salvar perfil para participantes adicionais (2+) */}
+                    {participantes.length > 1 && currentParticipante > 0 && usuarioLogado && (
+                      <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`salvar-perfil-${currentParticipante}`}
+                            checked={salvarPerfil[currentParticipante] || false}
+                            onCheckedChange={(checked) => {
+                              setSalvarPerfil({ ...salvarPerfil, [currentParticipante]: checked === true })
+                              if (checked) {
+                                salvarPerfilParticipante(currentParticipante)
+                              }
+                            }}
+                          />
+                          <Label htmlFor={`salvar-perfil-${currentParticipante}`} className="text-sm font-medium cursor-pointer">
+                            Salvar este perfil para usar em inscrições futuras
+                          </Label>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1 ml-6">
+                          Os dados deste participante serão salvos no seu perfil para facilitar próximas inscrições
+                        </p>
+                      </div>
+                    )}
 
                     {/* Tamanho da Camiseta (se houver kit com camiseta) */}
                     {temCamiseta && ingresso?.kitItems?.includes("camiseta") && (
@@ -1781,6 +2198,53 @@ export default function CheckoutPage() {
           </div>
         </div>
       </footer>
+
+      {/* Diálogo de seleção de participantes salvos */}
+      <Dialog open={mostrarSelecaoParticipantes} onOpenChange={setMostrarSelecaoParticipantes}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Deseja incluir mais participantes?</DialogTitle>
+            <p className="text-sm text-gray-600 mt-2">
+              Você tem {perfisSalvos.length} perfil(is) salvo(s). Selecione os participantes que deseja inscrever:
+            </p>
+          </DialogHeader>
+          <div className="space-y-3 mt-4">
+            {perfisSalvos.map((perfil) => (
+              <Card key={perfil.id} className="border cursor-pointer hover:border-[#156634] transition-colors">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="font-medium">{perfil.full_name}</p>
+                      <p className="text-sm text-gray-600">{perfil.email}</p>
+                      {perfil.cpf && (
+                        <p className="text-xs text-gray-500">CPF: {perfil.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}</p>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => selecionarParticipanteSalvo(perfil)}
+                      className="bg-[#156634] hover:bg-[#1a7a3e]"
+                    >
+                      Adicionar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setMostrarSelecaoParticipantes(false)
+                handleSubmit()
+              }}
+            >
+              Não, finalizar inscrição
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
