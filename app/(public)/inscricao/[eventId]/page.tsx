@@ -17,6 +17,7 @@ import { toast } from "sonner"
 import { getEventById } from "@/lib/supabase/events"
 import { createClient } from "@/lib/supabase/client"
 import EventPixels from "@/components/analytics/EventPixels"
+import { CPFLoginModal } from "@/components/auth/CPFLoginModal"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -136,6 +137,12 @@ export default function CheckoutPage() {
   const [usuarioLogado, setUsuarioLogado] = useState<any>(null)
   const [perfisSalvos, setPerfisSalvos] = useState<any[]>([])
   const [mostrarSelecaoParticipantes, setMostrarSelecaoParticipantes] = useState(false)
+  
+  // Estados para modal de login por CPF
+  const [cpfLoginModalOpen, setCpfLoginModalOpen] = useState(false)
+  const [cpfVerificado, setCpfVerificado] = useState<string | null>(null)
+  const [cpfUserData, setCpfUserData] = useState<{ id: string; maskedEmail: string; fullName: string } | null>(null)
+  const [verificandoCpf, setVerificandoCpf] = useState(false)
   const [salvarPerfil, setSalvarPerfil] = useState<{ [key: number]: boolean }>({})
   const [permiteEdicao, setPermiteEdicao] = useState(false) // Controla se permite editar campos quando logado
   
@@ -537,7 +544,83 @@ export default function CheckoutPage() {
     return `${localMasked}@${domainMasked}`
   }
 
+  // Verificar se CPF já tem conta cadastrada
+  const verificarCpfCadastrado = async (cpf: string) => {
+    // Só verificar se for brasileiro e CPF completo
+    const participante = participantes[currentParticipante]
+    if (participante.paisResidencia !== "brasil") return
+    
+    const cleanCPF = cpf.replace(/\D/g, '')
+    if (cleanCPF.length !== 11) return
+    
+    // Não verificar se já está logado ou se já verificamos este CPF
+    if (usuarioLogado || cpfVerificado === cleanCPF) return
+    
+    try {
+      setVerificandoCpf(true)
+      
+      const response = await fetch('/api/auth/verificar-cpf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cpf: cleanCPF }),
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok && data.exists && data.userData) {
+        // CPF encontrado - mostrar modal
+        setCpfVerificado(cleanCPF)
+        setCpfUserData(data.userData)
+        setCpfLoginModalOpen(true)
+      }
+    } catch (error) {
+      console.error('Erro ao verificar CPF:', error)
+    } finally {
+      setVerificandoCpf(false)
+    }
+  }
 
+  // Callback quando login por CPF for bem-sucedido
+  const handleCpfLoginSuccess = async (userData: any) => {
+    // Atualizar usuário logado
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (user) {
+      setUsuarioLogado(user)
+      
+      // Preencher dados do participante atual com os dados do usuário
+      const novosParticipantes = [...participantes]
+      novosParticipantes[currentParticipante] = {
+        ...novosParticipantes[currentParticipante],
+        nome: userData.fullName || novosParticipantes[currentParticipante].nome,
+        email: userData.email || novosParticipantes[currentParticipante].email,
+        telefone: userData.phone || novosParticipantes[currentParticipante].telefone,
+        cpf: userData.cpf ? formatCPF(userData.cpf) : novosParticipantes[currentParticipante].cpf,
+        endereco: userData.address || novosParticipantes[currentParticipante].endereco,
+        numero: userData.addressNumber || novosParticipantes[currentParticipante].numero,
+        complemento: userData.addressComplement || novosParticipantes[currentParticipante].complemento,
+        bairro: userData.neighborhood || novosParticipantes[currentParticipante].bairro,
+        cidade: userData.city || novosParticipantes[currentParticipante].cidade,
+        estado: userData.state || novosParticipantes[currentParticipante].estado,
+        cep: userData.zipCode || novosParticipantes[currentParticipante].cep,
+        paisResidencia: userData.country || novosParticipantes[currentParticipante].paisResidencia || "brasil",
+      }
+      setParticipantes(novosParticipantes)
+      
+      // Buscar perfis salvos do usuário
+      await buscarPerfisSalvos()
+      
+      toast.success('Dados preenchidos automaticamente!')
+    }
+  }
+
+  // Callback quando usuário escolher continuar sem login
+  const handleContinueWithoutCpfLogin = () => {
+    // Apenas marcar que já verificamos este CPF para não mostrar modal novamente
+    const participante = participantes[currentParticipante]
+    setCpfVerificado(participante.cpf.replace(/\D/g, ''))
+  }
 
   // Buscar perfis salvos
   const buscarPerfisSalvos = async () => {
@@ -1741,6 +1824,12 @@ export default function CheckoutPage() {
                             const formatted = formatDocumento(e.target.value, participante.paisResidencia)
                             updateParticipante("cpf", formatted)
                           }}
+                          onBlur={(e) => {
+                            // Verificar se CPF já tem conta ao sair do campo (apenas para brasileiros)
+                            if (participante.paisResidencia === "brasil") {
+                              verificarCpfCadastrado(e.target.value)
+                            }
+                          }}
                           placeholder={
                             participante.paisResidencia === "brasil" 
                               ? "000.000.000-00" 
@@ -1750,6 +1839,11 @@ export default function CheckoutPage() {
                           }
                           disabled={!!usuarioLogado && currentParticipante === 0 && !permiteEdicao}
                         />
+                        {verificandoCpf && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -2698,6 +2792,18 @@ export default function CheckoutPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Login por CPF */}
+      {cpfUserData && (
+        <CPFLoginModal
+          open={cpfLoginModalOpen}
+          onOpenChange={setCpfLoginModalOpen}
+          cpf={participantes[currentParticipante]?.cpf || ''}
+          userData={cpfUserData}
+          onLoginSuccess={handleCpfLoginSuccess}
+          onContinueWithoutLogin={handleContinueWithoutCpfLogin}
+        />
+      )}
     </div>
   )
 }

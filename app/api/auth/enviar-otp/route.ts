@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Limpar CPF - apenas números
+    // Limpar CPF
     const cleanCPF = cpf.replace(/\D/g, '')
     
     if (cleanCPF.length !== 11) {
@@ -39,49 +39,52 @@ export async function POST(request: NextRequest) {
       auth: { autoRefreshToken: false, persistSession: false }
     })
 
-    // Buscar usuário pelo CPF na tabela users
+    // Buscar email do usuário pelo CPF
     const { data: userData, error: userError } = await supabaseAdmin
       .from('users')
-      .select('id, email, full_name, phone, cpf, address, address_number, address_complement, neighborhood, city, state, zip_code, country')
+      .select('id, email')
       .eq('cpf', cleanCPF)
       .maybeSingle()
 
-    if (userError) {
-      console.error('Erro ao buscar usuário por CPF:', userError)
+    if (userError || !userData?.email) {
       return NextResponse.json(
-        { error: 'Erro ao verificar CPF' },
+        { error: 'CPF não encontrado' },
+        { status: 404 }
+      )
+    }
+
+    // Usar o Supabase Auth OTP (magic link via email)
+    const { error: otpError } = await supabaseAdmin.auth.signInWithOtp({
+      email: userData.email,
+      options: {
+        shouldCreateUser: false, // Não criar usuário novo
+      }
+    })
+
+    if (otpError) {
+      console.error('Erro ao enviar OTP:', otpError)
+      return NextResponse.json(
+        { error: 'Erro ao enviar código de verificação' },
         { status: 500 }
       )
     }
 
-    if (!userData) {
-      // CPF não encontrado
-      return NextResponse.json({
-        exists: false,
-        message: 'CPF não cadastrado'
-      })
-    }
-
-    // CPF encontrado - retornar dados parciais (mascarar email para privacidade)
-    const maskedEmail = userData.email 
-      ? userData.email.replace(/(.{2})(.*)(@.*)/, '$1***$3')
-      : null
+    // Mascarar email para exibição
+    const maskedEmail = userData.email.replace(/(.{2})(.*)(@.*)/, '$1***$3')
 
     return NextResponse.json({
-      exists: true,
-      message: 'CPF já cadastrado',
-      userData: {
-        id: userData.id,
-        maskedEmail,
-        fullName: userData.full_name,
-      }
+      success: true,
+      message: 'Código enviado para o email cadastrado',
+      maskedEmail,
+      userId: userData.id
     })
 
   } catch (error: any) {
-    console.error('Erro na verificação de CPF:', error)
+    console.error('Erro ao enviar OTP:', error)
     return NextResponse.json(
       { error: error.message || 'Erro interno' },
       { status: 500 }
     )
   }
 }
+
