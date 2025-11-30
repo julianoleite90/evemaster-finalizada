@@ -128,7 +128,7 @@ export default function RegistrationDetailsPage() {
           id: regData.id,
           numeroInscricao: regData.registration_number,
           statusPagamento: regData.status === "confirmed" ? "paid" : (paymentData?.payment_status || "pending"),
-          dataInscricao: regData.registration_date,
+          dataInscricao: regData.registration_date || regData.created_at,
           horaInscricao: regData.registration_time,
           evento: {
             nome: eventInfo?.name || "N/A",
@@ -228,10 +228,21 @@ export default function RegistrationDetailsPage() {
   const formatDate = (dateString: string, includeTime: boolean = false) => {
     if (!dateString) return "Não informado"
     try {
-      const date = new Date(dateString)
+      let date: Date
+      
+      // Se é uma string de data simples (YYYY-MM-DD), criar como data local
+      if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        const [year, month, day] = dateString.split('-').map(Number)
+        date = new Date(year, month - 1, day)
+      } else {
+        // Para datas ISO com timezone, o JavaScript já converte corretamente
+        date = new Date(dateString)
+      }
+      
       if (isNaN(date.getTime())) {
         return "Data inválida"
       }
+      
       // Usar toLocaleString que já converte corretamente para timezone local
       if (includeTime) {
         const formatted = date.toLocaleString('pt-BR', {
@@ -240,7 +251,7 @@ export default function RegistrationDetailsPage() {
           year: 'numeric',
           hour: '2-digit',
           minute: '2-digit',
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          hour12: false
         })
         // Formato retorna "30/01/2024 10:00" - substituir espaço por " às "
         return formatted.replace(/\s+/, ' às ')
@@ -248,8 +259,7 @@ export default function RegistrationDetailsPage() {
       return date.toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: '2-digit',
-        year: 'numeric',
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        year: 'numeric'
       })
     } catch (error) {
       return "Data inválida"
