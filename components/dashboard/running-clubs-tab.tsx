@@ -18,6 +18,7 @@ interface RunningClubsTabProps {
 }
 
 export function RunningClubsTabContent({ eventId }: RunningClubsTabProps) {
+  console.log('RunningClubsTabContent renderizado com eventId:', eventId)
   const [loading, setLoading] = useState(true)
   const [clubs, setClubs] = useState<any[]>([])
   const [showAddClub, setShowAddClub] = useState(false)
@@ -34,19 +35,36 @@ export function RunningClubsTabContent({ eventId }: RunningClubsTabProps) {
   })
 
   useEffect(() => {
-    fetchClubs()
+    if (eventId) {
+      fetchClubs()
+    } else {
+      console.error('RunningClubsTabContent: eventId não fornecido')
+      setLoading(false)
+    }
   }, [eventId])
 
   const fetchClubs = async () => {
     try {
       setLoading(true)
+      if (!eventId) {
+        console.error('RunningClubsTabContent: eventId não fornecido')
+        setLoading(false)
+        return
+      }
+      console.log('RunningClubsTabContent: Buscando clubes para eventId:', eventId)
       const res = await fetch(`/api/events/running-clubs?event_id=${eventId}`)
+      console.log('RunningClubsTabContent: Resposta da API:', res.status, res.statusText)
       if (res.ok) {
         const data = await res.json()
+        console.log('RunningClubsTabContent: Clubes recebidos:', data.clubs?.length || 0)
         setClubs(data.clubs || [])
+      } else {
+        const errorData = await res.json().catch(() => ({}))
+        console.error('RunningClubsTabContent: Erro ao buscar clubes:', errorData)
+        toast.error(errorData.error || 'Erro ao carregar clubes')
       }
     } catch (error) {
-      console.error('Erro ao buscar clubes:', error)
+      console.error('RunningClubsTabContent: Erro ao buscar clubes:', error)
       toast.error('Erro ao carregar clubes')
     } finally {
       setLoading(false)
@@ -111,6 +129,20 @@ export function RunningClubsTabContent({ eventId }: RunningClubsTabProps) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-[#156634]" />
+      </div>
+    )
+  }
+
+  if (!eventId) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-muted-foreground text-center">
+              ID do evento não encontrado
+            </p>
+          </CardContent>
+        </Card>
       </div>
     )
   }
