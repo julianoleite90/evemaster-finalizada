@@ -54,14 +54,20 @@ interface Registration {
   estado?: string
   cep?: string
   tamanhoCamiseta?: string
+  cupomCodigo?: string
+  cupomDesconto?: number
+  clubeId?: string
+  clubeNome?: string
 }
 
 export default function RegistrationsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedEvent, setSelectedEvent] = useState<string>("all")
   const [selectedStatus, setSelectedStatus] = useState<string>("all")
+  const [selectedClub, setSelectedClub] = useState<string>("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
+  const [clubesList, setClubesList] = useState<Array<{ id: string; name: string }>>([])
   const [showFilters, setShowFilters] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -186,25 +192,35 @@ export default function RegistrationsPage() {
         // Buscar dados relacionados separadamente
         const registrationIds = allRegistrations?.map(r => r.id) || []
         
-        const [athletesData, paymentsData, ticketsData] = await Promise.all([
+        const [athletesData, paymentsData, ticketsData, clubesData] = await Promise.all([
           supabase
             .from("athletes")
             .select("registration_id, full_name, email, phone, cpf, birth_date, gender, address, address_number, address_complement, neighborhood, city, state, zip_code")
             .in("registration_id", registrationIds),
           supabase
             .from("payments")
-            .select("registration_id, payment_status, total_amount, payment_method")
+            .select("registration_id, payment_status, total_amount, payment_method, coupon_code, discount_amount, running_club_id")
             .in("registration_id", registrationIds),
           supabase
             .from("tickets")
             .select("id, category, price")
-            .in("id", allRegistrations?.map(r => r.ticket_id).filter(Boolean) || [])
+            .in("id", allRegistrations?.map(r => r.ticket_id).filter(Boolean) || []),
+          supabase
+            .from("running_clubs")
+            .select("id, name, event_id")
+            .in("event_id", eventIds)
+            .eq("status", "accepted")
         ])
 
         // Criar mapas para lookup rápido
         const athletesMap = new Map((athletesData.data || []).map(a => [a.registration_id, a]))
         const paymentsMap = new Map((paymentsData.data || []).map(p => [p.registration_id, p]))
         const ticketsMap = new Map((ticketsData.data || []).map(t => [t.id, t]))
+        const clubesMap = new Map((clubesData.data || []).map(c => [c.id, c]))
+        
+        // Preparar lista de clubes para o filtro
+        const uniqueClubes = Array.from(new Map((clubesData.data || []).map(c => [c.id, c])).values())
+        setClubesList(uniqueClubes.map(c => ({ id: c.id, name: c.name || `Clube ${c.id.substring(0, 8)}` })))
 
         // Função auxiliar para calcular idade
         const calculateAge = (birthDate: string) => {
@@ -228,6 +244,7 @@ export default function RegistrationsPage() {
           const athlete = athletesMap.get(reg.id)
           const payment = paymentsMap.get(reg.id)
           const ticket = reg.ticket_id ? ticketsMap.get(reg.ticket_id) : null
+          const clube = payment?.running_club_id ? clubesMap.get(payment.running_club_id) : null
           
           return {
             id: reg.id,
@@ -254,7 +271,11 @@ export default function RegistrationsPage() {
             cidade: athlete?.city || undefined,
             estado: athlete?.state || undefined,
             cep: athlete?.zip_code || undefined,
-            tamanhoCamiseta: reg.shirt_size || undefined
+            tamanhoCamiseta: reg.shirt_size || undefined,
+            cupomCodigo: payment?.coupon_code || undefined,
+            cupomDesconto: payment?.discount_amount ? Number(payment.discount_amount) : undefined,
+            clubeId: payment?.running_club_id || undefined,
+            clubeNome: clube?.name || undefined
           }
         })
 
@@ -370,6 +391,25 @@ export default function RegistrationsPage() {
       return false
     }
 
+    if (selectedClub !== "all") {
+      if (selectedClub === "with_club") {
+        // Filtrar apenas inscrições com clube
+        if (!reg.clubeId) {
+          return false
+        }
+      } else if (selectedClub === "without_club") {
+        // Filtrar apenas inscrições sem clube
+        if (reg.clubeId) {
+          return false
+        }
+      } else {
+        // Filtrar por clube específico
+        if (reg.clubeId !== selectedClub) {
+          return false
+        }
+      }
+    }
+
     if (dateFrom) {
       try {
         const regDate = new Date(reg.dataInscricao)
@@ -405,12 +445,13 @@ export default function RegistrationsPage() {
   // Resetar página quando filtros mudarem
   useEffect(() => {
     setCurrentPage(1)
-  }, [selectedEvent, selectedStatus, dateFrom, dateTo, searchTerm])
+  }, [selectedEvent, selectedStatus, selectedClub, dateFrom, dateTo, searchTerm])
 
   const clearFilters = () => {
     setSearchTerm("")
     setSelectedEvent("all")
     setSelectedStatus("all")
+    setSelectedClub("all")
     setDateFrom("")
     setDateTo("")
   }
@@ -418,6 +459,7 @@ export default function RegistrationsPage() {
   const hasActiveFilters =
     selectedEvent !== "all" ||
     selectedStatus !== "all" ||
+    selectedClub !== "all" ||
     dateFrom !== "" ||
     dateTo !== ""
 
@@ -970,6 +1012,25 @@ export default function RegistrationsPage() {
               </div>
 
               <div className="space-y-1.5">
+                <Label className="text-xs">Clube de Corrida</Label>
+                <Select value={selectedClub} onValueChange={setSelectedClub}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Todos os clubes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="with_club">Com Clube</SelectItem>
+                    <SelectItem value="without_club">Sem Clube</SelectItem>
+                    {clubesList.map((clube) => (
+                      <SelectItem key={clube.id} value={clube.id}>
+                        {clube.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
                 <Label className="text-xs">Data Inicial</Label>
                 <Input
                   type="date"
@@ -1087,7 +1148,7 @@ export default function RegistrationsPage() {
                 >
                     <div className="px-4 py-3">
                       {/* Desktop: Layout em grid */}
-                      <div className="hidden md:grid md:grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr_1fr] gap-3 items-center">
+                      <div className="hidden md:grid md:grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr_1.5fr] gap-3 items-center">
                         {/* Nome e Email */}
                         <div>
                           <p 
@@ -1182,23 +1243,40 @@ export default function RegistrationsPage() {
                         </p>
                       </div>
 
-                        {/* Status */}
-                        <div className="flex items-center justify-between w-full">
-                          <div
-                            onClick={(e) => {
-                              const statusText = registration.statusPagamento === 'paid' ? 'Pago' : registration.statusPagamento === 'pending' ? 'Pendente' : 'Cancelado'
-                              handleCopy(e, statusText, `status-${registration.id}`)
-                            }}
-                            className="cursor-pointer"
-                          >
-                            {getStatusBadge(registration.statusPagamento)}
-                            {copiedId === `status-${registration.id}` ? (
-                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
-                            ) : null}
+                        {/* Status e Info (Cupom/Clube) */}
+                        <div className="flex items-center justify-between w-full gap-2">
+                          <div className="flex flex-col gap-1 flex-1">
+                            <div
+                              onClick={(e) => {
+                                const statusText = registration.statusPagamento === 'paid' ? 'Pago' : registration.statusPagamento === 'pending' ? 'Pendente' : 'Cancelado'
+                                handleCopy(e, statusText, `status-${registration.id}`)
+                              }}
+                              className="cursor-pointer"
+                            >
+                              {getStatusBadge(registration.statusPagamento)}
+                              {copiedId === `status-${registration.id}` ? (
+                                <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
+                              ) : null}
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {registration.cupomCodigo && (
+                                <Badge variant="outline" className="text-[9px] px-1.5 py-0.5 bg-blue-50 text-blue-700 border-blue-200">
+                                  🎟️ {registration.cupomCodigo}
+                                  {registration.cupomDesconto && (
+                                    <span className="ml-1">(-{registration.cupomDesconto.toFixed(2)})</span>
+                                  )}
+                                </Badge>
+                              )}
+                              {registration.clubeNome && (
+                                <Badge variant="outline" className="text-[9px] px-1.5 py-0.5 bg-purple-50 text-purple-700 border-purple-200">
+                                  🏃 {registration.clubeNome.length > 15 ? `${registration.clubeNome.substring(0, 15)}...` : registration.clubeNome}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                           <Link
                             href={`/dashboard/organizer/registrations/${registration.id}`}
-                            className="text-gray-400 hover:text-green-600 transition-colors ml-auto"
+                            className="text-gray-400 hover:text-green-600 transition-colors"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <ChevronRight className="h-4 w-4" />
