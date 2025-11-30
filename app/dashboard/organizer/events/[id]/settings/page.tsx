@@ -4480,14 +4480,20 @@ export default function EventSettingsPage() {
             {/* Tab: Clube de Corrida */}
             <TabsContent value="clube-corrida" className="space-y-6">
               {(() => {
-                console.log('🏃 [SETTINGS] Renderizando TabsContent clube-corrida, eventId:', eventId, 'subMenu:', subMenu)
+                console.log('🏃 [SETTINGS] Renderizando TabsContent clube-corrida, eventId:', eventId, 'subMenu atual:', subMenu, 'deve ser clube-corrida')
+                if (subMenu !== "clube-corrida") {
+                  console.log('⚠️ [SETTINGS] subMenu não corresponde! Esperado: clube-corrida, Atual:', subMenu)
+                  return null
+                }
                 if (!eventId) {
+                  console.error('❌ [SETTINGS] eventId não encontrado')
                   return (
                     <div className="text-center py-12">
                       <p className="text-muted-foreground">ID do evento não encontrado</p>
                     </div>
                   )
                 }
+                console.log('✅ [SETTINGS] Renderizando RunningClubsTabContent')
                 return <RunningClubsTabContent eventId={eventId} />
               })()}
             </TabsContent>
