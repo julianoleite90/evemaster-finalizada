@@ -87,6 +87,13 @@ export default function RegistrationDetailsPage() {
             registration_time,
             shirt_size,
             created_at,
+            liability_waiver_accepted,
+            liability_waiver_timestamp,
+            liability_waiver_ip,
+            liability_waiver_user_agent,
+            liability_waiver_device_type,
+            liability_waiver_browser,
+            liability_waiver_os,
             events:event_id (
               name,
               event_date,
@@ -161,6 +168,16 @@ export default function RegistrationDetailsPage() {
               telefone: athleteData.emergency_contact_phone || null,
             },
           } : null,
+          termo: {
+            aceito: regData.liability_waiver_accepted || false,
+            dataAceite: regData.liability_waiver_timestamp ? new Date(regData.liability_waiver_timestamp).toISOString().split('T')[0] : null,
+            horarioAceite: regData.liability_waiver_timestamp ? new Date(regData.liability_waiver_timestamp).toTimeString().split(' ')[0] : null,
+            ipAceite: regData.liability_waiver_ip || null,
+            userAgent: regData.liability_waiver_user_agent || null,
+            deviceType: regData.liability_waiver_device_type || null,
+            browser: regData.liability_waiver_browser || null,
+            os: regData.liability_waiver_os || null,
+          },
           comprador: null,
           financeiro: paymentData ? {
             valorBase: Number(paymentData.base_amount || paymentData.amount || 0),
@@ -627,6 +644,61 @@ export default function RegistrationDetailsPage() {
                             <p className="text-gray-500">CEP: {registration.atleta.endereco.cep}</p>
                       )}
                         </div>
+                  </div>
+                </>
+              )}
+
+              {/* Termo de Consentimento */}
+              {registration.termo && (
+                <>
+                  <Separator />
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-1">
+                      <Shield className="h-3 w-3" />
+                      Termo de Responsabilidade
+                    </p>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">Status:</span>
+                        <Badge variant={registration.termo.aceito ? "default" : "destructive"} className="text-xs">
+                          {registration.termo.aceito ? "Aceito" : "Não aceito"}
+                        </Badge>
+                      </div>
+                      {registration.termo.aceito && (
+                        <div className="space-y-1 text-sm text-gray-600">
+                          {registration.termo.dataAceite && registration.termo.horarioAceite && (
+                            <p>
+                              <span className="font-medium">Data e Hora:</span> {formatDate(registration.termo.dataAceite + 'T' + registration.termo.horarioAceite, true)}
+                            </p>
+                          )}
+                          {registration.termo.dataAceite && !registration.termo.horarioAceite && (
+                            <p>
+                              <span className="font-medium">Data:</span> {formatDate(registration.termo.dataAceite)}
+                            </p>
+                          )}
+                          {registration.termo.ipAceite && (
+                            <p>
+                              <span className="font-medium">IP:</span> {registration.termo.ipAceite}
+                            </p>
+                          )}
+                          {registration.termo.deviceType && (
+                            <p>
+                              <span className="font-medium">Dispositivo:</span> {registration.termo.deviceType === 'mobile' ? 'Mobile' : registration.termo.deviceType === 'tablet' ? 'Tablet' : 'Desktop'}
+                            </p>
+                          )}
+                          {registration.termo.browser && (
+                            <p>
+                              <span className="font-medium">Navegador:</span> {registration.termo.browser}
+                            </p>
+                          )}
+                          {registration.termo.os && (
+                            <p>
+                              <span className="font-medium">Sistema Operacional:</span> {registration.termo.os}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </>
               )}

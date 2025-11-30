@@ -989,6 +989,17 @@ export default function CheckoutPage() {
       setSubmitting(true)
       const supabase = createClient()
 
+      // Buscar IP do cliente uma vez para todos os participantes
+      let clientIP: string | null = null
+      try {
+        const ipResponse = await fetch('/api/get-client-info')
+        if (ipResponse.ok) {
+          const ipData = await ipResponse.json()
+          clientIP = ipData.ip || null
+        }
+      } catch (error) {
+        // Se falhar, continuar sem IP
+      }
 
       // Primeiro, criar contas automaticamente para cada participante
       const userIdsMap = new Map<string, string>() // email -> userId
@@ -1010,6 +1021,11 @@ export default function CheckoutPage() {
               cidade: participante.cidade,
               estado: participante.estado,
               cep: participante.cep,
+              pais: participante.paisResidencia || paisEvento || 'brasil',
+              idade: participante.idade ? parseInt(participante.idade) : null,
+              genero: participante.genero === 'Masculino' ? 'male' : participante.genero === 'Feminino' ? 'female' : null,
+              emergency_contact_name: participante.contatoEmergenciaNome || null,
+              emergency_contact_phone: participante.contatoEmergenciaTelefone?.replace(/\D/g, '') || null,
             }),
           })
 
@@ -1106,6 +1122,67 @@ export default function CheckoutPage() {
           throw new Error("Ticket esgotado")
         }
 
+        // Função para detectar dispositivo, navegador e OS
+        const detectDeviceInfo = () => {
+          if (typeof window === 'undefined') {
+            return {
+              deviceType: null,
+              browser: null,
+              os: null,
+              userAgent: null,
+            }
+          }
+
+          const userAgent = navigator.userAgent
+          let deviceType: string | null = null
+          let browser: string | null = null
+          let os: string | null = null
+
+          // Detectar tipo de dispositivo
+          if (/mobile|android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent)) {
+            deviceType = 'mobile'
+          } else if (/tablet|ipad|playbook|silk/i.test(userAgent)) {
+            deviceType = 'tablet'
+          } else {
+            deviceType = 'desktop'
+          }
+
+          // Detectar navegador
+          if (userAgent.includes('Chrome') && !userAgent.includes('Edg')) {
+            browser = 'Chrome'
+          } else if (userAgent.includes('Firefox')) {
+            browser = 'Firefox'
+          } else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
+            browser = 'Safari'
+          } else if (userAgent.includes('Edg')) {
+            browser = 'Edge'
+          } else if (userAgent.includes('Opera') || userAgent.includes('OPR')) {
+            browser = 'Opera'
+          } else {
+            browser = 'Other'
+          }
+
+          // Detectar OS
+          if (userAgent.includes('Windows')) {
+            os = 'Windows'
+          } else if (userAgent.includes('Mac OS')) {
+            os = 'macOS'
+          } else if (userAgent.includes('Linux')) {
+            os = 'Linux'
+          } else if (userAgent.includes('Android')) {
+            os = 'Android'
+          } else if (userAgent.includes('iOS') || userAgent.includes('iPhone') || userAgent.includes('iPad')) {
+            os = 'iOS'
+          } else {
+            os = 'Other'
+          }
+
+          return { deviceType, browser, os, userAgent }
+        }
+
+        // Capturar informações do dispositivo quando o termo foi aceito
+        const deviceInfo = detectDeviceInfo()
+        
         // 1. Criar inscrição com user_id, athlete_id e buyer_id
         const now = new Date()
         const insertData: any = {
@@ -1116,6 +1193,13 @@ export default function CheckoutPage() {
           registration_time: now.toTimeString().split(' ')[0],
           status: isGratuito() ? "confirmed" : "pending",
           shirt_size: p.tamanhoCamiseta || null,
+          liability_waiver_accepted: p.aceiteTermo || false,
+          liability_waiver_timestamp: p.aceiteTermo ? now.toISOString() : null,
+          liability_waiver_ip: p.aceiteTermo ? clientIP : null,
+          liability_waiver_user_agent: p.aceiteTermo ? deviceInfo.userAgent : null,
+          liability_waiver_device_type: p.aceiteTermo ? deviceInfo.deviceType : null,
+          liability_waiver_browser: p.aceiteTermo ? deviceInfo.browser : null,
+          liability_waiver_os: p.aceiteTermo ? deviceInfo.os : null,
         }
         
         // Preencher athlete_id e buyer_id (obrigatórios) e user_id (opcional)

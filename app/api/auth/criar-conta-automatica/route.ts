@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    const { email, nome, telefone, cpf, endereco, numero, complemento, bairro, cidade, estado, cep } = body as {
+    const { email, nome, telefone, cpf, endereco, numero, complemento, bairro, cidade, estado, cep, pais, idade, genero, emergency_contact_name, emergency_contact_phone } = body as {
       email: string
       nome: string
       telefone?: string
@@ -20,6 +20,11 @@ export async function POST(request: NextRequest) {
       cidade?: string
       estado?: string
       cep?: string
+      pais?: string
+      idade?: number
+      genero?: string
+      emergency_contact_name?: string
+      emergency_contact_phone?: string
     }
 
     console.log('📝 [API] Recebido criar-conta-automatica:', {
@@ -122,6 +127,11 @@ export async function POST(request: NextRequest) {
           city: cidade || null,
           state: estado || null,
           zip_code: cep?.replace(/\D/g, '') || null,
+          country: pais || null,
+          age: idade || null,
+          gender: genero || null,
+          emergency_contact_name: emergency_contact_name || null,
+          emergency_contact_phone: emergency_contact_phone?.replace(/\D/g, '') || null,
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'id'
@@ -164,6 +174,11 @@ export async function POST(request: NextRequest) {
                 city: cidade,
                 state: estado,
                 zip_code: cep?.replace(/\D/g, ''),
+                country: pais,
+                age: idade,
+                gender: genero,
+                emergency_contact_name: emergency_contact_name,
+                emergency_contact_phone: emergency_contact_phone?.replace(/\D/g, ''),
                 role: 'ATLETA',
               },
             }
@@ -202,6 +217,11 @@ export async function POST(request: NextRequest) {
           city: cidade || null,
           state: estado || null,
           zip_code: cep?.replace(/\D/g, '') || null,
+          country: pais || null,
+          age: idade || null,
+          gender: genero || null,
+          emergency_contact_name: emergency_contact_name || null,
+          emergency_contact_phone: emergency_contact_phone?.replace(/\D/g, '') || null,
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'id'
@@ -231,6 +251,11 @@ export async function POST(request: NextRequest) {
                 city: cidade,
                 state: estado,
                 zip_code: cep?.replace(/\D/g, ''),
+                country: pais,
+                age: idade,
+                gender: genero,
+                emergency_contact_name: emergency_contact_name,
+                emergency_contact_phone: emergency_contact_phone?.replace(/\D/g, ''),
                 role: 'ATLETA',
               },
             }
@@ -267,6 +292,11 @@ export async function POST(request: NextRequest) {
           city: cidade,
           state: estado,
           zip_code: cep?.replace(/\D/g, ''),
+          country: pais,
+          age: idade,
+          gender: genero,
+          emergency_contact_name: emergency_contact_name,
+          emergency_contact_phone: emergency_contact_phone?.replace(/\D/g, ''),
           role: 'ATLETA',
         },
       })
@@ -298,6 +328,11 @@ export async function POST(request: NextRequest) {
                   city: cidade || null,
                   state: estado || null,
                   zip_code: cep?.replace(/\D/g, '') || null,
+                  country: pais || null,
+                  age: idade || null,
+                  gender: genero || null,
+                  emergency_contact_name: emergency_contact_name || null,
+                  emergency_contact_phone: emergency_contact_phone?.replace(/\D/g, '') || null,
                   updated_at: new Date().toISOString(),
                 }, {
                   onConflict: 'id'
@@ -346,6 +381,11 @@ export async function POST(request: NextRequest) {
             city: cidade,
             state: estado,
             zip_code: cep?.replace(/\D/g, ''),
+            country: pais,
+            age: idade,
+            gender: genero,
+            emergency_contact_name: emergency_contact_name,
+            emergency_contact_phone: emergency_contact_phone?.replace(/\D/g, ''),
             role: 'ATLETA',
           },
           emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://evemaster.app'}/my-account`,
@@ -417,6 +457,11 @@ export async function POST(request: NextRequest) {
         city: cidade || null,
         state: estado || null,
         zip_code: cep?.replace(/\D/g, '') || null,
+        country: pais || null,
+        age: idade || null,
+        gender: genero || null,
+        emergency_contact_name: emergency_contact_name || null,
+        emergency_contact_phone: emergency_contact_phone?.replace(/\D/g, '') || null,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: 'id'
