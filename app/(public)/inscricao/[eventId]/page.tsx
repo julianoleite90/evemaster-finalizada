@@ -109,6 +109,13 @@ export default function CheckoutPage() {
   const [mostrarSelecaoParticipantes, setMostrarSelecaoParticipantes] = useState(false)
   const [salvarPerfil, setSalvarPerfil] = useState<{ [key: number]: boolean }>({})
   const [permiteEdicao, setPermiteEdicao] = useState(false) // Controla se permite editar campos quando logado
+  
+  // Novos estados para o fluxo inteligente
+  const [mostrarPopupIncluirParticipantes, setMostrarPopupIncluirParticipantes] = useState(false)
+  const [quantidadeParticipantesAdicionais, setQuantidadeParticipantesAdicionais] = useState(1)
+  const [mostrarBuscaParticipantes, setMostrarBuscaParticipantes] = useState(false)
+  const [termoBuscaParticipante, setTermoBuscaParticipante] = useState("")
+  const [participanteAtualEmEdicao, setParticipanteAtualEmEdicao] = useState<number | null>(null) // Qual participante está sendo editado na busca
 
   const footerPaymentText: Record<string, string> = {
     pt: "Aceitamos todos os cartões, Pix e Boleto",
@@ -759,62 +766,109 @@ export default function CheckoutPage() {
   }
 
   // Selecionar participante salvo
-  const selecionarParticipanteSalvo = (perfil: any) => {
-    const novosParticipantes = [...participantes]
-    // Se já há participantes para preencher, substituir o próximo participante
-    // Caso contrário, adicionar um novo
-    if (currentParticipante < participantes.length - 1) {
-      // Substituir o próximo participante com os dados do perfil salvo
-      const proximoIndex = currentParticipante + 1
-      novosParticipantes[proximoIndex] = {
-        ...participanteVazio,
-        nome: perfil.full_name || "",
-        email: perfil.email || "",
-        telefone: perfil.phone || "",
-        idade: perfil.age ? String(perfil.age) : "",
-        genero: perfil.gender === 'male' ? 'Masculino' : perfil.gender === 'female' ? 'Feminino' : "",
-        paisResidencia: perfil.country || "brasil",
-        cep: perfil.zip_code || "",
-        endereco: perfil.address || "",
-        numero: perfil.address_number || "",
-        complemento: perfil.address_complement || "",
-        bairro: perfil.neighborhood || "",
-        cidade: perfil.city || "",
-        estado: perfil.state || "",
-        cpf: perfil.cpf || "",
-        tamanhoCamiseta: perfil.shirt_size || "",
-        aceiteTermo: false,
-      }
-      setParticipantes(novosParticipantes)
-      setCurrentParticipante(proximoIndex)
-      setCurrentStep(1)
-    } else {
-      // Adicionar um novo participante
-      const novoIndex = participantes.length
-      novosParticipantes.push({
-        ...participanteVazio,
-        nome: perfil.full_name || "",
-        email: perfil.email || "",
-        telefone: perfil.phone || "",
-        idade: perfil.age ? String(perfil.age) : "",
-        genero: perfil.gender === 'male' ? 'Masculino' : perfil.gender === 'female' ? 'Feminino' : "",
-        paisResidencia: perfil.country || "brasil",
-        cep: perfil.zip_code || "",
-        endereco: perfil.address || "",
-        numero: perfil.address_number || "",
-        complemento: perfil.address_complement || "",
-        bairro: perfil.neighborhood || "",
-        cidade: perfil.city || "",
-        estado: perfil.state || "",
-        cpf: perfil.cpf || "",
-        tamanhoCamiseta: perfil.shirt_size || "",
-        aceiteTermo: false,
-      })
-      setParticipantes(novosParticipantes)
-      setCurrentParticipante(novoIndex)
+  // Confirmar inclusão de mais participantes
+  const confirmarIncluirParticipantes = async () => {
+    if (quantidadeParticipantesAdicionais < 1) {
+      toast.error('Selecione pelo menos 1 participante adicional')
+      return
     }
-    setMostrarSelecaoParticipantes(false)
+
+    // Adicionar participantes vazios
+    const novosParticipantes = [...participantes]
+    for (let i = 0; i < quantidadeParticipantesAdicionais; i++) {
+      novosParticipantes.push({ ...participanteVazio })
+    }
+    setParticipantes(novosParticipantes)
+    
+    // Adicionar ingressos correspondentes (usar o mesmo ingresso do primeiro participante)
+    const ingressoPrincipal = ingressosSelecionados[0]
+    const novosIngressos = [...ingressosSelecionados]
+    for (let i = 0; i < quantidadeParticipantesAdicionais; i++) {
+      novosIngressos.push({ ...ingressoPrincipal })
+    }
+    setIngressosSelecionados(novosIngressos)
+    
+    setMostrarPopupIncluirParticipantes(false)
+    
+    // Buscar perfis salvos se estiver logado
+    if (usuarioLogado) {
+      await fetchPerfisSalvos()
+    }
+    
+    // Mostrar busca de participantes para o primeiro participante adicional
+    setParticipanteAtualEmEdicao(1)
+    setMostrarBuscaParticipantes(true)
+  }
+
+  // Filtrar perfis salvos por termo de busca
+  const perfisFiltrados = perfisSalvos.filter(perfil => {
+    if (!termoBuscaParticipante) return true
+    const termo = termoBuscaParticipante.toLowerCase()
+    return (
+      perfil.full_name?.toLowerCase().includes(termo) ||
+      perfil.email?.toLowerCase().includes(termo) ||
+      perfil.cpf?.replace(/\D/g, '').includes(termo.replace(/\D/g, ''))
+    )
+  })
+
+  // Selecionar participante salvo
+  const selecionarParticipanteSalvo = (perfil: any) => {
+    if (participanteAtualEmEdicao === null) return
+    
+    const novosParticipantes = [...participantes]
+    novosParticipantes[participanteAtualEmEdicao] = {
+      ...participanteVazio,
+      nome: perfil.full_name || "",
+      email: perfil.email || "",
+      telefone: perfil.phone || "",
+      idade: perfil.age ? String(perfil.age) : "",
+      genero: perfil.gender === 'male' ? 'Masculino' : perfil.gender === 'female' ? 'Feminino' : "",
+      paisResidencia: perfil.country || "brasil",
+      cep: perfil.zip_code || "",
+      endereco: perfil.address || "",
+      numero: perfil.address_number || "",
+      complemento: perfil.address_complement || "",
+      bairro: perfil.neighborhood || "",
+      cidade: perfil.city || "",
+      estado: perfil.state || "",
+      cpf: perfil.cpf || "",
+      tamanhoCamiseta: perfil.shirt_size || "",
+      aceiteTermo: false,
+    }
+    setParticipantes(novosParticipantes)
+    setCurrentParticipante(participanteAtualEmEdicao)
+    setCurrentStep(1)
+    setMostrarBuscaParticipantes(false)
+    setParticipanteAtualEmEdicao(null)
+    setTermoBuscaParticipante("")
     toast.success('Participante adicionado! Revise e edite os dados se necessário.')
+  }
+
+  // Criar novo participante (não usar perfil salvo)
+  const criarNovoParticipante = () => {
+    if (participanteAtualEmEdicao === null) return
+    
+    setCurrentParticipante(participanteAtualEmEdicao)
+    setCurrentStep(1)
+    setMostrarBuscaParticipantes(false)
+    setParticipanteAtualEmEdicao(null)
+    setTermoBuscaParticipante("")
+  }
+
+  // Continuar para próximo participante na busca
+  const continuarParaProximoParticipante = () => {
+    if (participanteAtualEmEdicao === null) return
+    
+    const proximoIndex = participanteAtualEmEdicao + 1
+    if (proximoIndex < participantes.length) {
+      setParticipanteAtualEmEdicao(proximoIndex)
+      setTermoBuscaParticipante("")
+    } else {
+      // Todos os participantes foram preenchidos, finalizar
+      setMostrarBuscaParticipantes(false)
+      setParticipanteAtualEmEdicao(null)
+      handleSubmit()
+    }
   }
 
   // Formatar telefone
@@ -941,34 +995,26 @@ export default function CheckoutPage() {
     if (!validarStep()) return
     
     const totalSteps = isGratuito() ? 3 : 3
+    const quantidadeIngressosInicial = ingressosSelecionados.length
     
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1)
-    } else if (currentParticipante < participantes.length - 1) {
-      // Próximo participante
-      // Se for o primeiro participante (principal) e estiver logado, mostrar diálogo antes de ir para o próximo
-      if (currentParticipante === 0 && usuarioLogado && !mostrarSelecaoParticipantes) {
-        // Buscar perfis salvos antes de mostrar o diálogo
-        await fetchPerfisSalvos()
-        setMostrarSelecaoParticipantes(true)
-        // Não avançar para o próximo participante ainda, aguardar seleção no diálogo
-      } else {
-        // Se não estiver logado ou já mostrou o diálogo, ir para o próximo participante
-        setCurrentParticipante(currentParticipante + 1)
-        setCurrentStep(1)
-      }
     } else {
-      // Último participante
-      // Se for o primeiro participante (principal) e estiver logado, perguntar se quer inscrever mais pessoas
-      if (currentParticipante === 0 && usuarioLogado && !mostrarSelecaoParticipantes) {
-        // Buscar perfis salvos antes de mostrar o diálogo
-        await fetchPerfisSalvos()
-        setMostrarSelecaoParticipantes(true)
-      } else if (currentParticipante > 0) {
-        // Se for acompanhante, finalizar direto
-        handleSubmit()
+      // Último step do participante atual
+      // Se for o primeiro participante e tinha apenas 1 ingresso no início
+      if (currentParticipante === 0 && quantidadeIngressosInicial === 1) {
+        // Mostrar popup perguntando se deseja incluir mais participantes
+        setMostrarPopupIncluirParticipantes(true)
+      } else if (currentParticipante < participantes.length - 1) {
+        // Próximo participante já existe (tinha 2+ ingressos desde o início)
+        // Mostrar busca de participantes para o próximo participante
+        setParticipanteAtualEmEdicao(currentParticipante + 1)
+        if (usuarioLogado) {
+          await fetchPerfisSalvos()
+        }
+        setMostrarBuscaParticipantes(true)
       } else {
-        // Se não estiver logado ou não tiver perfis, finalizar direto
+        // Último participante - finalizar inscrição
         handleSubmit()
       }
     }
@@ -1036,6 +1082,46 @@ export default function CheckoutPage() {
         } catch (accountError) {
           console.error('Erro ao criar conta para', participante.email, ':', accountError)
           // Não bloquear o fluxo se falhar
+        }
+      }
+
+      // Salvar perfis de participantes se solicitado
+      const userIdPrincipal = usuarioLogado?.id || userIdsMap.get(participantes[0]?.email) || null
+      if (userIdPrincipal) {
+        for (let i = 0; i < participantes.length; i++) {
+          if (salvarPerfil[i] && i > 0) { // Apenas salvar perfis de acompanhantes (i > 0)
+            const p = participantes[i]
+            if (p.nome && p.email && p.cpf) {
+              try {
+                await fetch('/api/participants/salvar-perfil', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    user_id: userIdPrincipal, // Sempre usar userId do principal
+                    full_name: p.nome,
+                    email: p.email,
+                    phone: p.telefone,
+                    cpf: p.cpf.replace(/\D/g, ''),
+                    birth_date: p.idade ? new Date(new Date().getFullYear() - parseInt(p.idade), 0, 1).toISOString().split('T')[0] : null,
+                    age: p.idade ? parseInt(p.idade) : null,
+                    gender: p.genero === 'Masculino' ? 'male' : p.genero === 'Feminino' ? 'female' : p.genero || null,
+                    country: p.paisResidencia || 'brasil',
+                    zip_code: p.cep,
+                    address: p.endereco,
+                    address_number: p.numero,
+                    address_complement: p.complemento,
+                    neighborhood: p.bairro,
+                    city: p.cidade,
+                    state: p.estado,
+                    shirt_size: p.tamanhoCamiseta,
+                  }),
+                })
+              } catch (error) {
+                console.error('Erro ao salvar perfil do participante', i, ':', error)
+                // Não bloquear o fluxo se falhar
+              }
+            }
+          }
         }
       }
 
@@ -2414,66 +2500,160 @@ export default function CheckoutPage() {
         </div>
       </footer>
 
-      {/* Diálogo de seleção de participantes salvos */}
-      <Dialog open={mostrarSelecaoParticipantes} onOpenChange={setMostrarSelecaoParticipantes}>
+      {/* Popup elaborado: Deseja incluir mais participantes? */}
+      <Dialog open={mostrarPopupIncluirParticipantes} onOpenChange={setMostrarPopupIncluirParticipantes}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl text-center mb-2">Deseja incluir mais participantes?</DialogTitle>
+            <p className="text-sm text-gray-600 text-center">
+              Você pode adicionar participantes adicionais à sua inscrição
+            </p>
+          </DialogHeader>
+          <div className="space-y-4 mt-6">
+            <div className="space-y-2">
+              <Label htmlFor="quantidade">Quantos participantes adicionais?</Label>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setQuantidadeParticipantesAdicionais(Math.max(1, quantidadeParticipantesAdicionais - 1))}
+                  disabled={quantidadeParticipantesAdicionais <= 1}
+                >
+                  -
+                </Button>
+                <Input
+                  id="quantidade"
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={quantidadeParticipantesAdicionais}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 1
+                    setQuantidadeParticipantesAdicionais(Math.max(1, Math.min(10, val)))
+                  }}
+                  className="text-center w-20"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setQuantidadeParticipantesAdicionais(Math.min(10, quantidadeParticipantesAdicionais + 1))}
+                  disabled={quantidadeParticipantesAdicionais >= 10}
+                >
+                  +
+                </Button>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setMostrarPopupIncluirParticipantes(false)
+                  handleSubmit()
+                }}
+                className="flex-1"
+              >
+                Não, finalizar apenas eu
+              </Button>
+              <Button
+                onClick={confirmarIncluirParticipantes}
+                className="flex-1 bg-[#156634] hover:bg-[#1a7a3e]"
+              >
+                Sim, incluir {quantidadeParticipantesAdicionais} participante{quantidadeParticipantesAdicionais > 1 ? 's' : ''}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de busca de participantes salvos OU inserir novo */}
+      <Dialog open={mostrarBuscaParticipantes} onOpenChange={setMostrarBuscaParticipantes}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Deseja incluir mais participantes?</DialogTitle>
-            {perfisSalvos.length > 0 ? (
-              <p className="text-sm text-gray-600 mt-2">
-                Você tem {perfisSalvos.length} perfil(is) salvo(s). Selecione os participantes que deseja inscrever:
-              </p>
-            ) : (
-              <p className="text-sm text-gray-600 mt-2">
-                Você ainda não tem perfis salvos. Complete esta inscrição e salve perfis de acompanhantes para usar em próximas inscrições.
-              </p>
-            )}
+            <DialogTitle>
+              {participanteAtualEmEdicao !== null 
+                ? `Participante ${participanteAtualEmEdicao + 1} de ${participantes.length}`
+                : 'Selecione ou crie um participante'}
+            </DialogTitle>
+            <p className="text-sm text-gray-600 mt-2">
+              {usuarioLogado && perfisSalvos.length > 0
+                ? 'Busque um participante salvo ou crie um novo'
+                : 'Preencha os dados do participante'}
+            </p>
           </DialogHeader>
-          {perfisSalvos.length > 0 && (
-            <div className="space-y-3 mt-4">
-              {perfisSalvos.map((perfil) => (
-                <Card key={perfil.id} className="border cursor-pointer hover:border-[#156634] transition-colors">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="font-medium">{perfil.full_name}</p>
-                        <p className="text-sm text-gray-600">{perfil.email}</p>
-                        {perfil.cpf && (
-                          <p className="text-xs text-gray-500">CPF: {perfil.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}</p>
-                        )}
-                      </div>
-                      <Button
-                        size="sm"
-                        onClick={() => selecionarParticipanteSalvo(perfil)}
-                        className="bg-[#156634] hover:bg-[#1a7a3e]"
-                      >
-                        Adicionar
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+          
+          {usuarioLogado && perfisSalvos.length > 0 && (
+            <div className="space-y-4 mt-4">
+              {/* Campo de busca */}
+              <div className="space-y-2">
+                <Label htmlFor="buscaParticipante">Buscar participante por nome, email ou CPF</Label>
+                <Input
+                  id="buscaParticipante"
+                  placeholder="Digite para buscar..."
+                  value={termoBuscaParticipante}
+                  onChange={(e) => setTermoBuscaParticipante(e.target.value)}
+                />
+              </div>
+
+              {/* Lista de perfis filtrados */}
+              {perfisFiltrados.length > 0 ? (
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {perfisFiltrados.map((perfil) => (
+                    <Card key={perfil.id} className="border cursor-pointer hover:border-[#156634] transition-colors">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <p className="font-medium">{perfil.full_name}</p>
+                            <p className="text-sm text-gray-600">{perfil.email}</p>
+                            {perfil.cpf && (
+                              <p className="text-xs text-gray-500">
+                                CPF: {perfil.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => selecionarParticipanteSalvo(perfil)}
+                            className="bg-[#156634] hover:bg-[#1a7a3e]"
+                          >
+                            Usar este
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : termoBuscaParticipante ? (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  Nenhum participante encontrado com "{termoBuscaParticipante}"
+                </p>
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  Digite para buscar participantes salvos
+                </p>
+              )}
             </div>
           )}
-          <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+
+          <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
             <Button
               variant="outline"
-              onClick={() => {
-                setMostrarSelecaoParticipantes(false)
-                // Se ainda há participantes para preencher, ir para o próximo
-                if (currentParticipante < participantes.length - 1) {
-                  setCurrentParticipante(currentParticipante + 1)
-                  setCurrentStep(1)
-                } else {
-                  // Se não há mais participantes, finalizar
-                  handleSubmit()
-                }
-              }}
+              onClick={criarNovoParticipante}
+              className="flex-1"
             >
-              {currentParticipante < participantes.length - 1 
-                ? "Não, continuar sem adicionar" 
-                : "Não, finalizar inscrição"}
+              {usuarioLogado && perfisSalvos.length > 0 
+                ? "Criar novo participante" 
+                : "Preencher dados manualmente"}
             </Button>
+            {participanteAtualEmEdicao !== null && participanteAtualEmEdicao < participantes.length - 1 && (
+              <Button
+                variant="outline"
+                onClick={continuarParaProximoParticipante}
+              >
+                Pular este
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
