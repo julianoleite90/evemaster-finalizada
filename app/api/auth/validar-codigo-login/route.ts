@@ -54,20 +54,64 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Buscar usuário
-    const { data: user, error: userError } = await supabase
+    // Buscar usuário - usar o mesmo método que funcionou no envio do código
+    // Primeiro tenta com cliente normal (mesmo que enviar-codigo-login)
+    let user = null
+    let userError = null
+    
+    const { data: userData, error: userDataError } = await supabase
       .from('users')
       .select('id, email, full_name, cpf, phone, birth_date, gender, address, address_number, address_complement, neighborhood, city, state, zip_code')
       .eq('email', email.toLowerCase())
       .eq('cpf', cleanCPF)
       .maybeSingle()
 
-    if (userError || !user) {
+    if (userDataError) {
+      console.error('❌ [VALIDAR-CODIGO] Erro ao buscar usuário (cliente normal):', {
+        error: userDataError.message,
+        code: userDataError.code,
+        email: email.toLowerCase(),
+        cpf: cleanCPF
+      })
+      // Se falhar com cliente normal, tentar com admin (pode ser problema de RLS)
+      const { data: userDataAdmin, error: userErrorAdmin } = await supabaseAdmin
+        .from('users')
+        .select('id, email, full_name, cpf, phone, birth_date, gender, address, address_number, address_complement, neighborhood, city, state, zip_code')
+        .eq('email', email.toLowerCase())
+        .eq('cpf', cleanCPF)
+        .maybeSingle()
+      
+      if (userErrorAdmin) {
+        return NextResponse.json(
+          { error: 'Erro ao buscar usuário', details: userErrorAdmin.message },
+          { status: 500 }
+        )
+      }
+      
+      user = userDataAdmin
+    } else {
+      user = userData
+    }
+
+    if (!user) {
+      console.error('❌ [VALIDAR-CODIGO] Usuário não encontrado:', {
+        email: email.toLowerCase(),
+        cpf: cleanCPF,
+        codeValid: !!loginCode,
+        codeEmail: loginCode?.email,
+        codeCPF: loginCode?.cpf
+      })
       return NextResponse.json(
-        { error: 'Usuário não encontrado' },
+        { error: 'Usuário não encontrado. Verifique se o email e CPF estão corretos.' },
         { status: 404 }
       )
     }
+
+    console.log('✅ [VALIDAR-CODIGO] Usuário encontrado:', {
+      id: user.id,
+      email: user.email,
+      name: user.full_name
+    })
 
     // Marcar código como usado
     await supabaseAdmin
