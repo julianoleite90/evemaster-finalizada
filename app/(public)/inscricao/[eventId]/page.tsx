@@ -116,6 +116,7 @@ export default function CheckoutPage() {
   const [mostrarBuscaParticipantes, setMostrarBuscaParticipantes] = useState(false)
   const [termoBuscaParticipante, setTermoBuscaParticipante] = useState("")
   const [participanteAtualEmEdicao, setParticipanteAtualEmEdicao] = useState<number | null>(null) // Qual participante está sendo editado na busca
+  const [quantidadeIngressosInicial, setQuantidadeIngressosInicial] = useState<number>(0) // Quantidade inicial de ingressos selecionados
 
   const footerPaymentText: Record<string, string> = {
     pt: "Aceitamos todos os cartões, Pix e Boleto",
@@ -383,6 +384,9 @@ export default function CheckoutPage() {
         setTemKit(verificarKit)
         setTemCamiseta(verificarCamiseta)
         
+        // Salvar quantidade inicial de ingressos
+        setQuantidadeIngressosInicial(listaIngressos.length)
+        
         // Inicializar participantes
         setParticipantes(listaIngressos.map(() => ({ ...participanteVazio })))
         
@@ -470,7 +474,7 @@ export default function CheckoutPage() {
   // Verificar CPF e oferecer login rápido
   const verificarCPF = async (cpf: string) => {
     const cleanCPF = cpf.replace(/\D/g, '')
-    console.log('🔍 [CHECKOUT] Verificando CPF:', { cpf, cleanCPF, length: cleanCPF.length })
+    console.log('🔍 [CHECKOUT] Verificando CPF:', { cpf, cleanCPF, length: cleanCPF.length, currentParticipante, usuarioLogado })
     
     if (cleanCPF.length !== 11) {
       console.log('⚠️ [CHECKOUT] CPF não tem 11 dígitos:', cleanCPF.length)
@@ -481,36 +485,98 @@ export default function CheckoutPage() {
 
     try {
       setVerificandoCPF(true)
-      console.log('📡 [CHECKOUT] Enviando requisição para /api/auth/verificar-cpf com CPF:', cleanCPF)
       
-      const res = await fetch('/api/auth/verificar-cpf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpf: cleanCPF }),
-      })
-
-      console.log('📥 [CHECKOUT] Resposta recebida:', { status: res.status, ok: res.ok })
-
-      if (!res.ok) {
-        const errorData = await res.json()
-        console.error('❌ [CHECKOUT] Erro na API:', errorData)
-        toast.error(errorData.error || 'Erro ao verificar CPF')
-        setUsuarioExiste(null)
-        setMostrarLoginRapido(false)
-        return
+      // Se estiver logado e for participante adicional (não o principal), buscar perfis salvos
+      if (usuarioLogado && currentParticipante > 0) {
+        console.log('🔍 [CHECKOUT] Usuário logado e participante adicional - buscando perfis salvos...')
+        
+        // Buscar perfis salvos primeiro
+        try {
+          const perfisRes = await fetch('/api/participants/perfis-salvos')
+          const perfisData = await perfisRes.json()
+          if (perfisRes.ok && perfisData.profiles) {
+            setPerfisSalvos(perfisData.profiles)
+            
+            // Buscar perfil salvo com este CPF
+            const perfilEncontrado = perfisData.profiles.find((p: any) => {
+              const cpfPerfil = p.cpf?.replace(/\D/g, '') || ''
+              return cpfPerfil === cleanCPF
+            })
+            
+            if (perfilEncontrado) {
+              console.log('✅ [CHECKOUT] Perfil salvo encontrado:', perfilEncontrado)
+              // Preencher dados do perfil salvo
+              const novosParticipantes = [...participantes]
+              const participanteAtual = participantes[currentParticipante]
+              novosParticipantes[currentParticipante] = {
+                ...novosParticipantes[currentParticipante],
+                nome: perfilEncontrado.full_name || "",
+                email: perfilEncontrado.email || "",
+                telefone: perfilEncontrado.phone || "",
+                idade: perfilEncontrado.age ? String(perfilEncontrado.age) : "",
+                genero: perfilEncontrado.gender === 'male' ? 'Masculino' : perfilEncontrado.gender === 'female' ? 'Feminino' : "",
+                paisResidencia: perfilEncontrado.country || "brasil",
+                cep: perfilEncontrado.zip_code || "",
+                endereco: perfilEncontrado.address || "",
+                numero: perfilEncontrado.address_number || "",
+                complemento: perfilEncontrado.address_complement || "",
+                bairro: perfilEncontrado.neighborhood || "",
+                cidade: perfilEncontrado.city || "",
+                estado: perfilEncontrado.state || "",
+                cpf: perfilEncontrado.cpf ? (participanteAtual.paisResidencia === "brasil" ? formatCPF(perfilEncontrado.cpf) : perfilEncontrado.cpf) : "",
+                tamanhoCamiseta: perfilEncontrado.shirt_size || "",
+                aceiteTermo: false,
+              }
+              setParticipantes(novosParticipantes)
+              toast.success('Perfil salvo encontrado e preenchido automaticamente!')
+              setVerificandoCPF(false)
+              return
+            } else {
+              console.log('⚠️ [CHECKOUT] CPF não encontrado nos perfis salvos')
+              // Mostrar lista de perfis salvos disponíveis
+              if (perfisData.profiles.length > 0) {
+                toast.info(`Você tem ${perfisData.profiles.length} perfil(is) salvo(s). Use a busca de participantes para selecionar.`)
+              }
+            }
+          }
+        } catch (error) {
+          console.error('❌ [CHECKOUT] Erro ao buscar perfis salvos:', error)
+        }
       }
-
-      const data = await res.json()
-      console.log('✅ [CHECKOUT] Dados recebidos da API:', data)
       
-      if (data.exists) {
-        console.log('✅ [CHECKOUT] Usuário encontrado! Email:', data.email)
-        setUsuarioExiste(data)
-        setMostrarLoginRapido(true)
-      } else {
-        console.log('⚠️ [CHECKOUT] CPF não encontrado no banco de dados')
-        setUsuarioExiste(null)
-        setMostrarLoginRapido(false)
+      // Verificar se existe conta para login rápido (apenas para primeiro participante)
+      if (currentParticipante === 0) {
+        console.log('📡 [CHECKOUT] Enviando requisição para /api/auth/verificar-cpf com CPF:', cleanCPF)
+        
+        const res = await fetch('/api/auth/verificar-cpf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cpf: cleanCPF }),
+        })
+
+        console.log('📥 [CHECKOUT] Resposta recebida:', { status: res.status, ok: res.ok })
+
+        if (!res.ok) {
+          const errorData = await res.json()
+          console.error('❌ [CHECKOUT] Erro na API:', errorData)
+          toast.error(errorData.error || 'Erro ao verificar CPF')
+          setUsuarioExiste(null)
+          setMostrarLoginRapido(false)
+          return
+        }
+
+        const data = await res.json()
+        console.log('✅ [CHECKOUT] Dados recebidos da API:', data)
+        
+        if (data.exists) {
+          console.log('✅ [CHECKOUT] Usuário encontrado! Email:', data.email)
+          setUsuarioExiste(data)
+          setMostrarLoginRapido(true)
+        } else {
+          console.log('⚠️ [CHECKOUT] CPF não encontrado no banco de dados')
+          setUsuarioExiste(null)
+          setMostrarLoginRapido(false)
+        }
       }
     } catch (error) {
       console.error('❌ [CHECKOUT] Erro ao verificar CPF:', error)
@@ -995,7 +1061,6 @@ export default function CheckoutPage() {
     if (!validarStep()) return
     
     const totalSteps = isGratuito() ? 3 : 3
-    const quantidadeIngressosInicial = ingressosSelecionados.length
     
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1)
