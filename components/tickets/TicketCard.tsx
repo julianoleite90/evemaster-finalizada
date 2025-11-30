@@ -1,25 +1,55 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Ticket, Calendar, MapPin, Clock, User, Download, Wallet } from "lucide-react"
+import { Ticket, Calendar, MapPin, Clock, User, Download, Wallet, Star, CheckCircle } from "lucide-react"
 import Image from "next/image"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
+import { ReviewModal } from "@/components/reviews/ReviewModal"
+import { StarRating } from "@/components/reviews/StarRating"
 
 interface TicketCardProps {
   inscricao: any
   onDownloadPDF?: () => void
   onAddToWallet?: (walletType: 'apple' | 'google') => void
+  userId?: string
 }
 
-export function TicketCard({ inscricao, onDownloadPDF, onAddToWallet }: TicketCardProps) {
+export function TicketCard({ inscricao, onDownloadPDF, onAddToWallet, userId }: TicketCardProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [reviewModalOpen, setReviewModalOpen] = useState(false)
+  const [hasReviewed, setHasReviewed] = useState(false)
+  const [userReview, setUserReview] = useState<any>(null)
   const event = inscricao.event
   const ticket = inscricao.ticket
+  const organizer = event?.organizer
+  
+  // Verificar se o usuário já avaliou este organizador para este evento
+  useEffect(() => {
+    const checkUserReview = async () => {
+      if (!userId || !organizer?.id || !event?.id) return
+      
+      try {
+        const response = await fetch(
+          `/api/reviews?userId=${userId}&organizerId=${organizer.id}&eventId=${event.id}`
+        )
+        const data = await response.json()
+        
+        if (data.reviews && data.reviews.length > 0) {
+          setHasReviewed(true)
+          setUserReview(data.reviews[0])
+        }
+      } catch (error) {
+        console.error("Erro ao verificar avaliação:", error)
+      }
+    }
+    
+    checkUserReview()
+  }, [userId, organizer?.id, event?.id])
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "Data não informada"
@@ -221,6 +251,47 @@ export function TicketCard({ inscricao, onDownloadPDF, onAddToWallet }: TicketCa
               </div>
             </div>
 
+            {/* Avaliação do Organizador */}
+            {organizer && (
+              <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                      <Star className="h-4 w-4 text-amber-500" />
+                      Avaliar Organizador
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      {organizer.company_name || "Organizador"}
+                    </p>
+                  </div>
+                  
+                  {hasReviewed ? (
+                    <div className="flex flex-col items-end gap-1">
+                      <div className="flex items-center gap-1 text-sm text-green-600">
+                        <CheckCircle className="h-4 w-4" />
+                        Avaliado
+                      </div>
+                      {userReview && (
+                        <StarRating rating={userReview.rating} size="sm" />
+                      )}
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setReviewModalOpen(true)
+                      }}
+                      size="sm"
+                      className="bg-amber-500 hover:bg-amber-600 text-white"
+                    >
+                      <Star className="h-4 w-4 mr-1" />
+                      Avaliar
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Ações - reorganizadas */}
             <div className="flex flex-col gap-2 pt-3 border-t">
               <div className="flex gap-2">
@@ -247,6 +318,24 @@ export function TicketCard({ inscricao, onDownloadPDF, onAddToWallet }: TicketCa
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Modal de Avaliação */}
+      {organizer && (
+        <ReviewModal
+          open={reviewModalOpen}
+          onOpenChange={setReviewModalOpen}
+          organizerId={organizer.id}
+          organizerName={organizer.company_name || "Organizador"}
+          eventId={event?.id}
+          eventName={event?.name}
+          registrationId={inscricao.id}
+          onSuccess={() => {
+            setHasReviewed(true)
+            // Recarregar para pegar a avaliação
+            window.location.reload()
+          }}
+        />
+      )}
     </>
   )
 }

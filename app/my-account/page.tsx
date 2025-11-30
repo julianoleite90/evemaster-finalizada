@@ -14,6 +14,7 @@ export default function MyAccountPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [inscricoes, setInscricoes] = useState<any[]>([])
+  const [userId, setUserId] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     const fetchInscricoes = async () => {
@@ -29,6 +30,9 @@ export default function MyAccountPage() {
           return
         }
 
+        // Salvar userId para uso no componente
+        setUserId(user.id)
+        
         console.log("🔍 [MyAccount] Buscando inscrições para usuário:", {
           userId: user.id,
           email: user.email,
@@ -57,7 +61,14 @@ export default function MyAccountPage() {
                 location,
                 address,
                 banner_url,
-                category
+                category,
+                organizer:organizers(
+                  id,
+                  company_name,
+                  company_email,
+                  average_rating,
+                  total_reviews
+                )
               ),
               ticket:tickets(
                 id,
@@ -127,7 +138,14 @@ export default function MyAccountPage() {
                       location,
                       address,
                       banner_url,
-                      category
+                      category,
+                      organizer:organizers(
+                        id,
+                        company_name,
+                        company_email,
+                        average_rating,
+                        total_reviews
+                      )
                     ),
                     ticket:tickets(
                       id,
@@ -306,6 +324,7 @@ export default function MyAccountPage() {
             <TicketCard
               key={inscricao.id}
               inscricao={inscricao}
+              userId={userId}
               onDownloadPDF={() => handleDownloadPDF(inscricao)}
               onAddToWallet={(walletType) => handleAddToWallet(inscricao, walletType)}
             />

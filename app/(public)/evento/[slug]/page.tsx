@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { getEventBySlug } from "@/lib/supabase/events"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2, Calendar, MapPin, Clock, Users, Share2, Heart, Minus, Plus, Trophy, Package, Building2, Mail, Phone, Globe, Route, Mountain, Activity, Facebook, Twitter, Linkedin, MessageCircle, Gauge, Award, Footprints, Map } from "lucide-react"
+import { Loader2, Calendar, MapPin, Clock, Users, Share2, Heart, Minus, Plus, Trophy, Package, Building2, Mail, Phone, Globe, Route, Mountain, Activity, Facebook, Twitter, Linkedin, MessageCircle, Gauge, Award, Footprints, Map, Star } from "lucide-react"
 import dynamic from "next/dynamic"
 
 const GPXMapViewer = dynamic(() => import("@/components/event/GPXMapViewer"), { ssr: false })
@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Image from "next/image"
 import Link from "next/link"
+import { RatingDisplay } from "@/components/reviews/StarRating"
 
 export default function EventoLandingPage() {
   const params = useParams()
@@ -941,6 +942,33 @@ export default function EventoLandingPage() {
                               : (language === 'pt' ? 'Não informado' : language === 'en' ? 'Not provided' : 'No proporcionado')
                             }
                           </p>
+                        </div>
+                      </div>
+
+                      {/* Avaliações do Organizador */}
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-amber-100 to-orange-100 rounded-lg flex items-center justify-center">
+                          <Star className="h-5 w-5 text-amber-500" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs text-muted-foreground uppercase font-medium mb-1">
+                            {language === 'pt' ? 'Avaliação' : language === 'en' ? 'Rating' : 'Calificación'}
+                          </p>
+                          {eventData.organizer.average_rating && eventData.organizer.total_reviews > 0 ? (
+                            <RatingDisplay 
+                              rating={Number(eventData.organizer.average_rating)} 
+                              totalReviews={eventData.organizer.total_reviews}
+                              size="sm"
+                            />
+                          ) : (
+                            <p className="text-sm text-gray-500 italic">
+                              {language === 'pt' 
+                                ? 'Nenhuma avaliação ainda' 
+                                : language === 'en' 
+                                ? 'No reviews yet' 
+                                : 'Sin evaluaciones aún'}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
