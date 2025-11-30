@@ -48,107 +48,85 @@ export function TicketCard({ inscricao, onDownloadPDF, onAddToWallet }: TicketCa
   return (
     <>
       <Card 
-        className="relative overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300 border-2 border-gray-200 hover:border-[#156634] group"
+        className="relative overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300 border border-gray-200 hover:border-[#156634] group"
         onClick={() => setIsOpen(true)}
       >
-        {/* Linha tracejada de destaque (estilo passagem aérea) */}
-        <div className="absolute left-1/2 top-0 bottom-0 w-0.5 border-l-2 border-dashed border-gray-300 group-hover:border-[#156634] transition-colors z-10"></div>
-        
-        <div className="flex">
-          {/* Lado esquerdo - Dados principais */}
-          <div className="flex-1 p-6 pr-3 relative">
-            <div className="relative z-10">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">
-                    {event?.name || "Evento não encontrado"}
-                  </h3>
-                  <div className="flex items-center gap-2 mb-3">
-                    {getStatusBadge(inscricao.status || "pending")}
-                    {event?.category && (
-                      <Badge variant="outline" className="text-xs">
-                        {event.category}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
+        <div className="flex items-center gap-4 p-4">
+          {/* Imagem do evento pequena */}
+          {event?.banner_url && (
+            <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden border border-gray-200">
+              <Image
+                src={event.banner_url}
+                alt={event.name || "Evento"}
+                fill
+                className="object-cover"
+              />
+            </div>
+          )}
 
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Calendar className="h-4 w-4 text-[#156634]" />
-                  <span className="font-medium">{formatDate(event?.event_date)}</span>
+          {/* Conteúdo principal */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <h3 className="text-lg font-bold text-gray-900 line-clamp-1 flex-1">
+                {event?.name || "Evento não encontrado"}
+              </h3>
+              {getStatusBadge(inscricao.status || "pending")}
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 mb-2">
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5 text-[#156634]" />
+                <span className="text-xs">{formatDate(event?.event_date)}</span>
+              </div>
+              {event?.start_time && (
+                <div className="flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5 text-[#156634]" />
+                  <span className="text-xs">{formatTime(event.start_time)}</span>
                 </div>
-                {event?.start_time && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Clock className="h-4 w-4 text-[#156634]" />
-                    <span>{formatTime(event.start_time)}</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <MapPin className="h-4 w-4 text-[#156634]" />
-                  <span className="truncate">{event?.location || event?.address || "Local não informado"}</span>
-                </div>
+              )}
+              <div className="flex items-center gap-1 min-w-0">
+                <MapPin className="h-3.5 w-3.5 text-[#156634] flex-shrink-0" />
+                <span className="text-xs truncate">{event?.location || event?.address || "Local não informado"}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 text-xs text-gray-500">
                 {ticket && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Ticket className="h-4 w-4 text-[#156634]" />
+                  <div className="flex items-center gap-1">
+                    <Ticket className="h-3 w-3 text-[#156634]" />
                     <span>{ticket.category}</span>
                   </div>
                 )}
-              </div>
-            </div>
-          </div>
-
-          {/* Divisor tracejado vertical */}
-          <div className="w-0.5 border-l-2 border-dashed border-gray-300 my-4"></div>
-
-          {/* Lado direito - Código e ações */}
-          <div className="w-48 p-6 pl-3 flex flex-col justify-between relative">
-            <div>
-              <div className="text-xs text-gray-500 mb-1">Código do Ingresso</div>
-              <div className="font-mono text-lg font-bold text-[#156634] mb-4">
-                {inscricao.registration_number || inscricao.id.substring(0, 8).toUpperCase()}
-              </div>
-              
-              {inscricao.athletes && Array.isArray(inscricao.athletes) && inscricao.athletes.length > 0 && (
-                <div className="mb-4">
-                  <div className="text-xs text-gray-500 mb-1">Participante</div>
-                  <div className="flex items-center gap-1 text-sm font-medium text-gray-700">
-                    <User className="h-3 w-3" />
-                    <span className="truncate">{inscricao.athletes[0].full_name || inscricao.athletes[0].email}</span>
+                {inscricao.athletes && Array.isArray(inscricao.athletes) && inscricao.athletes.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    <User className="h-3 w-3 text-gray-400" />
+                    <span className="truncate max-w-[150px]">{inscricao.athletes[0].full_name || inscricao.athletes[0].email}</span>
                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* Imagem do evento pequena no lugar do QR code */}
-            {event?.banner_url && (
-              <div className="mt-auto pt-4 flex items-center justify-end">
-                <div className="relative w-16 h-16 rounded overflow-hidden border border-gray-200">
-                  <Image
-                    src={event.banner_url}
-                    alt={event.name || "Evento"}
-                    fill
-                    className="object-cover"
-                  />
+                )}
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-gray-500 mb-0.5">Código</div>
+                <div className="font-mono text-sm font-bold text-[#156634]">
+                  {inscricao.registration_number || inscricao.id.substring(0, 8).toUpperCase()}
                 </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </Card>
 
       {/* Modal de Detalhes */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">{event?.name || "Detalhes do Ingresso"}</DialogTitle>
+            <DialogTitle className="text-xl font-bold">{event?.name || "Detalhes do Ingresso"}</DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-6 mt-4">
-            {/* Banner do evento */}
+          <div className="space-y-4 mt-2">
+            {/* Banner do evento - menor */}
             {event?.banner_url && (
-              <div className="relative w-full h-48 rounded-lg overflow-hidden">
+              <div className="relative w-full h-32 rounded-lg overflow-hidden">
                 <Image
                   src={event.banner_url}
                   alt={event.name || "Evento"}
@@ -159,7 +137,7 @@ export function TicketCard({ inscricao, onDownloadPDF, onAddToWallet }: TicketCa
             )}
 
             {/* Informações do Evento */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-3">
                 <h3 className="font-semibold text-lg text-gray-900 border-b pb-2">Informações do Evento</h3>
                 <div className="space-y-2">
@@ -233,9 +211,9 @@ export function TicketCard({ inscricao, onDownloadPDF, onAddToWallet }: TicketCa
               </div>
             </div>
 
-            {/* QR Code */}
-            <div className="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-              <div className="font-mono text-2xl font-bold text-[#156634] mb-2">
+            {/* QR Code - menor */}
+            <div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <div className="font-mono text-xl font-bold text-[#156634] mb-1">
                 {inscricao.registration_number || inscricao.id.substring(0, 8).toUpperCase()}
               </div>
               <div className="text-xs text-gray-500 text-center">
@@ -243,25 +221,27 @@ export function TicketCard({ inscricao, onDownloadPDF, onAddToWallet }: TicketCa
               </div>
             </div>
 
-            {/* Ações */}
-            <div className="flex flex-wrap gap-3 pt-4 border-t">
-              {onDownloadPDF && (
-                <Button onClick={onDownloadPDF} variant="outline" className="flex-1 min-w-[150px]">
-                  <Download className="h-4 w-4 mr-2" />
-                  Baixar PDF
-                </Button>
-              )}
+            {/* Ações - reorganizadas */}
+            <div className="flex flex-col gap-2 pt-3 border-t">
+              <div className="flex gap-2">
+                {onDownloadPDF && (
+                  <Button onClick={onDownloadPDF} variant="outline" className="flex-1">
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar PDF
+                  </Button>
+                )}
+                {onAddToWallet && (
+                  <Button onClick={() => onAddToWallet('apple')} className="flex-1 bg-[#156634] hover:bg-[#1a7a3e]">
+                    <Wallet className="h-4 w-4 mr-2" />
+                    Apple Wallet
+                  </Button>
+                )}
+              </div>
               {onAddToWallet && (
-                <div className="flex flex-col gap-2 w-full">
-                  <Button onClick={() => onAddToWallet('apple')} className="w-full bg-[#156634] hover:bg-[#1a7a3e]">
-                    <Wallet className="h-4 w-4 mr-2" />
-                    Adicionar à Apple Wallet
-                  </Button>
-                  <Button onClick={() => onAddToWallet('google')} variant="outline" className="w-full">
-                    <Wallet className="h-4 w-4 mr-2" />
-                    Adicionar ao Google Wallet
-                  </Button>
-                </div>
+                <Button onClick={() => onAddToWallet('google')} variant="outline" className="w-full">
+                  <Wallet className="h-4 w-4 mr-2" />
+                  Google Wallet
+                </Button>
               )}
             </div>
           </div>

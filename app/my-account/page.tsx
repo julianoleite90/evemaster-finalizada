@@ -180,6 +180,8 @@ export default function MyAccountPage() {
 
   const handleDownloadPDF = async (inscricao: any) => {
     try {
+      toast.loading('Gerando PDF...', { id: 'pdf-loading' })
+      
       const response = await fetch('/api/tickets/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -187,7 +189,14 @@ export default function MyAccountPage() {
       })
 
       if (!response.ok) {
-        throw new Error('Erro ao gerar ingresso')
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`)
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (contentType?.includes('application/json')) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Erro ao gerar ingresso')
       }
 
       const blob = await response.blob()
@@ -200,10 +209,10 @@ export default function MyAccountPage() {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
       
-      toast.success('Ingresso baixado com sucesso!')
-    } catch (error) {
+      toast.success('Ingresso baixado com sucesso!', { id: 'pdf-loading' })
+    } catch (error: any) {
       console.error('Erro ao gerar ingresso:', error)
-      toast.error('Erro ao gerar ingresso')
+      toast.error(error.message || 'Erro ao gerar ingresso', { id: 'pdf-loading' })
     }
   }
 

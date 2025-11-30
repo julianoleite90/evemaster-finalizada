@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import jsPDF from 'jspdf'
 import QRCode from 'qrcode'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
