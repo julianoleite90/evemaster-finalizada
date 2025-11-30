@@ -608,14 +608,14 @@ export default function CheckoutPage() {
             console.error('❌ Erro na API criar-conta-automatica:', createAccountResponse.status, errorData)
             // Continuar tentando buscar/criar usuário manualmente
           } else {
-            const accountResult = await createAccountResponse.json()
-            
+          const accountResult = await createAccountResponse.json()
+          
             if (accountResult.userId) {
-              userIdsMap.set(participante.email, accountResult.userId)
+            userIdsMap.set(participante.email, accountResult.userId)
               console.log('✅ Conta criada/atualizada para:', participante.email, 'userId:', accountResult.userId)
-            } else {
+          } else {
               console.warn('⚠️ API não retornou userId para:', participante.email, 'response:', accountResult)
-              // Continuar sem user_id (será vinculado pelo email do atleta)
+            // Continuar sem user_id (será vinculado pelo email do atleta)
             }
           }
         } catch (accountError) {

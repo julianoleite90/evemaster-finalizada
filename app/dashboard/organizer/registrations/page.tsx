@@ -1246,17 +1246,17 @@ export default function RegistrationsPage() {
                         {/* Status e Info (Cupom/Clube) */}
                         <div className="flex items-center justify-between w-full gap-2">
                           <div className="flex flex-col gap-1 flex-1">
-                            <div
-                              onClick={(e) => {
-                                const statusText = registration.statusPagamento === 'paid' ? 'Pago' : registration.statusPagamento === 'pending' ? 'Pendente' : 'Cancelado'
-                                handleCopy(e, statusText, `status-${registration.id}`)
-                              }}
-                              className="cursor-pointer"
-                            >
-                              {getStatusBadge(registration.statusPagamento)}
-                              {copiedId === `status-${registration.id}` ? (
-                                <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
-                              ) : null}
+                          <div
+                            onClick={(e) => {
+                              const statusText = registration.statusPagamento === 'paid' ? 'Pago' : registration.statusPagamento === 'pending' ? 'Pendente' : 'Cancelado'
+                              handleCopy(e, statusText, `status-${registration.id}`)
+                            }}
+                            className="cursor-pointer"
+                          >
+                            {getStatusBadge(registration.statusPagamento)}
+                            {copiedId === `status-${registration.id}` ? (
+                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
+                            ) : null}
                             </div>
                             <div className="flex flex-wrap gap-1">
                               {registration.cupomCodigo && (

@@ -19,7 +19,7 @@ interface RunningClubsTabProps {
 
 export function RunningClubsTabContent({ eventId }: RunningClubsTabProps) {
   console.log('🏃 [RUNNING_CLUBS] Componente renderizado com eventId:', eventId)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [clubs, setClubs] = useState<any[]>([])
   const [showAddClub, setShowAddClub] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -39,18 +39,16 @@ export function RunningClubsTabContent({ eventId }: RunningClubsTabProps) {
       fetchClubs()
     } else {
       console.error('RunningClubsTabContent: eventId não fornecido')
-      setLoading(false)
     }
   }, [eventId])
 
   const fetchClubs = async () => {
+    if (!eventId) {
+      console.error('RunningClubsTabContent: eventId não fornecido')
+      return
+    }
     try {
       setLoading(true)
-      if (!eventId) {
-        console.error('RunningClubsTabContent: eventId não fornecido')
-        setLoading(false)
-        return
-      }
       console.log('🏃 [RUNNING_CLUBS] Buscando clubes para eventId:', eventId)
       const res = await fetch(`/api/events/running-clubs?event_id=${eventId}`)
       console.log('🏃 [RUNNING_CLUBS] Resposta da API:', res.status, res.statusText)

@@ -163,9 +163,9 @@ export default function AffiliateDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Meus Eventos</CardTitle>
-              <CardDescription>
+          <CardDescription>
                 Eventos onde você é afiliado
-              </CardDescription>
+          </CardDescription>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" asChild>
@@ -203,9 +203,9 @@ export default function AffiliateDashboard() {
                         fill
                         className="object-cover"
                       />
-                    </div>
+          </div>
                   )}
-                  <CardHeader>
+          <CardHeader>
                     <CardTitle className="text-lg">{event.name}</CardTitle>
                     <CardDescription className="space-y-1">
                       {event.event_date && (
@@ -220,10 +220,10 @@ export default function AffiliateDashboard() {
                           {event.location}
                         </div>
                       )}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Comissão:</span>
                         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
@@ -231,7 +231,7 @@ export default function AffiliateDashboard() {
                             ? `${event.commission_value}%`
                             : `R$ ${event.commission_value.toFixed(2)}`}
                         </Badge>
-                      </div>
+                </div>
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" className="flex-1" asChild>
                           <Link href={`/dashboard/affiliate/links?event_id=${event.id}`}>
@@ -245,21 +245,21 @@ export default function AffiliateDashboard() {
                             Criar Cupom
                           </Link>
                         </Button>
-                      </div>
+              </div>
                       <Button variant="ghost" size="sm" className="w-full" asChild>
                         <Link href={`/evento/${event.slug || event.id}`} target="_blank">
                           Ver Evento
                           <ExternalLink className="h-3 w-3 ml-1" />
                         </Link>
                       </Button>
-                    </div>
+                </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
       {/* Ações Rápidas */}
       <div className="grid gap-4 md:grid-cols-2">

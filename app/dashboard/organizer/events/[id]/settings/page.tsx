@@ -2246,12 +2246,12 @@ export default function EventSettingsPage() {
                     className="h-24 cursor-pointer opacity-0 absolute inset-0 z-10"
                     disabled={fieldDisabled || !editingBlocks.banner}
                 />
-                  <div className={`h-24 border-dashed border-2 rounded-md flex flex-col items-center justify-center ${newBanner ? 'border-[#156634] bg-[#156634]/5' : 'border-gray-300 bg-gray-50/50 hover:border-[#156634]/50 transition-colors'}`}>
+                  <div className={`h-24 border-dashed border-2 rounded-md flex flex-col items-center justify-center relative ${fieldDisabled || !editingBlocks.banner ? 'border-gray-200 bg-gray-100/50 cursor-not-allowed' : newBanner ? 'border-[#156634] bg-[#156634]/5' : 'border-gray-300 bg-gray-50/50 hover:border-[#156634]/50 transition-colors'}`}>
                     {!newBanner && (
                       <>
-                        <Upload className="h-6 w-6 text-gray-400 mb-2" />
-                        <p className="text-xs font-medium text-gray-600">Clique para escolher arquivo</p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">ou arraste e solte aqui</p>
+                        <Upload className={`h-6 w-6 mb-2 ${fieldDisabled || !editingBlocks.banner ? 'text-gray-300' : 'text-gray-400'}`} />
+                        <p className={`text-xs font-medium ${fieldDisabled || !editingBlocks.banner ? 'text-gray-400' : 'text-gray-600'}`}>Clique para escolher arquivo</p>
+                        <p className={`text-[10px] mt-0.5 ${fieldDisabled || !editingBlocks.banner ? 'text-gray-300' : 'text-gray-400'}`}>ou arraste e solte aqui</p>
                       </>
                     )}
                 {newBanner && (
@@ -2356,12 +2356,12 @@ export default function EventSettingsPage() {
                         className="h-24 cursor-pointer opacity-0 absolute inset-0 z-10"
                         disabled={fieldDisabled || uploadingImages || !editingBlocks.gallery}
                       />
-                      <div className={`h-24 border-dashed border-2 rounded-md flex flex-col items-center justify-center ${newImages.length === 0 ? 'border-gray-300 bg-gray-50/50 hover:border-[#156634]/50 transition-colors' : 'border-[#156634] bg-[#156634]/5'}`}>
+                      <div className={`h-24 border-dashed border-2 rounded-md flex flex-col items-center justify-center relative ${fieldDisabled || !editingBlocks.gallery ? 'border-gray-200 bg-gray-100/50 cursor-not-allowed' : newImages.length === 0 ? 'border-gray-300 bg-gray-50/50 hover:border-[#156634]/50 transition-colors' : 'border-[#156634] bg-[#156634]/5'}`}>
                         {newImages.length === 0 && (
                           <>
-                            <Upload className="h-6 w-6 text-gray-400 mb-2" />
-                            <p className="text-xs font-medium text-gray-600">Clique para escolher arquivos</p>
-                            <p className="text-[10px] text-gray-400 mt-0.5">ou arraste e solte aqui</p>
+                            <Upload className={`h-6 w-6 mb-2 ${fieldDisabled || !editingBlocks.gallery ? 'text-gray-300' : 'text-gray-400'}`} />
+                            <p className={`text-xs font-medium ${fieldDisabled || !editingBlocks.gallery ? 'text-gray-400' : 'text-gray-600'}`}>Clique para escolher arquivos</p>
+                            <p className={`text-[10px] mt-0.5 ${fieldDisabled || !editingBlocks.gallery ? 'text-gray-300' : 'text-gray-400'}`}>ou arraste e solte aqui</p>
                           </>
                         )}
                         {newImages.length > 0 && (
