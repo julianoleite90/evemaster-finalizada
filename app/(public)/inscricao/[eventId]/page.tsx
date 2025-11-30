@@ -589,7 +589,7 @@ export default function CheckoutPage() {
           email: data.user.email || participante.email,
           telefone: data.user.phone || participante.telefone,
           cpf: data.user.cpf || participante.cpf,
-          idade: data.user.birth_date ? String(new Date().getFullYear() - new Date(data.user.birth_date).getFullYear()) : participante.idade,
+          idade: participante.idade, // Idade não está salva na tabela users
           genero: data.user.gender === 'male' ? 'Masculino' : data.user.gender === 'female' ? 'Feminino' : participante.genero,
           cep: data.user.zip_code || participante.cep,
           endereco: data.user.address || participante.endereco,
