@@ -113,7 +113,7 @@ export default function EventSettingsPage() {
   const [newBanner, setNewBanner] = useState<File | null>(null)
   const [expandedBatches, setExpandedBatches] = useState<{ [key: string]: boolean }>({})
   const [mainMenu, setMainMenu] = useState<"edicao" | "configuracao" | "relatorios">("relatorios")
-  const [subMenu, setSubMenu] = useState<string>("inscricoes")
+  const [subMenu, setSubMenu] = useState<string>("pixels") // Inicializar com primeira aba de configuração
   const [eventImages, setEventImages] = useState<Array<{ id: string; image_url: string; image_order: number }>>([])
   const [newImages, setNewImages] = useState<File[]>([])
   const [uploadingImages, setUploadingImages] = useState(false)
@@ -4479,13 +4479,17 @@ export default function EventSettingsPage() {
 
             {/* Tab: Clube de Corrida */}
             <TabsContent value="clube-corrida" className="space-y-6">
-              {eventId ? (
-                <RunningClubsTabContent eventId={eventId} />
-              ) : (
-                <div className="text-center py-12">
-                  <p className="text-muted-foreground">ID do evento não encontrado</p>
-                </div>
-              )}
+              {(() => {
+                console.log('🏃 [SETTINGS] Renderizando TabsContent clube-corrida, eventId:', eventId, 'subMenu:', subMenu)
+                if (!eventId) {
+                  return (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground">ID do evento não encontrado</p>
+                    </div>
+                  )
+                }
+                return <RunningClubsTabContent eventId={eventId} />
+              })()}
             </TabsContent>
 
             {/* Tab: Relatório de Cupons */}
