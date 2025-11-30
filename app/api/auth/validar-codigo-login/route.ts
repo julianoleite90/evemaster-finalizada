@@ -119,30 +119,50 @@ export async function POST(request: NextRequest) {
       .update({ used: true })
       .eq('id', loginCode.id)
 
-    // Fazer login do usuário (criar sessão)
+    // Verificar se o usuário existe no auth.users
     // Buscar usuário pelo email usando listUsers
-    const { data: usersList, error: listError } = await supabaseAdmin.auth.admin.listUsers()
-    const authUser = usersList?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
-    const authError = listError || (!authUser ? { message: 'Usuário não encontrado' } : null)
-
-    if (authError || !authUser) {
-      return NextResponse.json(
-        { error: 'Erro ao autenticar usuário' },
-        { status: 500 }
-      )
+    let authUser = null
+    try {
+      const { data: usersList, error: listError } = await supabaseAdmin.auth.admin.listUsers()
+      
+      if (listError) {
+        console.error('❌ [VALIDAR-CODIGO] Erro ao listar usuários do auth:', listError)
+        // Não falhar aqui, podemos retornar os dados do usuário mesmo sem auth
+      } else {
+        authUser = usersList?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
+        console.log('✅ [VALIDAR-CODIGO] Auth user encontrado:', {
+          hasAuthUser: !!authUser,
+          userId: authUser?.id
+        })
+      }
+    } catch (authError) {
+      console.error('❌ [VALIDAR-CODIGO] Erro ao buscar auth user:', authError)
+      // Continuar mesmo se não encontrar no auth
     }
 
-    // Retornar dados do usuário (o cliente fará o login com magic link)
-    // Gerar magic link para login
-    const { data: magicLink, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'magiclink',
-      email: email.toLowerCase(),
-    })
+    // Gerar magic link para login (se o usuário existir no auth)
+    let magicLink = null
+    if (authUser) {
+      try {
+        const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+          type: 'magiclink',
+          email: email.toLowerCase(),
+        })
 
-    if (linkError) {
-      console.error('Erro ao gerar magic link:', linkError)
+        if (linkError) {
+          console.error('⚠️ [VALIDAR-CODIGO] Erro ao gerar magic link:', linkError)
+        } else {
+          magicLink = linkData?.properties?.action_link || null
+          console.log('✅ [VALIDAR-CODIGO] Magic link gerado:', !!magicLink)
+        }
+      } catch (linkError) {
+        console.error('⚠️ [VALIDAR-CODIGO] Erro ao gerar magic link:', linkError)
+      }
+    } else {
+      console.warn('⚠️ [VALIDAR-CODIGO] Usuário não encontrado no auth.users, mas existe em public.users')
     }
 
+    // Retornar dados do usuário (mesmo se não tiver magic link, o frontend pode fazer login de outra forma)
     return NextResponse.json({
       success: true,
       user: {
@@ -161,7 +181,8 @@ export async function POST(request: NextRequest) {
         state: user.state,
         zip_code: user.zip_code,
       },
-      magicLink: magicLink?.properties?.action_link || null,
+      magicLink: magicLink,
+      hasAuthAccount: !!authUser, // Informar se tem conta no auth
     })
   } catch (error: any) {
     console.error('Erro ao validar código de login:', error)

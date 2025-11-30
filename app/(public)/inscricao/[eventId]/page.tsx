@@ -563,8 +563,19 @@ export default function CheckoutPage() {
         }),
       })
 
+      console.log('📥 [CHECKOUT] Resposta validar código:', { status: res.status, ok: res.ok })
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Erro desconhecido' }))
+        console.error('❌ [CHECKOUT] Erro ao validar código:', errorData)
+        toast.error(errorData.error || 'Erro ao validar código. Tente novamente.')
+        return
+      }
+
       const data = await res.json()
-      if (res.ok && data.user) {
+      console.log('✅ [CHECKOUT] Dados recebidos da validação:', data)
+
+      if (data.user) {
         setUsuarioLogado(data.user)
         setMostrarLoginRapido(false)
         setCodigoEnviado(false)
@@ -590,7 +601,7 @@ export default function CheckoutPage() {
         }
         setParticipantes(novosParticipantes)
 
-        // Fazer login no Supabase usando magic link
+        // Fazer login no Supabase usando magic link (se disponível)
         const supabase = createClient()
         if (data.magicLink) {
           // Redirecionar para o magic link para completar o login
