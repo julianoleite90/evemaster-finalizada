@@ -274,27 +274,8 @@ export default function EventoLandingPage() {
               }))
             }
             
-            // Se não tiver email, tentar buscar novamente APENAS da tabela users
-            const currentOrganizer = fullOrganizer || event.organizer
-            if (!currentOrganizer.company_email && !currentOrganizer.email && currentOrganizer.user_id) {
-              const { data: user } = await supabase
-              .from("users")
-              .select("email")
-                .eq("id", currentOrganizer.user_id)
-              .single()
-            
-            // VALIDAÇÃO CRÍTICA: Não usar email errado
-              if (user && user.email && user.email !== "julianodesouzaleite@gmail.com") {
-                setEventData((prev: any) => ({
-                  ...prev,
-                  organizer: {
-                    ...prev.organizer,
-                    email: user.email,
-                    company_email: user.email
-                  }
-                }))
-              }
-            }
+            // NOTA: Agora o company_email já vem na query do organizador
+            // Não precisamos mais buscar na tabela users
           }, 0)
         }
       } catch (error: any) {

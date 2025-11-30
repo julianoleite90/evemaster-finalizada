@@ -77,7 +77,7 @@ export async function getEventBySlug(slug: string) {
           analytics_facebook_pixel_id,
           analytics_facebook_pixel_enabled
         ),
-        organizer:organizers(id, company_name, full_name, company_cnpj, company_phone, user_id)
+        organizer:organizers(id, company_name, full_name, company_cnpj, company_phone, company_email, user_id)
       `)
       .eq("id", slug)
       .single()
