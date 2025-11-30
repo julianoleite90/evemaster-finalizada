@@ -387,8 +387,12 @@ export default function CheckoutPage() {
         // Salvar quantidade inicial de ingressos
         setQuantidadeIngressosInicial(listaIngressos.length)
         
-        // Inicializar participantes
-        setParticipantes(listaIngressos.map(() => ({ ...participanteVazio })))
+        // Inicializar participantes com o país do evento
+        const paisEvento = (event.country || "brasil").toLowerCase()
+        setParticipantes(listaIngressos.map(() => ({ 
+          ...participanteVazio, 
+          paisResidencia: paisEvento 
+        })))
         
       } catch (error) {
         console.error("Erro ao carregar dados:", error)
@@ -861,10 +865,11 @@ export default function CheckoutPage() {
       return
     }
 
-    // Adicionar participantes vazios
+    // Adicionar participantes vazios com o país do evento
     const novosParticipantes = [...participantes]
+    const paisEventoAtual = paisEvento || "brasil"
     for (let i = 0; i < quantidadeParticipantesAdicionais; i++) {
-      novosParticipantes.push({ ...participanteVazio })
+      novosParticipantes.push({ ...participanteVazio, paisResidencia: paisEventoAtual })
     }
     setParticipantes(novosParticipantes)
     
@@ -904,6 +909,7 @@ export default function CheckoutPage() {
     if (participanteAtualEmEdicao === null) return
     
     const novosParticipantes = [...participantes]
+    const paisEventoAtual = paisEvento || "brasil"
     novosParticipantes[participanteAtualEmEdicao] = {
       ...participanteVazio,
       nome: perfil.full_name || "",
@@ -911,7 +917,7 @@ export default function CheckoutPage() {
       telefone: perfil.phone || "",
       idade: perfil.age ? String(perfil.age) : "",
       genero: perfil.gender === 'male' ? 'Masculino' : perfil.gender === 'female' ? 'Feminino' : "",
-      paisResidencia: perfil.country || "brasil",
+      paisResidencia: perfil.country || paisEventoAtual,
       cep: perfil.zip_code || "",
       endereco: perfil.address || "",
       numero: perfil.address_number || "",
@@ -1694,7 +1700,31 @@ export default function CheckoutPage() {
                       </div>
                     )}
                     
-                    {/* CPF como primeiro campo */}
+                    {/* País de Residência - Primeiro campo (sempre visível para permitir mudança) */}
+                    <div className="space-y-2">
+                      <Label>{idioma === "es" ? "País de Residencia" : idioma === "en" ? "Country of Residence" : "País de Residência"} *</Label>
+                      <Select
+                        value={participante.paisResidencia}
+                        onValueChange={(value) => {
+                          updateParticipante("paisResidencia", value)
+                          // Limpar documento quando mudar o país para permitir novo formato
+                          updateParticipante("cpf", "")
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={t("selecione")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PAISES.map((pais) => (
+                            <SelectItem key={pais.value} value={pais.value}>
+                              {idioma === "es" ? pais.labelEs : idioma === "en" ? pais.labelEn : pais.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Documento (CPF/DNI/ID) - Segundo campo */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="cpf">
@@ -1941,26 +1971,6 @@ export default function CheckoutPage() {
                 {/* Step 2: Endereço */}
                 {currentStep === 2 && (
                   <div className="space-y-4">
-                    {/* País de Residência */}
-                    <div className="space-y-2">
-                      <Label>{idioma === "es" ? "País de Residencia" : idioma === "en" ? "Country of Residence" : "País de Residência"} *</Label>
-                      <Select
-                        value={participante.paisResidencia}
-                        onValueChange={(value) => updateParticipante("paisResidencia", value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={t("selecione")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PAISES.map((pais) => (
-                            <SelectItem key={pais.value} value={pais.value}>
-                              {idioma === "es" ? pais.labelEs : idioma === "en" ? pais.labelEn : pais.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
                     {/* CEP apenas para Brasil */}
                     {participante.paisResidencia === "brasil" ? (
                       <>
