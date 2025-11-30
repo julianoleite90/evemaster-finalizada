@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { logError } from '@/lib/logger'
 // @ts-ignore
 import jsPDF from 'jspdf'
 import QRCode from 'qrcode'
@@ -329,7 +330,11 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Erro ao gerar PDF do ingresso:', error)
+    logError(error, 'Erro ao gerar PDF do ingresso', {
+      route: '/api/tickets/pdf',
+      method: 'POST',
+      registrationId: request.body ? 'provided' : 'missing',
+    })
     return NextResponse.json(
       { error: 'Erro ao gerar ingresso', details: error.message },
       { status: 500 }

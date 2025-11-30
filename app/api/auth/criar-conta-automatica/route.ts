@@ -484,7 +484,11 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [API] Erro ao criar conta:', error)
+    logError(error, 'Erro ao criar conta automática', {
+      route: '/api/auth/criar-conta-automatica',
+      method: 'POST',
+      email: body?.email || 'not provided',
+    })
     return NextResponse.json(
       { error: 'Erro ao processar requisição', details: error.message },
       { status: 500 }
