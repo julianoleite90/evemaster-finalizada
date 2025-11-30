@@ -5,10 +5,14 @@ export const runtime = 'edge'
 
 export async function GET(
   request: Request,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> | { slug: string } }
 ) {
   try {
-    const event = await getEventBySlug(params.slug)
+    // Suportar tanto Promise quanto objeto direto (compatibilidade Next.js 14/15)
+    const resolvedParams = 'then' in params ? await params : params
+    const slug = resolvedParams.slug
+    
+    const event = await getEventBySlug(slug)
     
     if (!event) {
       return new Response('Event not found', { status: 404 })
