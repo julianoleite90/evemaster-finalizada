@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
         cleanCPFValid,
         willSave: !!cleanCPFValid
       })
-
+      
       // Atualizar dados do usuário (usar upsert para garantir que sempre salve)
       const { error: updateError } = await supabase
         .from('users')

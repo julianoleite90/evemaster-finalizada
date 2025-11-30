@@ -471,10 +471,20 @@ export default function CheckoutPage() {
     return `${localMasked}@${domainMasked}`
   }
 
-  // Verificar CPF e oferecer login rápido
-  const verificarCPF = async (cpf: string) => {
-    const cleanCPF = cpf.replace(/\D/g, '')
-    console.log('🔍 [CHECKOUT] Verificando CPF:', { cpf, cleanCPF, length: cleanCPF.length, currentParticipante, usuarioLogado })
+  // Verificar documento (CPF para Brasil, DNI para Argentina, ID para outros)
+  // Apenas para Brasil fazemos verificação automática de login rápido e perfis salvos
+  const verificarCPF = async (documento: string) => {
+    const participanteAtual = participantes[currentParticipante]
+    const isBrasil = participanteAtual.paisResidencia === "brasil"
+    
+    // Apenas verificar automaticamente para Brasil (CPF)
+    if (!isBrasil) {
+      console.log('ℹ️ [CHECKOUT] Verificação automática apenas para CPF (Brasil)')
+      return
+    }
+    
+    const cleanCPF = documento.replace(/\D/g, '')
+    console.log('🔍 [CHECKOUT] Verificando CPF:', { documento, cleanCPF, length: cleanCPF.length, currentParticipante, usuarioLogado })
     
     if (cleanCPF.length !== 11) {
       console.log('⚠️ [CHECKOUT] CPF não tem 11 dígitos:', cleanCPF.length)
@@ -1082,7 +1092,7 @@ export default function CheckoutPage() {
       if (currentParticipante === 0 && quantidadeIngressosInicial === 1) {
         // Mostrar popup perguntando se deseja incluir mais participantes
         setMostrarPopupIncluirParticipantes(true)
-      } else if (currentParticipante < participantes.length - 1) {
+    } else if (currentParticipante < participantes.length - 1) {
         // Próximo participante já existe (tinha 2+ ingressos desde o início)
         // Mostrar busca de participantes para o próximo participante
         setParticipanteAtualEmEdicao(currentParticipante + 1)
@@ -1090,9 +1100,9 @@ export default function CheckoutPage() {
           await fetchPerfisSalvos()
         }
         setMostrarBuscaParticipantes(true)
-      } else {
+    } else {
         // Último participante - finalizar inscrição
-        handleSubmit()
+      handleSubmit()
       }
     }
   }
@@ -1703,9 +1713,13 @@ export default function CheckoutPage() {
                           id="cpf"
                           value={participante.cpf}
                           onChange={(e) => {
-                            const formatted = participante.paisResidencia === "brasil" ? formatCPF(e.target.value) : e.target.value
+                            let formatted = e.target.value
+                            // Formatar apenas para Brasil (CPF)
+                            if (participante.paisResidencia === "brasil") {
+                              formatted = formatCPF(e.target.value)
+                            }
                             updateParticipante("cpf", formatted)
-                            // Verificar CPF após digitar 11 dígitos
+                            // Verificar apenas para Brasil após digitar 11 dígitos
                             if (participante.paisResidencia === "brasil" && formatted.replace(/\D/g, '').length === 11) {
                               // Para primeiro participante: verificar login rápido
                               // Para participantes adicionais: buscar perfis salvos (se logado)
@@ -1842,7 +1856,7 @@ export default function CheckoutPage() {
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="nome">{t("nomeCompleto")} *</Label>
+                      <Label htmlFor="nome">{t("nomeCompleto")} *</Label>
                         {usuarioLogado && currentParticipante === 0 && !permiteEdicao && (
                           <Lock className="h-4 w-4 text-gray-400" />
                         )}
@@ -1881,7 +1895,7 @@ export default function CheckoutPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <Label htmlFor="idade">{t("idade")} *</Label>
+                        <Label htmlFor="idade">{t("idade")} *</Label>
                           {usuarioLogado && currentParticipante === 0 && !permiteEdicao && (
                             <Lock className="h-4 w-4 text-gray-400" />
                           )}
@@ -1899,7 +1913,7 @@ export default function CheckoutPage() {
                       </div>
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <Label>{t("genero")} *</Label>
+                        <Label>{t("genero")} *</Label>
                           {usuarioLogado && currentParticipante === 0 && !permiteEdicao && (
                             <Lock className="h-4 w-4 text-gray-400" />
                           )}
@@ -2085,34 +2099,38 @@ export default function CheckoutPage() {
                   <div className="space-y-6">
                     {/* CPF já foi preenchido no Step 1, apenas mostrar se não foi preenchido */}
                     {!participante.cpf && (
-                      <div className="space-y-2">
+                    <div className="space-y-2">
                         <Label htmlFor="cpf-step3">
-                          {participante.paisResidencia === "brasil" 
-                            ? "CPF" 
-                            : participante.paisResidencia === "argentina"
-                            ? "DNI"
-                            : idioma === "es" ? "Documento" : idioma === "en" ? "ID Document" : "Documento"} *
-                        </Label>
-                        <Input
+                        {participante.paisResidencia === "brasil" 
+                          ? "CPF" 
+                          : participante.paisResidencia === "argentina"
+                          ? "DNI"
+                          : idioma === "es" ? "Documento" : idioma === "en" ? "ID Document" : "Documento"} *
+                      </Label>
+                      <Input
                           id="cpf-step3"
-                          value={participante.cpf}
+                        value={participante.cpf}
                           onChange={(e) => {
-                            const formatted = participante.paisResidencia === "brasil" ? formatCPF(e.target.value) : e.target.value
+                            let formatted = e.target.value
+                            // Formatar apenas para Brasil (CPF)
+                            if (participante.paisResidencia === "brasil") {
+                              formatted = formatCPF(e.target.value)
+                            }
                             updateParticipante("cpf", formatted)
-                            // Verificar CPF após digitar 11 dígitos
+                            // Verificar apenas para Brasil após digitar 11 dígitos
                             if (participante.paisResidencia === "brasil" && formatted.replace(/\D/g, '').length === 11) {
                               verificarCPF(formatted)
                             }
                           }}
-                          placeholder={
-                            participante.paisResidencia === "brasil" 
-                              ? "000.000.000-00" 
-                              : participante.paisResidencia === "argentina"
-                              ? "12.345.678"
-                              : idioma === "es" ? "Número de documento" : "Document number"
-                          }
-                        />
-                      </div>
+                        placeholder={
+                          participante.paisResidencia === "brasil" 
+                            ? "000.000.000-00" 
+                            : participante.paisResidencia === "argentina"
+                            ? "12.345.678"
+                            : idioma === "es" ? "Número de documento" : "Document number"
+                        }
+                      />
+                    </div>
                     )}
 
                     {/* Opção de salvar perfil para participantes adicionais (2+) */}
