@@ -697,7 +697,34 @@ export default function CheckoutPage() {
 
         if (athleteError) {
           console.error("ERRO ATLETA:", JSON.stringify(athleteError, null, 2))
-          // Não bloqueia, atleta é informação adicional
+          console.error("Detalhes do erro:", {
+            message: athleteError.message,
+            code: athleteError.code,
+            details: athleteError.details,
+            hint: athleteError.hint,
+            cpf: athleteData.cpf,
+            email: athleteData.email
+          })
+          
+          // Se o erro for de CPF duplicado, tentar buscar atleta existente
+          if (athleteError.code === '23505' || athleteError.message?.includes('duplicate') || athleteError.message?.includes('unique')) {
+            console.log("⚠️ CPF ou email duplicado detectado, tentando buscar atleta existente...")
+            if (athleteData.cpf) {
+              const { data: existingAthlete } = await supabase
+                .from("athletes")
+                .select("id")
+                .eq("cpf", athleteData.cpf)
+                .maybeSingle()
+              
+              if (existingAthlete) {
+                console.log("✅ Atleta existente encontrado pelo CPF:", existingAthlete.id)
+                // Continuar sem bloquear - o atleta já existe
+              }
+            }
+          } else {
+            // Outro tipo de erro - não bloqueia, atleta é informação adicional
+            console.warn("⚠️ Erro ao criar atleta (não crítico):", athleteError.message)
+          }
         }
 
         // 3. Se não for gratuito, criar pagamento

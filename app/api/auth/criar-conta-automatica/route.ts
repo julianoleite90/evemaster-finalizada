@@ -68,6 +68,21 @@ export async function POST(request: NextRequest) {
       .eq('email', email)
       .maybeSingle()
     
+    // Se tiver admin, verificar também no auth
+    let authUserId: string | null = null
+    if (supabaseAdmin) {
+      try {
+        const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers()
+        const existingAuthUser = authUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
+        if (existingAuthUser) {
+          authUserId = existingAuthUser.id
+          console.log('📧 [API] Email encontrado no auth:', email, 'userId:', authUserId)
+        }
+      } catch (authCheckError) {
+        console.warn('⚠️ [API] Erro ao verificar auth (não crítico):', authCheckError)
+      }
+    }
+    
     if (userData) {
       // Usuário já existe, atualizar dados se necessário
       console.log('📧 [API] Usuário já existe:', email, 'userId:', userData.id)
@@ -95,7 +110,21 @@ export async function POST(request: NextRequest) {
         })
 
       if (updateError) {
-        console.warn('⚠️ [API] Erro ao atualizar dados do usuário (não crítico):', updateError)
+        console.error('❌ [API] Erro ao atualizar dados do usuário:', {
+          message: updateError.message,
+          code: updateError.code,
+          details: updateError.details,
+          hint: updateError.hint,
+          cpf: cpf?.replace(/\D/g, ''),
+          email: email
+        })
+        
+        // Se o erro for de CPF duplicado, não bloquear - apenas logar
+        if (updateError.code === '23505' || updateError.message?.includes('duplicate') || updateError.message?.includes('unique')) {
+          console.warn('⚠️ [API] CPF duplicado detectado, mas continuando (não crítico)')
+        } else {
+          console.warn('⚠️ [API] Erro ao atualizar dados do usuário (não crítico):', updateError.message)
+        }
       }
 
       // Se tiver admin, atualizar metadados também
@@ -132,7 +161,73 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Criar novo usuário
+    // Se o email existe no auth mas não na tabela users, usar o userId do auth
+    if (authUserId && !userData) {
+      console.log('📧 [API] Email existe no auth mas não na tabela users, criando registro na tabela users')
+      
+      // Criar registro na tabela users com o userId do auth
+      const { error: userError } = await supabase
+        .from('users')
+        .upsert({
+          id: authUserId,
+          email,
+          full_name: nome,
+          phone: telefone?.replace(/\D/g, '') || null,
+          cpf: cpf?.replace(/\D/g, '') || null,
+          role: 'ATLETA',
+          address: endereco || null,
+          address_number: numero || null,
+          address_complement: complemento || null,
+          neighborhood: bairro || null,
+          city: cidade || null,
+          state: estado || null,
+          zip_code: cep?.replace(/\D/g, '') || null,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'id'
+        })
+
+      if (userError) {
+        console.error('❌ [API] Erro ao criar registro em users:', userError)
+        // Não retornar erro, pois o usuário já existe no auth
+      } else {
+        console.log('✅ [API] Registro criado na tabela users para:', email)
+      }
+
+      // Atualizar metadados no auth
+      if (supabaseAdmin) {
+        try {
+          await supabaseAdmin.auth.admin.updateUserById(
+            authUserId,
+            {
+              user_metadata: {
+                full_name: nome,
+                phone: telefone,
+                cpf: cpf?.replace(/\D/g, ''),
+                address: endereco,
+                address_number: numero,
+                address_complement: complemento,
+                neighborhood: bairro,
+                city: cidade,
+                state: estado,
+                zip_code: cep?.replace(/\D/g, ''),
+                role: 'ATLETA',
+              },
+            }
+          )
+        } catch (metaError) {
+          console.warn('⚠️ [API] Erro ao atualizar metadados (não crítico):', metaError)
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Conta já existia no auth, registro criado na tabela users',
+        userId: authUserId,
+      })
+    }
+
+    // Criar novo usuário (só se não existir nem no auth nem na tabela users)
     // Se tiver service role, usar admin API, senão usar signUp normal
     let newUser = null
     
@@ -157,6 +252,52 @@ export async function POST(request: NextRequest) {
       })
 
       if (createError) {
+        // Se o erro for de email já existente, tentar buscar o usuário
+        if (createError.code === 'email_exists' || createError.message?.includes('already been registered')) {
+          console.log('⚠️ [API] Email já existe no auth, tentando buscar usuário...')
+          
+          try {
+            const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers()
+            const existingAuthUser = authUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
+            
+            if (existingAuthUser) {
+              // Criar registro na tabela users com o userId do auth
+              const { error: userError } = await supabase
+                .from('users')
+                .upsert({
+                  id: existingAuthUser.id,
+                  email,
+                  full_name: nome,
+                  phone: telefone?.replace(/\D/g, '') || null,
+                  cpf: cpf?.replace(/\D/g, '') || null,
+                  role: 'ATLETA',
+                  address: endereco || null,
+                  address_number: numero || null,
+                  address_complement: complemento || null,
+                  neighborhood: bairro || null,
+                  city: cidade || null,
+                  state: estado || null,
+                  zip_code: cep?.replace(/\D/g, '') || null,
+                  updated_at: new Date().toISOString(),
+                }, {
+                  onConflict: 'id'
+                })
+
+              if (userError) {
+                console.error('❌ [API] Erro ao criar registro em users:', userError)
+              }
+
+              return NextResponse.json({
+                success: true,
+                message: 'Conta já existia no auth',
+                userId: existingAuthUser.id,
+              })
+            }
+          } catch (lookupError) {
+            console.error('❌ [API] Erro ao buscar usuário no auth:', lookupError)
+          }
+        }
+        
         console.error('❌ [API] Erro ao criar usuário:', createError)
         return NextResponse.json(
           { error: 'Erro ao criar conta', details: createError.message },
@@ -192,6 +333,25 @@ export async function POST(request: NextRequest) {
       })
 
       if (signUpError) {
+        // Se o erro for de email já existente, tentar buscar na tabela users
+        if (signUpError.code === 'email_exists' || signUpError.message?.includes('already been registered')) {
+          console.log('⚠️ [API] Email já existe no auth, tentando buscar na tabela users...')
+          
+          const { data: existingUser } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', email)
+            .maybeSingle()
+          
+          if (existingUser) {
+            return NextResponse.json({
+              success: true,
+              message: 'Conta já existia',
+              userId: existingUser.id,
+            })
+          }
+        }
+        
         console.error('❌ [API] Erro ao criar usuário:', signUpError)
         return NextResponse.json(
           { error: 'Erro ao criar conta', details: signUpError.message },
