@@ -75,6 +75,38 @@ const PAISES = [
   { value: "outro", label: "🌍 Outro país", labelEs: "🌍 Otro país", labelEn: "🌍 Other country" },
 ]
 
+// Função para normalizar o país do evento para o formato usado no Select
+const normalizarPais = (pais: string | null | undefined): string => {
+  if (!pais) return "brasil"
+  
+  const paisLower = pais.toLowerCase().trim()
+  
+  // Mapear variações comuns do nome do país para o valor do Select
+  const mapeamento: Record<string, string> = {
+    "brasil": "brasil",
+    "brazil": "brasil",
+    "argentina": "argentina",
+    "chile": "chile",
+    "uruguai": "uruguai",
+    "uruguay": "uruguai",
+    "paraguai": "paraguai",
+    "paraguay": "paraguai",
+    "peru": "peru",
+    "perú": "peru",
+    "colombia": "colombia",
+    "colômbia": "colombia",
+    "mexico": "mexico",
+    "méxico": "mexico",
+    "eua": "eua",
+    "estados unidos": "eua",
+    "united states": "eua",
+    "usa": "eua",
+    "us": "eua",
+  }
+  
+  return mapeamento[paisLower] || "brasil"
+}
+
 export default function CheckoutPage() {
   const params = useParams()
   const searchParams = useSearchParams()
@@ -282,8 +314,9 @@ export default function CheckoutPage() {
         setEventData(event)
 
         // Definir país do evento e idioma
-        const pais = (event.country || "brasil").toLowerCase()
+        const pais = normalizarPais(event.country)
         setPaisEvento(pais)
+        console.log('🌍 [CHECKOUT] País do evento normalizado:', pais, 'País original:', event.country)
         
         // Usar idioma do evento se disponível, senão usar país como fallback
         if (event.language && (event.language === "pt" || event.language === "es" || event.language === "en")) {
@@ -453,7 +486,7 @@ export default function CheckoutPage() {
     setParticipantes(novosParticipantes)
   }
 
-  // Formatar CPF
+  // Formatar CPF (Brasil)
   const formatCPF = (value: string) => {
     return value
       .replace(/\D/g, "")
@@ -461,6 +494,25 @@ export default function CheckoutPage() {
       .replace(/(\d{3})(\d)/, "$1.$2")
       .replace(/(\d{3})(\d)/, "$1.$2")
       .replace(/(\d{3})(\d{1,2})/, "$1-$2")
+  }
+
+  // Formatar DNI (Argentina)
+  const formatDNI = (value: string) => {
+    const cleaned = value.replace(/\D/g, "")
+    if (cleaned.length <= 2) return cleaned
+    if (cleaned.length <= 5) return `${cleaned.slice(0, 2)}.${cleaned.slice(2)}`
+    return `${cleaned.slice(0, 2)}.${cleaned.slice(2, 5)}.${cleaned.slice(5, 8)}`
+  }
+
+  // Formatar documento baseado no país
+  const formatDocumento = (value: string, pais: string) => {
+    if (pais === "brasil") {
+      return formatCPF(value)
+    } else if (pais === "argentina") {
+      return formatDNI(value)
+    }
+    // Para outros países, apenas remover caracteres não numéricos e limitar tamanho
+    return value.replace(/\D/g, "").slice(0, 20)
   }
 
   // Função para mascarar email (exemplo: julianodesouzaleite@gmail.com → julianode*******@g******)
@@ -548,7 +600,7 @@ export default function CheckoutPage() {
                 telefone: perfilEncontrado.phone || "",
                 idade: perfilEncontrado.age ? String(perfilEncontrado.age) : "",
                 genero: perfilEncontrado.gender === 'male' ? 'Masculino' : perfilEncontrado.gender === 'female' ? 'Feminino' : "",
-                paisResidencia: perfilEncontrado.country || "brasil",
+                paisResidencia: perfilEncontrado.country || paisEvento || "brasil",
                 cep: perfilEncontrado.zip_code || "",
                 endereco: perfilEncontrado.address || "",
                 numero: perfilEncontrado.address_number || "",
@@ -837,7 +889,7 @@ export default function CheckoutPage() {
           birth_date: p.idade ? new Date(new Date().getFullYear() - parseInt(p.idade), 0, 1).toISOString().split('T')[0] : null,
           age: p.idade ? parseInt(p.idade) : null,
           gender: p.genero === 'Masculino' ? 'male' : p.genero === 'Feminino' ? 'female' : p.genero || null,
-          country: p.paisResidencia || 'brasil',
+          country: p.paisResidencia || paisEvento || 'brasil',
           zip_code: p.cep,
           address: p.endereco,
           address_number: p.numero,
@@ -1043,9 +1095,17 @@ export default function CheckoutPage() {
         toast.error("Email inválido")
         return false
       }
-      // Validar CPF brasileiro
+      // Validar documento baseado no país
       if (p.paisResidencia === "brasil" && p.cpf.replace(/\D/g, '').length !== 11) {
-        toast.error("CPF inválido")
+        toast.error("CPF inválido - deve ter 11 dígitos")
+        return false
+      }
+      if (p.paisResidencia === "argentina" && p.cpf.replace(/\D/g, '').length < 7) {
+        toast.error("DNI inválido - deve ter pelo menos 7 dígitos")
+        return false
+      }
+      if (p.paisResidencia !== "brasil" && p.paisResidencia !== "argentina" && !p.cpf) {
+        toast.error(idioma === "es" ? "Documento inválido" : idioma === "en" ? "Invalid document" : "Documento inválido")
         return false
       }
     }
@@ -1066,12 +1126,16 @@ export default function CheckoutPage() {
     }
     
     if (currentStep === 3) {
-      if (!p.cpf) {
-        toast.error(p.paisResidencia === "brasil" ? "CPF inválido" : p.paisResidencia === "argentina" ? "DNI inválido" : "Documento inválido")
+      if (!p.cpf || p.cpf.trim() === "") {
+        toast.error(p.paisResidencia === "brasil" ? "CPF é obrigatório" : p.paisResidencia === "argentina" ? "DNI es obligatorio" : idioma === "es" ? "Documento es obligatorio" : "Document is required")
         return false
       }
       if (p.paisResidencia === "brasil" && p.cpf.replace(/\D/g, "").length !== 11) {
         toast.error("CPF inválido - deve ter 11 dígitos")
+        return false
+      }
+      if (p.paisResidencia === "argentina" && p.cpf.replace(/\D/g, "").length < 7) {
+        toast.error("DNI inválido - debe tener al menos 7 dígitos")
         return false
       }
       if (temCamiseta && !p.tamanhoCamiseta) {
@@ -1205,7 +1269,7 @@ export default function CheckoutPage() {
                     birth_date: p.idade ? new Date(new Date().getFullYear() - parseInt(p.idade), 0, 1).toISOString().split('T')[0] : null,
                     age: p.idade ? parseInt(p.idade) : null,
                     gender: p.genero === 'Masculino' ? 'male' : p.genero === 'Feminino' ? 'female' : p.genero || null,
-                    country: p.paisResidencia || 'brasil',
+                    country: p.paisResidencia || paisEvento || 'brasil',
                     zip_code: p.cep,
                     address: p.endereco,
                     address_number: p.numero,
@@ -1333,16 +1397,20 @@ export default function CheckoutPage() {
         }
 
         // 2. Criar atleta vinculado à inscrição
+        // Garantir que o país seja salvo corretamente (usar o país do participante, não o padrão)
+        const paisParticipante = p.paisResidencia || paisEvento || 'brasil'
+        console.log('🌍 [CHECKOUT] Salvando país do participante:', paisParticipante, 'País do evento:', paisEvento, 'País do participante (p.paisResidencia):', p.paisResidencia)
+        
         const athleteData = {
           registration_id: registration.id,
           full_name: p.nome,
           email: p.email,
           phone: p.telefone,
-          cpf: p.cpf?.replace(/\D/g, "") || null,
+          cpf: p.cpf?.replace(/\D/g, "") || null, // Salvar documento no campo cpf (mesmo para DNI, ID, etc)
           gender: p.genero || null,
           birth_date: null,
           age: p.idade ? parseInt(p.idade) : null,
-          country: p.paisResidencia || 'brasil',
+          country: paisParticipante, // Usar o país do participante, não o padrão
           address: p.endereco || null,
           address_number: p.numero || null,
           address_complement: p.complemento || null,
@@ -1711,12 +1779,18 @@ export default function CheckoutPage() {
                     <div className="space-y-2">
                       <Label>{idioma === "es" ? "País de Residencia" : idioma === "en" ? "Country of Residence" : "País de Residência"} *</Label>
                       <Select
-                        value={participante?.paisResidencia || paisEvento || "brasil"}
+                        value={participante?.paisResidencia || "brasil"}
                         onValueChange={(value) => {
                           console.log('🌍 [CHECKOUT] País alterado:', value, 'Participante atual:', participante?.paisResidencia)
-                          updateParticipante("paisResidencia", value)
-                          // Limpar documento quando mudar o país para permitir novo formato
-                          updateParticipante("cpf", "")
+                          // Atualizar país do participante
+                          const novosParticipantes = [...participantes]
+                          novosParticipantes[currentParticipante] = {
+                            ...novosParticipantes[currentParticipante],
+                            paisResidencia: value,
+                            cpf: "" // Limpar documento quando mudar o país para permitir novo formato
+                          }
+                          setParticipantes(novosParticipantes)
+                          console.log('✅ [CHECKOUT] País atualizado no estado:', novosParticipantes[currentParticipante].paisResidencia)
                         }}
                       >
                         <SelectTrigger>
@@ -1751,11 +1825,7 @@ export default function CheckoutPage() {
                           id="cpf"
                           value={participante.cpf}
                           onChange={(e) => {
-                            let formatted = e.target.value
-                            // Formatar apenas para Brasil (CPF)
-                            if (participante.paisResidencia === "brasil") {
-                              formatted = formatCPF(e.target.value)
-                            }
+                            const formatted = formatDocumento(e.target.value, participante.paisResidencia)
                             updateParticipante("cpf", formatted)
                             // Verificar apenas para Brasil após digitar 11 dígitos
                             if (participante.paisResidencia === "brasil" && formatted.replace(/\D/g, '').length === 11) {
@@ -2129,11 +2199,7 @@ export default function CheckoutPage() {
                           id="cpf-step3"
                         value={participante.cpf}
                           onChange={(e) => {
-                            let formatted = e.target.value
-                            // Formatar apenas para Brasil (CPF)
-                            if (participante.paisResidencia === "brasil") {
-                              formatted = formatCPF(e.target.value)
-                            }
+                            const formatted = formatDocumento(e.target.value, participante.paisResidencia)
                             updateParticipante("cpf", formatted)
                             // Verificar apenas para Brasil após digitar 11 dígitos
                             if (participante.paisResidencia === "brasil" && formatted.replace(/\D/g, '').length === 11) {
