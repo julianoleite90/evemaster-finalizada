@@ -4479,7 +4479,13 @@ export default function EventSettingsPage() {
 
             {/* Tab: Clube de Corrida */}
             <TabsContent value="clube-corrida" className="space-y-6">
-              <RunningClubsTabContent eventId={eventId} />
+              {eventId ? (
+                <RunningClubsTabContent eventId={eventId} />
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">ID do evento não encontrado</p>
+                </div>
+              )}
             </TabsContent>
 
             {/* Tab: Relatório de Cupons */}
