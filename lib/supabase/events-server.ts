@@ -97,7 +97,9 @@ export async function getEventBySlug(slug: string) {
       .eq("slug", slug)
       .order("created_at", { ascending: false })
     
-    if (eventsBySlug && eventsBySlug.length > 0) {
+    if (slugError) {
+      error = slugError
+    } else if (eventsBySlug && eventsBySlug.length > 0) {
       event = eventsBySlug[0] // Pegar o primeiro (mais recente)
       error = null
       
@@ -122,17 +124,29 @@ export async function getEventBySlug(slug: string) {
             company_email: organizerData.user_email,
             events_last_year: organizerData.events_last_year || 0
           }
-        } else {
         }
+        // Se não encontrar organizador, não é crítico - apenas não terá dados do organizador
       }
     } else {
-      error = slugError
+      // Nenhum evento encontrado - não é erro, apenas não encontrado
+      error = null
+      event = null
     }
   }
 
   if (error) {
+    // Se o erro for "not found", retornar null ao invés de lançar erro
+    if (error.code === 'PGRST116' || error.message?.includes('not found')) {
+      console.warn(`[getEventBySlug] Evento não encontrado para slug: ${slug}`)
+      return null
+    }
     console.error("Erro ao buscar evento:", error)
     throw error
+  }
+
+  // Se não encontrou evento, retornar null
+  if (!event) {
+    return null
   }
 
   return event

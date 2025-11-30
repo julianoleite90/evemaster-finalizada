@@ -12,9 +12,20 @@ export async function GET(
     const resolvedParams = 'then' in params ? await params : params
     const slug = resolvedParams.slug
     
-    const event = await getEventBySlug(slug)
+    let event = null
+    try {
+      event = await getEventBySlug(slug)
+    } catch (error: any) {
+      // Se o erro for "not found", retornar 404
+      if (error?.code === 'PGRST116' || error?.message?.includes('not found')) {
+        return new Response('Event not found', { status: 404 })
+      }
+      // Para outros erros, logar e retornar erro genérico
+      console.error('[OG Image] Erro ao buscar evento:', error)
+      return new Response('Failed to generate image', { status: 500 })
+    }
     
-    if (!event) {
+    if (!event || !event.name) {
       return new Response('Event not found', { status: 404 })
     }
 

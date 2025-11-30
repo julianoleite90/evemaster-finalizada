@@ -6,7 +6,7 @@ type Props = {
 }
 
 const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || 'https://evemaster.com.br'
+  process.env.NEXT_PUBLIC_SITE_URL || 'https://www.evemaster.app'
 const defaultTitle = 'EveMaster - Plataforma para Eventos Esportivos'
 const defaultDescription =
   'Encontre e gerencie eventos esportivos com a EveMaster, plataforma completa de ingressos e inscrições.'
@@ -25,21 +25,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   
   try {
     event = await getEventBySlug(slug)
-    
-    // Debug: verificar se o evento foi encontrado
-    if (!event) {
+  } catch (error: any) {
+    // Se o erro for "not found", não é crítico - apenas logar
+    if (error?.code === 'PGRST116' || error?.message?.includes('not found')) {
       console.warn(`[Metadata] Evento não encontrado para slug: ${slug}`)
     } else {
-      console.log(`[Metadata] Evento encontrado: ${event.name} (slug: ${slug})`)
+      console.error('[Metadata] Erro ao buscar evento para metadata:', error)
     }
-  } catch (error) {
-    console.error('[Metadata] Erro ao buscar evento para metadata:', error)
-    // Continua com valores padrão
+    // Continua com valores padrão se houver erro
   }
 
-  // Se não encontrou o evento, usar valores padrão
-  if (!event || !event.name) {
-    console.warn(`[Metadata] Usando valores padrão para slug: ${slug}`)
+  // Se não encontrou o evento ou não tem nome, usar valores padrão
+  if (!event || !event.name || !event.name.trim()) {
     return {
       title: defaultTitle,
       description: defaultDescription,
@@ -72,7 +69,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   // Título do evento (sem o sufixo genérico para melhor compartilhamento)
-  const eventTitle = event.name.trim() || defaultTitle
+  const eventTitle = event.name.trim()
   const title = eventTitle
 
   const description =
@@ -85,9 +82,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const ogImage = `${siteUrl}/api/og/evento/${eventSlug}`
     
   const canonicalUrl = `${siteUrl}/evento/${eventSlug}`
-
-  console.log(`[Metadata] Gerando metadata para evento: ${eventTitle}`)
-  console.log(`[Metadata] OG Image URL: ${ogImage}`)
 
   return {
     title: `${title} | EveMaster`,
