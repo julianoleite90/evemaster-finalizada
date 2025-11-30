@@ -57,6 +57,7 @@ import { getEventById } from "@/lib/supabase/events"
 import { useUserPermissions } from "@/hooks/use-user-permissions"
 import { PermissionGuard } from "@/components/dashboard/permission-guard"
 import { uploadEventBanner, uploadTicketGPX, uploadEventImage } from "@/lib/supabase/storage"
+import { RunningClubsTabContent } from "@/components/dashboard/running-clubs-tab"
 import dynamic from "next/dynamic"
 import Image from "next/image"
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from "recharts"
@@ -151,6 +152,7 @@ export default function EventSettingsPage() {
     major_access_type: "",
     race_type: "" as "asfalto" | "trail" | "misto" | "",
     show_in_showcase: false,
+    quantidade_total: null as number | null,
   })
 
   // Lotes e ingressos
@@ -186,6 +188,20 @@ export default function EventSettingsPage() {
     max_uses: "",
     expires_at: "",
     is_active: true,
+  })
+
+  // Clube de Corrida
+  const [runningClubs, setRunningClubs] = useState<any[]>([])
+  const [showAddClub, setShowAddClub] = useState(false)
+  const [newClub, setNewClub] = useState({
+    email: "",
+    tickets_allocated: "",
+    base_discount: "",
+    progressive_discount_threshold: "",
+    progressive_discount_value: "",
+    deadline: "",
+    extend_on_deadline: false,
+    release_after_deadline: true,
   })
 
   // Estatísticas de visualizações
@@ -436,6 +452,7 @@ export default function EventSettingsPage() {
             major_access_type: event.major_access_type || "",
             race_type: event.race_type || "",
             show_in_showcase: event.show_in_showcase || false,
+            quantidade_total: (event as any).quantidade_total ?? null,
           })
 
           // Carregar lotes e ingressos
@@ -988,6 +1005,7 @@ export default function EventSettingsPage() {
         zip_code: eventData.zip_code,
         banner_url: bannerUrl,
         status: eventData.status,
+        quantidade_total: eventData.quantidade_total || null,
         updated_at: new Date().toISOString(),
       }
 
@@ -1061,6 +1079,33 @@ export default function EventSettingsPage() {
     if (!canEdit && !isPrimary) {
       toast.error("Você não tem permissão para editar lotes e ingressos")
       return
+    }
+
+    // Validar quantidade total se estiver definida
+    if (eventData.quantidade_total) {
+      let totalIngressos = 0
+      
+      for (const batch of batches) {
+        // Somar quantidade do lote se tiver
+        if (batch.total_quantity) {
+          totalIngressos += batch.total_quantity
+        } else {
+          // Se o lote não tem quantidade total, somar quantidades dos ingressos
+          for (const ticket of batch.tickets || []) {
+            if (ticket.quantity) {
+              totalIngressos += ticket.quantity
+            }
+          }
+        }
+      }
+      
+      if (totalIngressos > eventData.quantidade_total) {
+        toast.error(
+          `A quantidade total de ingressos (${totalIngressos}) excede o limite do evento (${eventData.quantidade_total}). ` +
+          `Por favor, ajuste as quantidades dos lotes.`
+        )
+        return
+      }
     }
 
     try {
@@ -3145,7 +3190,7 @@ export default function EventSettingsPage() {
       {mainMenu === "configuracao" && (
         <div className="mb-6">
           <Tabs value={subMenu} onValueChange={setSubMenu} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-2 bg-gray-100 p-1 rounded-lg">
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-2 bg-gray-100 p-1 rounded-lg">
               <TabsTrigger 
                 value="pixels" 
                 className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
@@ -3175,6 +3220,14 @@ export default function EventSettingsPage() {
               >
                 <UserPlus className="h-4 w-4" />
                 <span className="hidden sm:inline">Afiliados</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="clube-corrida" 
+                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              >
+                <Trophy className="h-4 w-4" />
+                <span className="hidden sm:inline">Clube de Corrida</span>
+                <span className="sm:hidden">Clube</span>
               </TabsTrigger>
             </TabsList>
 
@@ -4422,6 +4475,11 @@ export default function EventSettingsPage() {
                 </CardContent>
               </Card>
               )}
+            </TabsContent>
+
+            {/* Tab: Clube de Corrida */}
+            <TabsContent value="clube-corrida" className="space-y-6">
+              <RunningClubsTabContent eventId={eventId} />
             </TabsContent>
 
             {/* Tab: Relatório de Cupons */}

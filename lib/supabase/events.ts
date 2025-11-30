@@ -33,6 +33,7 @@ export async function createEvent(eventData: {
   distances?: string[]
   custom_distances?: string[]
   total_capacity?: number
+  quantidade_total?: number
   difficulty_level?: "Fácil" | "Moderado" | "Difícil" | "Muito Difícil"
   major_access?: boolean
   major_access_type?: string
@@ -105,6 +106,7 @@ export async function createEvent(eventData: {
       distances: eventData.distances,
       custom_distances: eventData.custom_distances,
       total_capacity: eventData.total_capacity,
+      quantidade_total: eventData.quantidade_total || null,
       status: "draft",
     }
 

@@ -98,6 +98,7 @@ export default function NewEventPage() {
     bairro: "",
     cidade: "",
     estado: "",
+    quantidade_total: "" as string | "",
     
     // Step 2: Lotes e Ingressos
     lotes: [] as Array<{
@@ -409,6 +410,7 @@ export default function NewEventPage() {
         zip_code: formData.cep,
         distances: distanciasPadrao,
         custom_distances: formData.distanciasCustom,
+        quantidade_total: formData.quantidade_total ? parseInt(formData.quantidade_total) : undefined,
         total_capacity: ((): number | undefined => {
           // Verifica se todos os lotes são ilimitados
           const todasQuantidades = formData.lotes.map(lote => {
@@ -993,6 +995,21 @@ export default function NewEventPage() {
                     onChange={(e) => setFormData({ ...formData, data: e.target.value })}
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="quantidade_total">Quantidade Total de Ingressos (Controle)</Label>
+                <Input
+                  id="quantidade_total"
+                  type="number"
+                  min="0"
+                  value={formData.quantidade_total || ""}
+                  onChange={(e) => setFormData({ ...formData, quantidade_total: e.target.value })}
+                  placeholder="Ex: 1000 (opcional - apenas para controle)"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Quantidade máxima de ingressos permitidos para o evento. Usado apenas para controle ao criar lotes.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

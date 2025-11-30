@@ -720,3 +720,310 @@ function gerarTemplateEmailConviteAfiliado(
 </html>
   `
 }
+
+
+// Função para enviar email de convite de clube de corrida
+export async function enviarEmailConviteClube(dados: {
+  email: string
+  nomeEvento: string
+  dataEvento?: string
+  quantidadeIngressos: number
+  desconto: string
+  token: string
+  usuarioExiste: boolean
+}) {
+  console.log('📧 [Resend] Enviando email de convite de clube para:', dados.email)
+  
+  if (!resendApiKey) {
+    console.error('❌ [Resend] RESEND_API_KEY não configurada')
+    return { success: false, error: 'RESEND_API_KEY não configurada' }
+  }
+
+  if (!resendClient) {
+    console.error('❌ [Resend] Cliente Resend não inicializado')
+    return { success: false, error: 'Cliente Resend não inicializado' }
+  }
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://evemaster.com'
+  const acceptUrl = `${baseUrl}/running-club/accept?token=${dados.token}`
+
+  try {
+    const emailPayload = {
+      from: resendFromEmail,
+      to: dados.email,
+      subject: `Convite para Clube de Corrida - ${dados.nomeEvento}`,
+      html: gerarTemplateEmailConviteClube(dados, acceptUrl),
+    }
+
+    const response = await resendClient.emails.send(emailPayload)
+
+    if (response.error) {
+      console.error('❌ [Resend] Erro ao enviar email:', response.error)
+      return { success: false, error: response.error.message || 'Erro ao enviar email' }
+    }
+
+    console.log('✅ [Resend] Email enviado com sucesso:', response.data?.id)
+    return { success: true, id: response.data?.id }
+  } catch (error: any) {
+    console.error('❌ [Resend] Erro ao enviar email:', error)
+    return { success: false, error: error.message || error }
+  }
+}
+
+function gerarTemplateEmailConviteClube(dados: {
+  nomeEvento: string
+  dataEvento?: string
+  quantidadeIngressos: number
+  desconto: string
+  usuarioExiste: boolean
+}, acceptUrl: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Convite Clube de Corrida</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #156634 0%, #1a7a3e 100%); padding: 40px 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">
+                Convite para Clube de Corrida
+              </h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 16px;">
+                Você foi convidado para participar
+              </p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+                Olá,
+              </p>
+              
+              <p style="color: #666666; font-size: 15px; line-height: 1.6; margin: 0 0 20px;">
+                Você foi convidado para participar como <strong>Clube de Corrida</strong> do evento:
+              </p>
+
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; border-radius: 8px; margin-bottom: 30px; padding: 20px;">
+                <tr>
+                  <td>
+                    <p style="color: #333333; font-size: 18px; font-weight: 600; margin: 0 0 10px;">
+                      ${dados.nomeEvento}
+                    </p>
+                    ${dados.dataEvento ? `
+                    <p style="color: #666666; font-size: 14px; margin: 0 0 10px;">
+                      📅 ${dados.dataEvento}
+                    </p>
+                    ` : ''}
+                    <p style="color: #666666; font-size: 14px; margin: 0 0 10px;">
+                      🎫 ${dados.quantidadeIngressos} ingressos reservados
+                    </p>
+                    <p style="color: #156634; font-size: 14px; font-weight: 600; margin: 0;">
+                      💰 Desconto: ${dados.desconto}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="color: #666666; font-size: 15px; line-height: 1.6; margin: 0 0 30px;">
+                Clique no botão abaixo para aceitar o convite e acessar seu dashboard:
+              </p>
+
+              <!-- CTA Button -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="padding: 10px 0 30px;">
+                    <a href="${acceptUrl}" 
+                       style="display: inline-block; background-color: #156634; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-size: 16px; font-weight: 600;">
+                      Aceitar Convite e Acessar Dashboard
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="color: #999999; font-size: 13px; line-height: 1.6; margin: 0; text-align: center;">
+                ${dados.usuarioExiste 
+                  ? 'Você já possui uma conta. Faça login para aceitar o convite.'
+                  : 'Será criada uma conta automaticamente para você.'}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f9fa; padding: 25px 30px; text-align: center; border-top: 1px solid #eeeeee;">
+              <p style="color: #999999; font-size: 12px; margin: 0 0 10px;">
+                © ${new Date().getFullYear()} Evemaster. Todos os direitos reservados.
+              </p>
+              <p style="color: #999999; font-size: 12px; margin: 0;">
+                Este é um email automático, por favor não responda.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `
+}
+
+// Função para enviar email de convite para participante do clube
+export async function enviarEmailParticipanteClube(dados: {
+  email: string
+  nomeEvento: string
+  dataEvento?: string
+  linkInscricao: string
+  desconto: string
+  nomeClube: string
+  token: string
+}) {
+  console.log('📧 [Resend] Enviando email para participante do clube:', dados.email)
+  
+  if (!resendApiKey) {
+    console.error('❌ [Resend] RESEND_API_KEY não configurada')
+    return { success: false, error: 'RESEND_API_KEY não configurada' }
+  }
+
+  if (!resendClient) {
+    console.error('❌ [Resend] Cliente Resend não inicializado')
+    return { success: false, error: 'Cliente Resend não inicializado' }
+  }
+
+  try {
+    const emailPayload = {
+      from: resendFromEmail,
+      to: dados.email,
+      subject: `Convite para participar - ${dados.nomeEvento}`,
+      html: gerarTemplateEmailParticipanteClube(dados),
+    }
+
+    const response = await resendClient.emails.send(emailPayload)
+
+    if (response.error) {
+      console.error('❌ [Resend] Erro ao enviar email:', response.error)
+      return { success: false, error: response.error.message || 'Erro ao enviar email' }
+    }
+
+    console.log('✅ [Resend] Email enviado com sucesso:', response.data?.id)
+    return { success: true, id: response.data?.id }
+  } catch (error: any) {
+    console.error('❌ [Resend] Erro ao enviar email:', error)
+    return { success: false, error: error.message || error }
+  }
+}
+
+function gerarTemplateEmailParticipanteClube(dados: {
+  nomeEvento: string
+  dataEvento?: string
+  linkInscricao: string
+  desconto: string
+  nomeClube: string
+}): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Convite Clube de Corrida</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #156634 0%, #1a7a3e 100%); padding: 40px 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">
+                Convite do Clube de Corrida
+              </h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 16px;">
+                Você foi convidado para participar
+              </p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+                Olá,
+              </p>
+              
+              <p style="color: #666666; font-size: 15px; line-height: 1.6; margin: 0 0 20px;">
+                Você foi convidado pelo <strong>${dados.nomeClube}</strong> para participar do evento:
+              </p>
+
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; border-radius: 8px; margin-bottom: 30px; padding: 20px;">
+                <tr>
+                  <td>
+                    <p style="color: #333333; font-size: 18px; font-weight: 600; margin: 0 0 10px;">
+                      ${dados.nomeEvento}
+                    </p>
+                    ${dados.dataEvento ? `
+                    <p style="color: #666666; font-size: 14px; margin: 0 0 10px;">
+                      📅 ${dados.dataEvento}
+                    </p>
+                    ` : ''}
+                    <p style="color: #156634; font-size: 14px; font-weight: 600; margin: 0;">
+                      💰 Desconto especial: ${dados.desconto}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="color: #666666; font-size: 15px; line-height: 1.6; margin: 0 0 30px;">
+                Clique no botão abaixo para realizar sua inscrição com desconto especial:
+              </p>
+
+              <!-- CTA Button -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="padding: 10px 0 30px;">
+                    <a href="${dados.linkInscricao}" 
+                       style="display: inline-block; background-color: #156634; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-size: 16px; font-weight: 600;">
+                      Fazer Inscrição com Desconto
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="color: #999999; font-size: 13px; line-height: 1.6; margin: 0; text-align: center;">
+                Este link é exclusivo para você e já inclui o desconto do clube.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f9fa; padding: 25px 30px; text-align: center; border-top: 1px solid #eeeeee;">
+              <p style="color: #999999; font-size: 12px; margin: 0 0 10px;">
+                © ${new Date().getFullYear()} Evemaster. Todos os direitos reservados.
+              </p>
+              <p style="color: #999999; font-size: 12px; margin: 0;">
+                Este é um email automático, por favor não responda.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `
+}
