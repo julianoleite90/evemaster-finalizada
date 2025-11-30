@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { generateSlug } from "@/lib/utils/slug"
 import type { PostgrestError } from "@supabase/supabase-js"
 
@@ -6,6 +7,19 @@ import type { PostgrestError } from "@supabase/supabase-js"
 type Event = any
 type TicketBatch = any
 type Ticket = any
+
+// Cliente Supabase SEM cookies - para buscar dados públicos (metadata, etc.)
+// Isso é necessário porque o generateMetadata roda sem contexto de request/cookies
+function createPublicClient() {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing Supabase environment variables')
+  }
+
+  return createSupabaseClient(supabaseUrl, supabaseAnonKey)
+}
 
 // Buscar evento por ID (server-side)
 export async function getEventById(eventId: string) {
@@ -29,10 +43,14 @@ export async function getEventById(eventId: string) {
 }
 
 // Buscar evento por slug (server-side)
+// Usa cliente público SEM cookies para garantir que funcione no generateMetadata
 export async function getEventBySlug(slug: string) {
-  const supabase = await createClient()
+  // Usar cliente público (sem cookies) para buscar dados públicos
+  // Isso é necessário para o generateMetadata funcionar corretamente
+  const supabase = createPublicClient()
   
   console.log('[getEventBySlug] Buscando evento com slug:', slug)
+  console.log('[getEventBySlug] Usando cliente público (sem cookies)')
   
   // Verificar se é um UUID primeiro
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -59,11 +77,6 @@ export async function getEventBySlug(slug: string) {
           analytics_facebook_pixel_id,
           analytics_facebook_pixel_enabled
         ),
-        event_images:event_images (
-          id,
-          image_url,
-          image_order
-        ),
         organizer:organizers(id, company_name, full_name, company_cnpj, company_phone, user_id)
       `)
       .eq("id", slug)
@@ -89,11 +102,6 @@ export async function getEventBySlug(slug: string) {
           analytics_gtm_enabled,
           analytics_facebook_pixel_id,
           analytics_facebook_pixel_enabled
-        ),
-        event_images:event_images (
-          id,
-          image_url,
-          image_order
         )
       `)
       .eq("slug", slug)
