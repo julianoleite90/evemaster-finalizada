@@ -626,12 +626,28 @@ export default function CheckoutPage() {
     
     // Preencher dados do participante atual com os dados do usuário
     const novosParticipantes = [...participantes]
+    
+    // Calcular idade se tiver data de nascimento
+    let idadeCalculada = novosParticipantes[currentParticipante].idade
+    if (userData.birthDate) {
+      const nascimento = new Date(userData.birthDate)
+      const hoje = new Date()
+      let idade = hoje.getFullYear() - nascimento.getFullYear()
+      const m = hoje.getMonth() - nascimento.getMonth()
+      if (m < 0 || (m === 0 && hoje.getDate() < nascimento.getDate())) {
+        idade--
+      }
+      idadeCalculada = idade.toString()
+    }
+    
     novosParticipantes[currentParticipante] = {
       ...novosParticipantes[currentParticipante],
       nome: userData.fullName || novosParticipantes[currentParticipante].nome,
       email: userData.email || novosParticipantes[currentParticipante].email,
       telefone: userData.phone || novosParticipantes[currentParticipante].telefone,
       cpf: userData.cpf ? formatCPF(userData.cpf) : novosParticipantes[currentParticipante].cpf,
+      idade: idadeCalculada,
+      genero: userData.gender || novosParticipantes[currentParticipante].genero,
       endereco: userData.address || novosParticipantes[currentParticipante].endereco,
       numero: userData.addressNumber || novosParticipantes[currentParticipante].numero,
       complemento: userData.addressComplement || novosParticipantes[currentParticipante].complemento,

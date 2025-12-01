@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     // Buscar usuário pelo CPF
     const { data: userData, error: userError } = await supabaseAdmin
       .from('users')
-      .select('id, email, full_name, phone, cpf, address, address_number, address_complement, neighborhood, city, state, zip_code')
+      .select('id, email, full_name, phone, cpf, birth_date, gender, address, address_number, address_complement, neighborhood, city, state, zip_code')
       .eq('cpf', cleanCPF)
       .maybeSingle()
 
@@ -137,6 +137,8 @@ export async function POST(request: NextRequest) {
         fullName: userData.full_name,
         phone: userData.phone,
         cpf: userData.cpf,
+        birthDate: userData.birth_date,
+        gender: userData.gender,
         address: userData.address,
         addressNumber: userData.address_number,
         addressComplement: userData.address_complement,
