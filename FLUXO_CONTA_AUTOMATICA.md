@@ -122,3 +122,4 @@ Participante acessa /my-account e vê suas inscrições
   - Isso garante compatibilidade com dados existentes
 
 
+

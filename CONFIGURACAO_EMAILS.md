@@ -85,3 +85,4 @@ Para verificar se está funcionando:
 3. Verifique se não está usando métodos que disparam emails do Supabase
 
 
+

@@ -1137,3 +1137,84 @@ function gerarTemplateEmailParticipanteClube(dados: {
 </html>
   `
 }
+
+// ==================== ENVIAR OTP PARA LOGIN ====================
+
+export interface EmailOTP {
+  para: string
+  nome: string
+  codigo: string
+}
+
+export async function enviarEmailOTP(dados: EmailOTP) {
+  console.log('📧 [Resend] Enviando OTP para:', dados.para)
+  
+  if (!resendApiKey) {
+    console.error('❌ [Resend] RESEND_API_KEY não configurada')
+    return { success: false, error: 'RESEND_API_KEY não configurada' }
+  }
+
+  if (!resendClient) {
+    console.error('❌ [Resend] Cliente Resend não disponível')
+    return { success: false, error: 'Cliente Resend não disponível' }
+  }
+
+  try {
+    const htmlContent = gerarTemplateOTP(dados)
+
+    const result = await resendClient.emails.send({
+      from: resendFromEmail,
+      to: dados.para,
+      subject: `${dados.codigo} é seu código de verificação - EveMaster`,
+      html: htmlContent,
+    })
+
+    console.log('✅ [Resend] OTP enviado com sucesso:', result)
+    return { success: true, data: result }
+  } catch (error: any) {
+    console.error('❌ [Resend] Erro ao enviar OTP:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+function gerarTemplateOTP(dados: EmailOTP): string {
+  return `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" style="max-width: 480px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background: linear-gradient(135deg, #156634 0%, #1a7a3e 100%); padding: 32px 24px; text-align: center;">
+              <h1 style="color: #ffffff; font-size: 24px; font-weight: 700; margin: 0;">EveMaster</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px 32px; text-align: center;">
+              <p style="color: #333333; font-size: 18px; margin: 0 0 8px;">Olá, <strong>${dados.nome}</strong>!</p>
+              <p style="color: #666666; font-size: 15px; margin: 0 0 32px; line-height: 1.5;">Use o código abaixo para fazer login:</p>
+              <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; padding: 24px; margin: 0 0 32px;">
+                <div style="font-size: 40px; font-weight: 700; letter-spacing: 12px; color: #156634; font-family: monospace;">${dados.codigo}</div>
+              </div>
+              <p style="color: #999999; font-size: 13px; margin: 0; line-height: 1.5;">Este código expira em <strong>10 minutos</strong>.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #f8f9fa; padding: 24px 32px; text-align: center; border-top: 1px solid #eee;">
+              <p style="color: #999999; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} EveMaster</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `
+}

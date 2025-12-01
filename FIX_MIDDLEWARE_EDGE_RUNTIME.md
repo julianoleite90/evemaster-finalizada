@@ -236,3 +236,4 @@ Se o problema persistir após todas essas verificações:
 **Compatível com:** Next.js 14.x + Supabase SSR 0.8.x
 
 
+

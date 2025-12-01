@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
@@ -8,6 +7,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { cpf, otp } = body as { cpf: string; otp: string }
+
+    console.log('🔐 [API verificar-otp] Verificando código para CPF:', cpf)
 
     if (!cpf || !otp) {
       return NextResponse.json(
@@ -48,43 +49,83 @@ export async function POST(request: NextRequest) {
       auth: { autoRefreshToken: false, persistSession: false }
     })
 
-    // Buscar email do usuário pelo CPF
+    // Buscar usuário pelo CPF
     const { data: userData, error: userError } = await supabaseAdmin
       .from('users')
-      .select('id, email, full_name, phone, cpf, address, address_number, address_complement, neighborhood, city, state, zip_code, country')
+      .select('id, email, full_name, phone, cpf, address, address_number, address_complement, neighborhood, city, state, zip_code')
       .eq('cpf', cleanCPF)
       .maybeSingle()
 
-    if (userError || !userData?.email) {
+    if (userError || !userData) {
+      console.error('❌ [API verificar-otp] Usuário não encontrado')
       return NextResponse.json(
         { error: 'Usuário não encontrado' },
         { status: 404 }
       )
     }
 
-    // Verificar OTP usando o cliente do servidor (que pode setar cookies)
-    const supabase = await createClient()
-    
-    const { data: sessionData, error: verifyError } = await supabase.auth.verifyOtp({
-      email: userData.email,
-      token: cleanOTP,
-      type: 'email'
-    })
+    // Verificar código OTP
+    const { data: otpData, error: otpError } = await supabaseAdmin
+      .from('otp_codes')
+      .select('*')
+      .eq('user_id', userData.id)
+      .eq('code', cleanOTP)
+      .is('used_at', null)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle()
 
-    if (verifyError) {
-      console.error('Erro ao verificar OTP:', verifyError)
+    if (otpError || !otpData) {
+      console.error('❌ [API verificar-otp] Código inválido ou expirado')
       return NextResponse.json(
         { error: 'Código inválido ou expirado' },
         { status: 400 }
       )
     }
 
-    if (!sessionData.session) {
-      return NextResponse.json(
-        { error: 'Falha ao criar sessão' },
-        { status: 500 }
-      )
+    // Marcar código como usado
+    await supabaseAdmin
+      .from('otp_codes')
+      .update({ used_at: new Date().toISOString() })
+      .eq('id', otpData.id)
+
+    // Criar sessão para o usuário usando signInWithPassword ou magic link
+    // Como o usuário pode não ter senha, vamos gerar um token de acesso direto
+    
+    // Verificar se o usuário existe no auth
+    const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers()
+    const authUser = authUsers?.users?.find(u => u.email?.toLowerCase() === userData.email.toLowerCase())
+
+    let sessionData = null
+
+    if (authUser) {
+      // Usuário existe no auth - gerar link de login
+      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: userData.email,
+      })
+
+      if (linkError) {
+        console.error('❌ [API verificar-otp] Erro ao gerar link:', linkError)
+      } else if (linkData) {
+        // Extrair token do link
+        const url = new URL(linkData.properties.action_link)
+        const token = url.searchParams.get('token')
+        
+        if (token) {
+          // Verificar o token para obter sessão
+          const { data: verifyData, error: verifyError } = await supabaseAdmin.auth.verifyOtp({
+            token_hash: token,
+            type: 'email'
+          })
+
+          if (!verifyError && verifyData.session) {
+            sessionData = verifyData.session
+          }
+        }
+      }
     }
+
+    console.log('✅ [API verificar-otp] Login verificado com sucesso')
 
     // Retornar dados completos do usuário para preencher o formulário
     return NextResponse.json({
@@ -103,20 +144,18 @@ export async function POST(request: NextRequest) {
         city: userData.city,
         state: userData.state,
         zipCode: userData.zip_code,
-        country: userData.country,
       },
-      session: {
-        accessToken: sessionData.session.access_token,
-        refreshToken: sessionData.session.refresh_token,
-      }
+      session: sessionData ? {
+        accessToken: sessionData.access_token,
+        refreshToken: sessionData.refresh_token,
+      } : null
     })
 
   } catch (error: any) {
-    console.error('Erro ao verificar OTP:', error)
+    console.error('❌ [API verificar-otp] Erro:', error)
     return NextResponse.json(
       { error: error.message || 'Erro interno' },
       { status: 500 }
     )
   }
 }
-

@@ -429,3 +429,4 @@ Antes de considerar resolvido:
 **Próximo Passo:** Verificar variáveis de ambiente no Vercel
 
 
+

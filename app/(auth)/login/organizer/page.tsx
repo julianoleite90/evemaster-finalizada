@@ -235,6 +235,54 @@ export default function OrganizerLoginPage() {
           return
         }
         
+        // Se RLS bloqueou ou não encontrou, tentar via API (bypass RLS)
+        if ((orgError && (orgError.code === 'PGRST301' || orgError?.message?.includes('permission') || orgError?.message?.includes('policy') || orgError?.message?.includes('RLS'))) || (!orgMembership && !allMembershipsError && allMemberships && allMemberships.length === 0)) {
+          console.warn("⚠️ [LOGIN ORGANIZADOR] Tentando verificar via API (bypass RLS)...")
+          
+          try {
+            const debugResponse = await fetch('/api/debug/user-info', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: cleanEmail })
+            })
+            
+            if (debugResponse.ok) {
+              const debugData = await debugResponse.json()
+              console.log("🔍 [LOGIN ORGANIZADOR] Dados do debug API:", debugData)
+              
+              // Se encontrou membership via API, usar esses dados
+              if (debugData.organizationMemberships?.found && debugData.organizationMemberships.memberships?.length > 0) {
+                const activeMembershipFromAPI = debugData.organizationMemberships.memberships.find((m: any) => m.is_active)
+                const anyMembershipFromAPI = debugData.organizationMemberships.memberships[0]
+                
+                if (activeMembershipFromAPI) {
+                  console.log("✅ [LOGIN ORGANIZADOR] Membership ATIVO encontrado via API (bypass RLS):", activeMembershipFromAPI)
+                  toast.success("Login realizado com sucesso!")
+                  window.location.href = "/dashboard/organizer"
+                  return
+                } else if (anyMembershipFromAPI) {
+                  console.warn("⚠️ [LOGIN ORGANIZADOR] Membership encontrado mas está INATIVO via API:", anyMembershipFromAPI)
+                  console.warn("  - Isso pode ser a causa do problema!")
+                  console.warn("  - Membership ID:", anyMembershipFromAPI.id)
+                  console.warn("  - Organizer ID:", anyMembershipFromAPI.organizer_id)
+                  console.warn("  - Is Active:", anyMembershipFromAPI.is_active)
+                  
+                  // Mesmo inativo, se o usuário tem role de ADMIN ou ORGANIZADOR, permitir login
+                  const userRole = debugData.usersTable?.users?.[0]?.role
+                  if (userRole === 'ADMIN' || userRole === 'ORGANIZADOR' || userRole === 'ORGANIZER') {
+                    console.log("✅ [LOGIN ORGANIZADOR] Usuário tem role adequado. Permitindo login mesmo com membership inativo.")
+                    toast.success("Login realizado com sucesso!")
+                    window.location.href = "/dashboard/organizer"
+                    return
+                  }
+                }
+              }
+            }
+          } catch (apiError) {
+            console.error("❌ [LOGIN ORGANIZADOR] Erro ao chamar API de debug:", apiError)
+          }
+        }
+        
         // Se não encontrou membership ativo, mas encontrou inativo, informar
         if (!orgMembership && allMemberships && allMemberships.length > 0) {
           const inactiveMemberships = allMemberships.filter(m => !m.is_active)

@@ -10,14 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { Shield, Loader2, ChevronRight, ChevronLeft, Check, CreditCard, QrCode, FileText, User, MapPin, Wallet, Info, CheckCircle2, Edit2, Lock } from "lucide-react"
+import { Shield, Loader2, ChevronRight, ChevronLeft, Check, CreditCard, QrCode, FileText, User, Users, MapPin, Wallet, Info, CheckCircle2, Edit2, Lock } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { getEventById } from "@/lib/supabase/events"
 import { createClient } from "@/lib/supabase/client"
 import EventPixels from "@/components/analytics/EventPixels"
-import { CPFLoginModal } from "@/components/auth/CPFLoginModal"
+import { CPFLoginInline } from "@/components/auth/CPFLoginInline"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -138,8 +138,8 @@ export default function CheckoutPage() {
   const [perfisSalvos, setPerfisSalvos] = useState<any[]>([])
   const [mostrarSelecaoParticipantes, setMostrarSelecaoParticipantes] = useState(false)
   
-  // Estados para modal de login por CPF
-  const [cpfLoginModalOpen, setCpfLoginModalOpen] = useState(false)
+  // Estados para login inline por CPF
+  const [showCpfLogin, setShowCpfLogin] = useState(false)
   const [cpfVerificado, setCpfVerificado] = useState<string | null>(null)
   const [cpfUserData, setCpfUserData] = useState<{ id: string; maskedEmail: string; fullName: string } | null>(null)
   const [verificandoCpf, setVerificandoCpf] = useState(false)
@@ -546,18 +546,44 @@ export default function CheckoutPage() {
 
   // Verificar se CPF já tem conta cadastrada
   const verificarCpfCadastrado = async (cpf: string) => {
-    // Só verificar se for brasileiro e CPF completo
     const participante = participantes[currentParticipante]
-    if (participante.paisResidencia !== "brasil") return
-    
     const cleanCPF = cpf.replace(/\D/g, '')
-    if (cleanCPF.length !== 11) return
+    
+    console.log('🔍 [CPF Check] Verificando CPF:', {
+      cpfOriginal: cpf,
+      cleanCPF,
+      paisResidencia: participante.paisResidencia,
+      usuarioLogado: !!usuarioLogado,
+      cpfVerificado,
+      cleanCPFLength: cleanCPF.length
+    })
+    
+    // Só verificar se for brasileiro e CPF completo
+    // Aceitar "brasil" ou vazio/undefined (padrão é Brasil)
+    if (participante.paisResidencia && participante.paisResidencia !== "brasil") {
+      console.log('🔍 [CPF Check] Ignorando - país não é Brasil:', participante.paisResidencia)
+      return
+    }
+    
+    if (cleanCPF.length !== 11) {
+      console.log('🔍 [CPF Check] Ignorando - CPF incompleto:', cleanCPF.length, 'dígitos')
+      return
+    }
     
     // Não verificar se já está logado ou se já verificamos este CPF
-    if (usuarioLogado || cpfVerificado === cleanCPF) return
+    if (usuarioLogado) {
+      console.log('🔍 [CPF Check] Ignorando - usuário já logado')
+      return
+    }
+    
+    if (cpfVerificado === cleanCPF) {
+      console.log('🔍 [CPF Check] Ignorando - CPF já verificado anteriormente')
+      return
+    }
     
     try {
       setVerificandoCpf(true)
+      console.log('🔍 [CPF Check] Chamando API...')
       
       const response = await fetch('/api/auth/verificar-cpf', {
         method: 'POST',
@@ -566,15 +592,20 @@ export default function CheckoutPage() {
       })
       
       const data = await response.json()
+      console.log('🔍 [CPF Check] Resposta da API:', data)
       
       if (response.ok && data.exists && data.userData) {
-        // CPF encontrado - mostrar modal
+        // CPF encontrado - mostrar bloco inline
+        console.log('✅ [CPF Check] CPF encontrado! Mostrando opção de login...')
         setCpfVerificado(cleanCPF)
         setCpfUserData(data.userData)
-        setCpfLoginModalOpen(true)
+        setShowCpfLogin(true)
+      } else {
+        console.log('ℹ️ [CPF Check] CPF não encontrado no sistema')
+        setShowCpfLogin(false)
       }
     } catch (error) {
-      console.error('Erro ao verificar CPF:', error)
+      console.error('❌ [CPF Check] Erro ao verificar CPF:', error)
     } finally {
       setVerificandoCpf(false)
     }
@@ -582,42 +613,46 @@ export default function CheckoutPage() {
 
   // Callback quando login por CPF for bem-sucedido
   const handleCpfLoginSuccess = async (userData: any) => {
+    // Fechar bloco inline
+    setShowCpfLogin(false)
+    
     // Atualizar usuário logado
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     
     if (user) {
       setUsuarioLogado(user)
-      
-      // Preencher dados do participante atual com os dados do usuário
-      const novosParticipantes = [...participantes]
-      novosParticipantes[currentParticipante] = {
-        ...novosParticipantes[currentParticipante],
-        nome: userData.fullName || novosParticipantes[currentParticipante].nome,
-        email: userData.email || novosParticipantes[currentParticipante].email,
-        telefone: userData.phone || novosParticipantes[currentParticipante].telefone,
-        cpf: userData.cpf ? formatCPF(userData.cpf) : novosParticipantes[currentParticipante].cpf,
-        endereco: userData.address || novosParticipantes[currentParticipante].endereco,
-        numero: userData.addressNumber || novosParticipantes[currentParticipante].numero,
-        complemento: userData.addressComplement || novosParticipantes[currentParticipante].complemento,
-        bairro: userData.neighborhood || novosParticipantes[currentParticipante].bairro,
-        cidade: userData.city || novosParticipantes[currentParticipante].cidade,
-        estado: userData.state || novosParticipantes[currentParticipante].estado,
-        cep: userData.zipCode || novosParticipantes[currentParticipante].cep,
-        paisResidencia: userData.country || novosParticipantes[currentParticipante].paisResidencia || "brasil",
-      }
-      setParticipantes(novosParticipantes)
-      
-      // Buscar perfis salvos do usuário
-      await buscarPerfisSalvos()
-      
-      toast.success('Dados preenchidos automaticamente!')
     }
+    
+    // Preencher dados do participante atual com os dados do usuário
+    const novosParticipantes = [...participantes]
+    novosParticipantes[currentParticipante] = {
+      ...novosParticipantes[currentParticipante],
+      nome: userData.fullName || novosParticipantes[currentParticipante].nome,
+      email: userData.email || novosParticipantes[currentParticipante].email,
+      telefone: userData.phone || novosParticipantes[currentParticipante].telefone,
+      cpf: userData.cpf ? formatCPF(userData.cpf) : novosParticipantes[currentParticipante].cpf,
+      endereco: userData.address || novosParticipantes[currentParticipante].endereco,
+      numero: userData.addressNumber || novosParticipantes[currentParticipante].numero,
+      complemento: userData.addressComplement || novosParticipantes[currentParticipante].complemento,
+      bairro: userData.neighborhood || novosParticipantes[currentParticipante].bairro,
+      cidade: userData.city || novosParticipantes[currentParticipante].cidade,
+      estado: userData.state || novosParticipantes[currentParticipante].estado,
+      cep: userData.zipCode || novosParticipantes[currentParticipante].cep,
+      paisResidencia: novosParticipantes[currentParticipante].paisResidencia || "brasil",
+    }
+    setParticipantes(novosParticipantes)
+    
+    // Buscar perfis salvos do usuário
+    await buscarPerfisSalvos()
+    
+    toast.success('Dados preenchidos automaticamente!')
   }
 
-  // Callback quando usuário escolher continuar sem login
-  const handleContinueWithoutCpfLogin = () => {
-    // Apenas marcar que já verificamos este CPF para não mostrar modal novamente
+  // Callback quando usuário escolher continuar sem login (fechar bloco inline)
+  const handleCloseCpfLogin = () => {
+    setShowCpfLogin(false)
+    // Marcar que já verificamos este CPF para não mostrar novamente
     const participante = participantes[currentParticipante]
     setCpfVerificado(participante.cpf.replace(/\D/g, ''))
   }
@@ -1534,6 +1569,43 @@ export default function CheckoutPage() {
       console.log("=== INSCRIÇÃO CONCLUÍDA COM SUCESSO ===")
       toast.success("Inscrição realizada com sucesso! Contas criadas automaticamente.")
 
+      // Salvar perfis de participantes adicionais marcados para salvar
+      if (usuarioLogado) {
+        for (let i = 1; i < participantes.length; i++) {
+          if (salvarPerfil[i] && participantes[i]?.nome && participantes[i]?.cpf) {
+            const p = participantes[i]
+            try {
+              console.log(`💾 [CHECKOUT] Salvando perfil do participante ${i}: ${p.nome}`)
+              await fetch('/api/participants/salvar-perfil', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  user_id: usuarioLogado.id,
+                  full_name: p.nome,
+                  email: p.email,
+                  phone: p.telefone?.replace(/\D/g, '') || null,
+                  cpf: p.cpf?.replace(/\D/g, '') || null,
+                  country: p.paisResidencia || 'brasil',
+                  zip_code: p.cep?.replace(/\D/g, '') || null,
+                  address: p.endereco || null,
+                  address_number: p.numero || null,
+                  address_complement: p.complemento || null,
+                  neighborhood: p.bairro || null,
+                  city: p.cidade || null,
+                  state: p.estado || null,
+                  shirt_size: p.tamanhoCamiseta || null,
+                  emergency_contact_name: p.contatoEmergenciaNome || null,
+                  emergency_contact_phone: p.contatoEmergenciaTelefone?.replace(/\D/g, '') || null,
+                }),
+              })
+              console.log(`✅ [CHECKOUT] Perfil salvo: ${p.nome}`)
+            } catch (saveError) {
+              console.error(`❌ [CHECKOUT] Erro ao salvar perfil ${p.nome}:`, saveError)
+            }
+          }
+        }
+      }
+
       // Sinalizar que o evento foi atualizado para recarregar dados
       localStorage.setItem(`event_updated_${eventId}`, 'true')
 
@@ -1845,6 +1917,16 @@ export default function CheckoutPage() {
                           </div>
                         )}
                       </div>
+                      
+                      {/* Bloco inline de login por CPF */}
+                      {showCpfLogin && cpfUserData && !usuarioLogado && (
+                        <CPFLoginInline
+                          cpf={participante.cpf}
+                          userData={cpfUserData}
+                          onLoginSuccess={handleCpfLoginSuccess}
+                          onClose={handleCloseCpfLogin}
+                        />
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -2345,7 +2427,7 @@ export default function CheckoutPage() {
                       valorExibicao = Math.max(0, ing.valor - descontoIngresso)
                     }
                     return (
-                      <div key={i} className="border rounded-md p-3 text-sm space-y-1">
+                      <div key={i} className="border rounded-md p-3 text-sm space-y-2">
                         <div className="flex items-center justify-between font-medium">
                           <span>{ing.categoria}</span>
                           <div className="text-right">
@@ -2373,6 +2455,23 @@ export default function CheckoutPage() {
                           <p className="text-xs text-muted-foreground">
                             Kit: <span className="text-foreground">{ing.itensKit.join(", ")}</span>
                           </p>
+                        )}
+                        {/* Checkbox para salvar participante adicional */}
+                        {i > 0 && participanteResumo?.nome && participanteResumo?.cpf && (
+                          <div className="pt-1 border-t border-dashed">
+                            <label className="flex items-start gap-2 cursor-pointer">
+                              <Checkbox
+                                checked={salvarPerfil[i] || false}
+                                onCheckedChange={(checked) => {
+                                  setSalvarPerfil(prev => ({ ...prev, [i]: checked === true }))
+                                }}
+                                className="mt-0.5"
+                              />
+                              <span className="text-xs text-gray-600 leading-tight">
+                                Salvar <strong>{participanteResumo.nome.split(' ')[0]}</strong> para inscrições futuras
+                              </span>
+                            </label>
+                          </div>
                         )}
                       </div>
                     )
@@ -2704,106 +2803,147 @@ export default function CheckoutPage() {
 
       {/* Diálogo de busca de participantes salvos OU inserir novo */}
       <Dialog open={mostrarBuscaParticipantes} onOpenChange={setMostrarBuscaParticipantes}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {participanteAtualEmEdicao !== null 
-                ? `Participante ${participanteAtualEmEdicao + 1} de ${participantes.length}`
-                : 'Selecione ou crie um participante'}
-            </DialogTitle>
-            <p className="text-sm text-gray-600 mt-2">
-              {usuarioLogado && perfisSalvos.length > 0
-                ? 'Busque um participante salvo ou crie um novo'
-                : 'Preencha os dados do participante'}
-            </p>
-          </DialogHeader>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0">
+          {/* Header com gradiente */}
+          <div className="relative px-5 pt-5 pb-4 bg-gradient-to-br from-[#156634] to-emerald-600">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-full bg-white/20 backdrop-blur flex items-center justify-center">
+                <Users className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-semibold text-white">
+                  {participanteAtualEmEdicao !== null 
+                    ? `Inscrito ${participanteAtualEmEdicao + 1} de ${participantes.length}`
+                    : 'Quem vai participar?'}
+                </DialogTitle>
+                <p className="text-sm text-white/80">
+                  {usuarioLogado && perfisSalvos.length > 0
+                    ? 'Selecione ou cadastre novo'
+                    : 'Cadastre o participante'}
+                </p>
+              </div>
+            </div>
+            {/* Decoração */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+          </div>
           
-          {usuarioLogado && perfisSalvos.length > 0 && (
-            <div className="space-y-4 mt-4">
+          {usuarioLogado && perfisSalvos.length > 0 ? (
+            <div className="flex-1 overflow-hidden flex flex-col">
               {/* Campo de busca */}
-              <div className="space-y-2">
-                <Label htmlFor="buscaParticipante">Buscar participante por nome, email ou CPF</Label>
-                <Input
-                  id="buscaParticipante"
-                  placeholder="Digite para buscar..."
-                  value={termoBuscaParticipante}
-                  onChange={(e) => setTermoBuscaParticipante(e.target.value)}
-                />
+              <div className="px-4 py-3 bg-gray-50 border-b">
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <Input
+                    id="buscaParticipante"
+                    placeholder="Buscar..."
+                    value={termoBuscaParticipante}
+                    onChange={(e) => setTermoBuscaParticipante(e.target.value)}
+                    className="pl-9 h-9 bg-white text-sm"
+                  />
+                </div>
               </div>
 
-              {/* Lista de perfis filtrados */}
-              {perfisFiltrados.length > 0 ? (
-                <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {perfisFiltrados.map((perfil) => (
-                    <Card key={perfil.id} className="border cursor-pointer hover:border-[#156634] transition-colors">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <p className="font-medium">{perfil.full_name}</p>
-                            <p className="text-sm text-gray-600">{perfil.email}</p>
-                            {perfil.cpf && (
-                              <p className="text-xs text-gray-500">
-                                CPF: {perfil.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}
+              {/* Lista de perfis */}
+              <div className="flex-1 overflow-y-auto p-3">
+                {(termoBuscaParticipante ? perfisFiltrados : perfisSalvos).length > 0 ? (
+                  <div className="space-y-2">
+                    {(termoBuscaParticipante ? perfisFiltrados : perfisSalvos).map((perfil, idx) => {
+                      // Cores diferentes para cada perfil
+                      const colors = [
+                        'from-blue-500 to-blue-600',
+                        'from-purple-500 to-purple-600',
+                        'from-pink-500 to-pink-600',
+                        'from-orange-500 to-orange-600',
+                        'from-teal-500 to-teal-600',
+                      ]
+                      const colorClass = colors[idx % colors.length]
+                      
+                      return (
+                        <div 
+                          key={perfil.id} 
+                          onClick={() => selecionarParticipanteSalvo(perfil)}
+                          className="group flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl cursor-pointer hover:border-[#156634]/30 hover:shadow-md transition-all duration-200"
+                        >
+                          {/* Avatar com inicial */}
+                          <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${colorClass} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                            <span className="text-base font-bold text-white">
+                              {perfil.full_name?.charAt(0)?.toUpperCase() || '?'}
+                            </span>
+                          </div>
+                          
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-medium text-gray-900 text-sm truncate">{perfil.full_name}</p>
+                              <CheckCircle2 className="h-3.5 w-3.5 text-[#156634] flex-shrink-0" />
+                            </div>
+                            <p className="text-xs text-gray-500 truncate">{perfil.email}</p>
+                            {perfil.city && perfil.state && (
+                              <p className="text-xs text-gray-400 truncate mt-0.5">
+                                📍 {perfil.city}, {perfil.state}
                               </p>
                             )}
                           </div>
-                          <Button
-                            size="sm"
-                            onClick={() => selecionarParticipanteSalvo(perfil)}
-                            className="bg-[#156634] hover:bg-[#1a7a3e]"
-                          >
-                            Usar este
-                          </Button>
+                          
+                          {/* Botão selecionar */}
+                          <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span className="text-xs font-medium text-[#156634] bg-[#156634]/10 px-2 py-1 rounded-full">
+                              Usar
+                            </span>
+                          </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : termoBuscaParticipante ? (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  Nenhum participante encontrado com &quot;{termoBuscaParticipante}&quot;
-                </p>
-              ) : (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  Digite para buscar participantes salvos
-                </p>
-              )}
+                      )
+                    })}
+                  </div>
+                ) : termoBuscaParticipante ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-center">
+                    <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                      <User className="h-6 w-6 text-gray-400" />
+                    </div>
+                    <p className="text-sm text-gray-600 font-medium">Nenhum resultado</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Tente outro termo ou cadastre novo
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <div className="px-5 py-10 text-center">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mx-auto mb-4">
+                <User className="h-7 w-7 text-gray-400" />
+              </div>
+              <p className="text-gray-700 font-medium">Nenhum cadastro salvo</p>
+              <p className="text-sm text-gray-400 mt-1">Cadastre o participante abaixo</p>
             </div>
           )}
 
-          <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
+          {/* Footer */}
+          <div className="px-4 py-3 border-t bg-white flex gap-2">
             <Button
-              variant="outline"
               onClick={criarNovoParticipante}
-              className="flex-1"
+              className="flex-1 bg-[#156634] hover:bg-[#1a7a3e] h-10"
             >
+              <User className="h-4 w-4 mr-2" />
               {usuarioLogado && perfisSalvos.length > 0 
-                ? "Criar novo participante" 
-                : "Preencher dados manualmente"}
+                ? "Cadastrar novo" 
+                : "Preencher dados"}
             </Button>
             {participanteAtualEmEdicao !== null && participanteAtualEmEdicao < participantes.length - 1 && (
               <Button
                 variant="outline"
                 onClick={continuarParaProximoParticipante}
+                className="h-10"
               >
-                Pular este
+                Pular
               </Button>
             )}
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Login por CPF */}
-      {cpfUserData && (
-        <CPFLoginModal
-          open={cpfLoginModalOpen}
-          onOpenChange={setCpfLoginModalOpen}
-          cpf={participantes[currentParticipante]?.cpf || ''}
-          userData={cpfUserData}
-          onLoginSuccess={handleCpfLoginSuccess}
-          onContinueWithoutLogin={handleContinueWithoutCpfLogin}
-        />
-      )}
     </div>
   )
 }

@@ -374,3 +374,4 @@ Se o problema persistir, contacte:
 **Versão:** Next.js 14.2 + Supabase SSR 0.8
 
 
+

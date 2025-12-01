@@ -8,6 +8,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { cpf } = body as { cpf: string }
 
+    console.log('🔍 [API verificar-cpf] Recebido:', { cpf })
+
     if (!cpf) {
       return NextResponse.json(
         { error: 'CPF é obrigatório' },
@@ -17,8 +19,10 @@ export async function POST(request: NextRequest) {
 
     // Limpar CPF - apenas números
     const cleanCPF = cpf.replace(/\D/g, '')
+    console.log('🔍 [API verificar-cpf] CPF limpo:', cleanCPF)
     
     if (cleanCPF.length !== 11) {
+      console.log('❌ [API verificar-cpf] CPF inválido - tamanho:', cleanCPF.length)
       return NextResponse.json(
         { error: 'CPF inválido' },
         { status: 400 }
@@ -29,6 +33,7 @@ export async function POST(request: NextRequest) {
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
     if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('❌ [API verificar-cpf] Configuração incompleta')
       return NextResponse.json(
         { error: 'Configuração do servidor incompleta' },
         { status: 500 }
@@ -40,14 +45,22 @@ export async function POST(request: NextRequest) {
     })
 
     // Buscar usuário pelo CPF na tabela users
+    console.log('🔍 [API verificar-cpf] Buscando no banco por CPF:', cleanCPF)
     const { data: userData, error: userError } = await supabaseAdmin
       .from('users')
-      .select('id, email, full_name, phone, cpf, address, address_number, address_complement, neighborhood, city, state, zip_code, country')
+      .select('id, email, full_name, phone, cpf, address, address_number, address_complement, neighborhood, city, state, zip_code')
       .eq('cpf', cleanCPF)
       .maybeSingle()
 
+    console.log('🔍 [API verificar-cpf] Resultado da busca:', { 
+      encontrado: !!userData, 
+      erro: userError?.message,
+      userId: userData?.id,
+      email: userData?.email 
+    })
+
     if (userError) {
-      console.error('Erro ao buscar usuário por CPF:', userError)
+      console.error('❌ [API verificar-cpf] Erro ao buscar:', userError)
       return NextResponse.json(
         { error: 'Erro ao verificar CPF' },
         { status: 500 }
@@ -56,6 +69,7 @@ export async function POST(request: NextRequest) {
 
     if (!userData) {
       // CPF não encontrado
+      console.log('ℹ️ [API verificar-cpf] CPF não encontrado no banco')
       return NextResponse.json({
         exists: false,
         message: 'CPF não cadastrado'
