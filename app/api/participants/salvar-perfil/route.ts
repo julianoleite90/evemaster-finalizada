@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const {
-      user_id, // userId opcional (para salvar no perfil do principal)
+      user_id, // userId do usuário principal (quem está logado)
       full_name,
       email,
       phone,
@@ -36,20 +37,28 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
-    // Usar userId fornecido ou do usuário autenticado
-    const targetUserId = user_id || user?.id
+    // Usar userId do usuário autenticado OU o user_id fornecido (se logado)
+    const targetUserId = user?.id || user_id
 
     if (!targetUserId) {
       return NextResponse.json(
-        { error: 'Usuário não identificado. Faça login ou forneça um user_id.' },
+        { error: 'Usuário não identificado. Faça login primeiro.' },
         { status: 401 }
       )
     }
 
+    // Usar admin client para bypass RLS quando salvando perfil de participante adicional
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
     const cleanCPF = cpf.replace(/\D/g, '')
 
-    // Verificar se já existe perfil com este CPF para este usuário
-    const { data: existing } = await supabase
+    console.log('💾 [SALVAR PERFIL] Salvando perfil para user_id:', targetUserId)
+
+    // Verificar se já existe perfil com este CPF para este usuário (usando admin)
+    const { data: existing } = await supabaseAdmin
       .from('saved_participant_profiles')
       .select('id')
       .eq('user_id', targetUserId)
@@ -81,7 +90,8 @@ export async function POST(request: NextRequest) {
     let result
     if (existing) {
       // Atualizar perfil existente
-      const { data, error } = await supabase
+      console.log('📝 [SALVAR PERFIL] Atualizando perfil existente:', existing.id)
+      const { data, error } = await supabaseAdmin
         .from('saved_participant_profiles')
         .update(profileData)
         .eq('id', existing.id)
@@ -92,7 +102,8 @@ export async function POST(request: NextRequest) {
       result = data
     } else {
       // Criar novo perfil
-      const { data, error } = await supabase
+      console.log('➕ [SALVAR PERFIL] Criando novo perfil')
+      const { data, error } = await supabaseAdmin
         .from('saved_participant_profiles')
         .insert(profileData)
         .select()
@@ -101,6 +112,8 @@ export async function POST(request: NextRequest) {
       if (error) throw error
       result = data
     }
+    
+    console.log('✅ [SALVAR PERFIL] Perfil salvo com sucesso:', result.id)
 
     return NextResponse.json({
       success: true,
