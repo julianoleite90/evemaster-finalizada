@@ -17,7 +17,7 @@ export default function MyProfilePage() {
     email: "",
     phone: "",
     cpf: "",
-    birth_date: "",
+    age: "",
     gender: "",
     address: "",
     address_number: "",
@@ -54,7 +54,7 @@ export default function MyProfilePage() {
             full_name,
             phone,
             cpf,
-            birth_date,
+            age,
             gender,
             address,
             address_number,
@@ -86,7 +86,7 @@ export default function MyProfilePage() {
             email: user.email || "",
             phone: userData.phone || "",
             cpf: userData.cpf || "",
-            birth_date: userData.birth_date || "",
+            age: userData.age?.toString() || "",
             gender: userData.gender || "",
             address: userData.address || "",
             address_number: userData.address_number || "",
@@ -108,7 +108,7 @@ export default function MyProfilePage() {
             email: user.email || "",
             phone: metadata.phone || "",
             cpf: metadata.cpf || "",
-            birth_date: metadata.birth_date || "",
+            age: metadata.age?.toString() || "",
             gender: metadata.gender || "",
             address: metadata.address || "",
             address_number: metadata.address_number || "",
@@ -168,7 +168,7 @@ export default function MyProfilePage() {
           full_name: userData.full_name,
           phone: userData.phone?.replace(/\D/g, '') || null,
           cpf: userData.cpf?.replace(/\D/g, '') || null,
-          birth_date: userData.birth_date || null,
+          age: userData.age ? parseInt(userData.age) : null,
           gender: userData.gender || null,
           address: userData.address || null,
           address_number: userData.address_number || null,
@@ -290,14 +290,18 @@ export default function MyProfilePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="birth_date">Data de Nascimento</Label>
+                <Label htmlFor="age">Idade</Label>
                 <Input
-                  id="birth_date"
-                  type="date"
-                  value={userData.birth_date}
+                  id="age"
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  max="120"
+                  value={userData.age}
                   onChange={(e) =>
-                    setUserData({ ...userData, birth_date: e.target.value })
+                    setUserData({ ...userData, age: e.target.value })
                   }
+                  placeholder="Ex: 35"
                 />
               </div>
 
