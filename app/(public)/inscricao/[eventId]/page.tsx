@@ -1898,8 +1898,9 @@ export default function CheckoutPage() {
                             updateParticipante("cpf", formatted)
                           }}
                           onBlur={(e) => {
-                            // Verificar se CPF já tem conta ao sair do campo (apenas para brasileiros)
-                            if (participante.paisResidencia === "brasil") {
+                            // Verificar se CPF já tem conta ao sair do campo
+                            // Apenas para: participante 1 (index 0), brasileiros, e usuário NÃO logado
+                            if (currentParticipante === 0 && !usuarioLogado && participante.paisResidencia === "brasil") {
                               verificarCpfCadastrado(e.target.value)
                             }
                           }}
