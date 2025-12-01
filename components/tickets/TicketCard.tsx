@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Ticket, Calendar, MapPin, Clock, User, Download, Wallet, Star, CheckCircle } from "lucide-react"
+import { Ticket, Calendar, MapPin, Clock, User, Download, Star, CheckCircle } from "lucide-react"
 import Image from "next/image"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -15,11 +15,10 @@ import { StarRating } from "@/components/reviews/StarRating"
 interface TicketCardProps {
   inscricao: any
   onDownloadPDF?: () => void
-  onAddToWallet?: (walletType: 'apple' | 'google') => void
   userId?: string
 }
 
-export function TicketCard({ inscricao, onDownloadPDF, onAddToWallet, userId }: TicketCardProps) {
+export function TicketCard({ inscricao, onDownloadPDF, userId }: TicketCardProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [reviewModalOpen, setReviewModalOpen] = useState(false)
   const [hasReviewed, setHasReviewed] = useState(false)
@@ -292,26 +291,12 @@ export function TicketCard({ inscricao, onDownloadPDF, onAddToWallet, userId }: 
               </div>
             )}
 
-            {/* Ações - reorganizadas */}
-            <div className="flex flex-col gap-2 pt-3 border-t">
-              <div className="flex gap-2">
-                {onDownloadPDF && (
-                  <Button onClick={onDownloadPDF} variant="outline" className="flex-1">
-                    <Download className="h-4 w-4 mr-2" />
-                    Baixar PDF
-                  </Button>
-                )}
-                {onAddToWallet && (
-                  <Button onClick={() => onAddToWallet('apple')} className="flex-1 bg-[#156634] hover:bg-[#1a7a3e]">
-                    <Wallet className="h-4 w-4 mr-2" />
-                    Apple Wallet
-                  </Button>
-                )}
-              </div>
-              {onAddToWallet && (
-                <Button onClick={() => onAddToWallet('google')} variant="outline" className="w-full">
-                  <Wallet className="h-4 w-4 mr-2" />
-                  Google Wallet
+            {/* Ações */}
+            <div className="pt-3 border-t">
+              {onDownloadPDF && (
+                <Button onClick={onDownloadPDF} className="w-full bg-[#156634] hover:bg-[#1a7a3e]">
+                  <Download className="h-4 w-4 mr-2" />
+                  Baixar Ingresso (PDF)
                 </Button>
               )}
             </div>

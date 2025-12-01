@@ -237,55 +237,6 @@ export default function MyAccountPage() {
     }
   }
 
-  const handleAddToWallet = async (inscricao: any, walletType: 'apple' | 'google' = 'apple') => {
-    try {
-      const response = await fetch('/api/tickets/wallet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ registrationId: inscricao.id, walletType }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || 'Erro ao gerar ingresso para carteira')
-      }
-
-      if (walletType === 'apple') {
-        // Para Apple Wallet, tentar baixar o arquivo .pkpass
-        const contentType = response.headers.get('content-type')
-        if (contentType?.includes('application/vnd.apple.pkpass')) {
-          const blob = await response.blob()
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = `ingresso-${inscricao.registration_number || inscricao.id}.pkpass`
-          document.body.appendChild(a)
-          a.click()
-          document.body.removeChild(a)
-          URL.revokeObjectURL(url)
-          toast.success('Ingresso baixado! Abra o arquivo para adicionar à Apple Wallet.')
-        } else {
-          // Se não retornar .pkpass, mostrar instruções
-          const data = await response.json()
-          toast.info('Para adicionar à Apple Wallet, é necessário configurar o certificado Apple Developer')
-        }
-      } else if (walletType === 'google') {
-        // Para Google Wallet, pode retornar um link ou dados
-        const data = await response.json()
-        if (data.saveUrl) {
-          // Abrir link do Google Wallet
-          window.open(data.saveUrl, '_blank')
-          toast.success('Redirecionando para Google Wallet...')
-        } else {
-          toast.info('Integração com Google Wallet em desenvolvimento')
-        }
-      }
-    } catch (error: any) {
-      console.error('Erro ao adicionar à carteira:', error)
-      toast.error(error.message || 'Erro ao adicionar à carteira')
-    }
-  }
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -326,7 +277,6 @@ export default function MyAccountPage() {
               inscricao={inscricao}
               userId={userId}
               onDownloadPDF={() => handleDownloadPDF(inscricao)}
-              onAddToWallet={(walletType) => handleAddToWallet(inscricao, walletType)}
             />
           ))}
         </div>
