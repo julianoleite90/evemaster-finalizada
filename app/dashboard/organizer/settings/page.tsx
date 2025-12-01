@@ -777,14 +777,14 @@ export default function OrganizerSettingsPage() {
                       Adicionar Usuário
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
+                  <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
+                    <DialogHeader className="flex-shrink-0">
                       <DialogTitle>Adicionar Usuário</DialogTitle>
                       <DialogDescription>
                         Adicione um usuário à sua organização com permissões específicas
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
+                    <div className="space-y-4 py-4 overflow-y-auto flex-1">
                       <div className="space-y-2">
                         <Label htmlFor="email">Email do Usuário</Label>
                         <div className="relative">
@@ -1149,7 +1149,7 @@ export default function OrganizerSettingsPage() {
                         </div>
                       </div>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="flex-shrink-0 border-t pt-4">
                       <Button variant="outline" onClick={() => setShowAddUserDialog(false)}>
                         Cancelar
                       </Button>
