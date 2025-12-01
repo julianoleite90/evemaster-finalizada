@@ -110,8 +110,7 @@ export async function POST(request: NextRequest) {
             ),
             athletes(
               full_name,
-              email,
-              category
+              email
             ),
             payments(
               total_amount,
