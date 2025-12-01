@@ -17,6 +17,8 @@ export default function MyProfilePage() {
     email: "",
     phone: "",
     cpf: "",
+    birth_date: "",
+    gender: "",
     address: "",
     address_number: "",
     address_complement: "",
@@ -52,6 +54,8 @@ export default function MyProfilePage() {
             full_name,
             phone,
             cpf,
+            birth_date,
+            gender,
             address,
             address_number,
             address_complement,
@@ -82,6 +86,8 @@ export default function MyProfilePage() {
             email: user.email || "",
             phone: userData.phone || "",
             cpf: userData.cpf || "",
+            birth_date: userData.birth_date || "",
+            gender: userData.gender || "",
             address: userData.address || "",
             address_number: userData.address_number || "",
             address_complement: userData.address_complement || "",
@@ -102,6 +108,8 @@ export default function MyProfilePage() {
             email: user.email || "",
             phone: metadata.phone || "",
             cpf: metadata.cpf || "",
+            birth_date: metadata.birth_date || "",
+            gender: metadata.gender || "",
             address: metadata.address || "",
             address_number: metadata.address_number || "",
             address_complement: metadata.address_complement || "",
@@ -160,6 +168,8 @@ export default function MyProfilePage() {
           full_name: userData.full_name,
           phone: userData.phone?.replace(/\D/g, '') || null,
           cpf: userData.cpf?.replace(/\D/g, '') || null,
+          birth_date: userData.birth_date || null,
+          gender: userData.gender || null,
           address: userData.address || null,
           address_number: userData.address_number || null,
           address_complement: userData.address_complement || null,
@@ -277,6 +287,36 @@ export default function MyProfilePage() {
                   placeholder="000.000.000-00"
                   maxLength={14}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="birth_date">Data de Nascimento</Label>
+                <Input
+                  id="birth_date"
+                  type="date"
+                  value={userData.birth_date}
+                  onChange={(e) =>
+                    setUserData({ ...userData, birth_date: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="gender">Gênero</Label>
+                <select
+                  id="gender"
+                  value={userData.gender}
+                  onChange={(e) =>
+                    setUserData({ ...userData, gender: e.target.value })
+                  }
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="">Selecione</option>
+                  <option value="masculino">Masculino</option>
+                  <option value="feminino">Feminino</option>
+                  <option value="outro">Outro</option>
+                  <option value="prefiro_nao_informar">Prefiro não informar</option>
+                </select>
               </div>
 
               <div className="space-y-2">
