@@ -596,19 +596,18 @@ export default function RegistrationDetailsPage() {
                           </p>
                         </div>
                       )}
-                      {registration.atleta.dataNascimento && (
+                      {(registration.atleta.idade || registration.atleta.dataNascimento) && (
                         <div>
                           <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
                             <Cake className="h-3 w-3" />
-                            Data de Nascimento
-                    </p>
+                            Idade
+                          </p>
                           <p className="text-sm text-gray-900">
-                            {formatDate(registration.atleta.dataNascimento)}
-                            {registration.atleta.idade && (
-                              <span className="text-gray-500 ml-2">
-                                ({registration.atleta.idade} anos)
-                              </span>
-                            )}
+                            {registration.atleta.idade ? (
+                              <span>{registration.atleta.idade} anos</span>
+                            ) : registration.atleta.dataNascimento ? (
+                              formatDate(registration.atleta.dataNascimento)
+                            ) : null}
                           </p>
                         </div>
                       )}
