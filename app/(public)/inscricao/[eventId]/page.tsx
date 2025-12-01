@@ -1891,6 +1891,7 @@ export default function CheckoutPage() {
                       <div className="relative">
                         <Input
                           id="cpf"
+                          inputMode="numeric"
                           value={participante.cpf}
                           onChange={(e) => {
                             const formatted = formatDocumento(e.target.value, participante.paisResidencia)
@@ -1960,6 +1961,7 @@ export default function CheckoutPage() {
                         <Label htmlFor="telefone">{t("telefone")} *</Label>
                         <Input
                           id="telefone"
+                          inputMode="tel"
                           value={participante.telefone}
                           onChange={(e) => updateParticipante("telefone", isBrasil ? formatTelefone(e.target.value) : e.target.value)}
                           placeholder={isBrasil ? "(00) 00000-0000" : "+00 000 000 0000"}
@@ -2024,6 +2026,7 @@ export default function CheckoutPage() {
                             <Label htmlFor="cep">CEP *</Label>
                             <Input
                               id="cep"
+                              inputMode="numeric"
                               value={participante.cep}
                               onChange={(e) => updateParticipante("cep", formatCEP(e.target.value))}
                               onBlur={(e) => buscarCep(e.target.value, currentParticipante)}
@@ -2131,6 +2134,7 @@ export default function CheckoutPage() {
                         <Label htmlFor="numero">{idioma === "es" ? "Número" : idioma === "en" ? "Number" : "Número"} *</Label>
                         <Input
                           id="numero"
+                          inputMode="numeric"
                           value={participante.numero}
                           onChange={(e) => updateParticipante("numero", e.target.value)}
                           placeholder="Nº"
@@ -2198,6 +2202,7 @@ export default function CheckoutPage() {
                       </Label>
                       <Input
                         id="contato-emergencia-telefone"
+                        inputMode="tel"
                         value={participante.contatoEmergenciaTelefone}
                         onChange={(e) => {
                           const formatted = isBrasil ? formatTelefone(e.target.value) : e.target.value
