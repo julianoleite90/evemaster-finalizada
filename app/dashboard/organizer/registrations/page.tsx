@@ -1128,7 +1128,7 @@ export default function RegistrationsPage() {
           {filteredRegistrations.length > 0 ? (
             <>
               {/* Cabeçalho da tabela */}
-              <div className="hidden md:grid md:grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr_1fr] gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+              <div className="hidden md:grid md:grid-cols-[minmax(0,200px)_minmax(0,180px)_1fr_1fr_1fr_1fr_1fr] gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wide">
                 <div>Nome</div>
                 <div>Evento</div>
                 <div>ID</div>
@@ -1148,9 +1148,9 @@ export default function RegistrationsPage() {
                 >
                     <div className="px-4 py-3">
                       {/* Desktop: Layout em grid */}
-                      <div className="hidden md:grid md:grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr_1.5fr] gap-3 items-center">
+                      <div className="hidden md:grid md:grid-cols-[minmax(0,200px)_minmax(0,180px)_1fr_1fr_1fr_1fr_1fr] gap-3 items-center">
                         {/* Nome e Email */}
-                        <div>
+                        <div className="min-w-0 overflow-hidden">
                           <p 
                             className="text-sm font-medium text-gray-900 truncate cursor-pointer hover:text-green-600 transition-colors" 
                             title={registration.nome}
@@ -1171,22 +1171,21 @@ export default function RegistrationsPage() {
                               <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
                             ) : null}
                           </p>
-                    </div>
+                        </div>
 
                         {/* Evento */}
-                        <div>
+                        <div className="min-w-0 overflow-hidden">
                           <p 
                             className="text-xs text-gray-600 truncate cursor-pointer hover:text-green-600 transition-colors" 
                             title={registration.evento}
-                            style={{ maxWidth: '100%' }}
                             onClick={(e) => handleCopy(e, registration.evento, `evento-${registration.id}`)}
                           >
-                            {registration.evento.length > 30 ? `${registration.evento.substring(0, 30)}...` : registration.evento}
+                            {registration.evento}
                             {copiedId === `evento-${registration.id}` ? (
                               <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
                             ) : null}
                           </p>
-                    </div>
+                        </div>
 
                         {/* ID */}
                         <div>
