@@ -145,161 +145,118 @@ export function TicketCard({ inscricao, onDownloadPDF, userId }: TicketCardProps
         </div>
       </Card>
 
-      {/* Modal de Detalhes */}
+      {/* Modal de Detalhes - Compacto */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold">{event?.name || "Detalhes do Ingresso"}</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4 mt-2">
-            {/* Banner do evento - menor */}
+        <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
+          {/* Header com Banner */}
+          <div className="relative h-24 bg-gradient-to-r from-[#156634] to-emerald-600">
             {event?.banner_url && (
-              <div className="relative w-full h-32 rounded-lg overflow-hidden">
-                <Image
-                  src={event.banner_url}
-                  alt={event.name || "Evento"}
-                  fill
-                  className="object-cover"
-                />
-              </div>
+              <Image
+                src={event.banner_url}
+                alt={event.name || "Evento"}
+                fill
+                className="object-cover opacity-30"
+              />
             )}
-
-            {/* Informações do Evento */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg text-gray-900 border-b pb-2">Informações do Evento</h3>
-                <div className="space-y-2">
-                  <div>
-                    <div className="text-xs text-gray-500 mb-1">Data</div>
-                    <div className="font-medium">{formatDate(event?.event_date)}</div>
-                  </div>
-                  {event?.start_time && (
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Horário</div>
-                      <div className="font-medium">{formatTime(event.start_time)}</div>
-                    </div>
-                  )}
-                  <div>
-                    <div className="text-xs text-gray-500 mb-1">Local</div>
-                    <div className="font-medium">{event?.location || event?.address || "Não informado"}</div>
-                  </div>
-                  {event?.description && (
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Descrição</div>
-                      <div className="text-sm text-gray-700">{event.description.replace(/<[^>]*>/g, '').substring(0, 200)}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg text-gray-900 border-b pb-2">Informações da Inscrição</h3>
-                <div className="space-y-2">
-                  <div>
-                    <div className="text-xs text-gray-500 mb-1">Número da Inscrição</div>
-                    <div className="font-mono font-bold text-lg text-[#156634]">
-                      {inscricao.registration_number || inscricao.id.substring(0, 8).toUpperCase()}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500 mb-1">Status</div>
-                    <div>{getStatusBadge(inscricao.status || "pending")}</div>
-                  </div>
-                  {ticket && (
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Categoria</div>
-                      <div className="font-medium">{ticket.category}</div>
-                    </div>
-                  )}
-                  {inscricao.shirt_size && (
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Tamanho da Camiseta</div>
-                      <div className="font-medium">{inscricao.shirt_size}</div>
-                    </div>
-                  )}
-                  {inscricao.athletes && Array.isArray(inscricao.athletes) && inscricao.athletes.length > 0 && (
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Participante</div>
-                      <div className="font-medium">{inscricao.athletes[0].full_name || inscricao.athletes[0].email}</div>
-                    </div>
-                  )}
-                  <div>
-                    <div className="text-xs text-gray-500 mb-1">Data da Inscrição</div>
-                    <div className="font-medium">
-                      {new Date(inscricao.created_at).toLocaleDateString('pt-BR', {
-                        day: '2-digit',
-                        month: 'long',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </div>
-                  </div>
-                </div>
+            <div className="absolute inset-0 p-4 flex flex-col justify-end">
+              <h2 className="text-white font-bold text-lg leading-tight line-clamp-2">
+                {event?.name || "Evento"}
+              </h2>
+              <div className="flex items-center gap-3 text-white/80 text-xs mt-1">
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  {formatDate(event?.event_date).split(',')[1]?.trim() || formatDate(event?.event_date)}
+                </span>
+                {event?.start_time && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatTime(event.start_time)}
+                  </span>
+                )}
               </div>
             </div>
+          </div>
 
-            {/* QR Code - menor */}
-            <div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-              <div className="font-mono text-xl font-bold text-[#156634] mb-1">
-                {inscricao.registration_number || inscricao.id.substring(0, 8).toUpperCase()}
-              </div>
-              <div className="text-xs text-gray-500 text-center">
-                Apresente este código na retirada do kit
-              </div>
-            </div>
-
-            {/* Avaliação do Organizador */}
-            {organizer && (
-              <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-semibold text-gray-900 flex items-center gap-2">
-                      <Star className="h-4 w-4 text-amber-500" />
-                      Avaliar Organizador
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      {organizer.company_name || "Organizador"}
-                    </p>
-                  </div>
-                  
-                  {hasReviewed ? (
-                    <div className="flex flex-col items-end gap-1">
-                      <div className="flex items-center gap-1 text-sm text-green-600">
-                        <CheckCircle className="h-4 w-4" />
-                        Avaliado
-                      </div>
-                      {userReview && (
-                        <StarRating rating={userReview.rating} size="sm" />
-                      )}
-                    </div>
-                  ) : (
-                    <Button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setReviewModalOpen(true)
-                      }}
-                      size="sm"
-                      className="bg-amber-500 hover:bg-amber-600 text-white"
-                    >
-                      <Star className="h-4 w-4 mr-1" />
-                      Avaliar
-                    </Button>
-                  )}
+          {/* Conteúdo */}
+          <div className="p-4 space-y-4">
+            {/* Info Principal */}
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="text-xs text-gray-500 uppercase tracking-wide">Inscrição</div>
+                <div className="font-mono font-bold text-2xl text-[#156634]">
+                  {inscricao.registration_number || inscricao.id.substring(0, 8).toUpperCase()}
                 </div>
               </div>
-            )}
+              {getStatusBadge(inscricao.status || "pending")}
+            </div>
 
-            {/* Ações */}
-            <div className="pt-3 border-t">
-              {onDownloadPDF && (
-                <Button onClick={onDownloadPDF} className="w-full bg-[#156634] hover:bg-[#1a7a3e]">
-                  <Download className="h-4 w-4 mr-2" />
-                  Baixar Ingresso (PDF)
-                </Button>
+            {/* Grid de Info */}
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              {inscricao.athletes && Array.isArray(inscricao.athletes) && inscricao.athletes.length > 0 && (
+                <div className="col-span-2 flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                  <User className="h-4 w-4 text-gray-400" />
+                  <span className="font-medium truncate">{inscricao.athletes[0].full_name || inscricao.athletes[0].email}</span>
+                </div>
+              )}
+              {ticket && (
+                <div className="p-2 bg-gray-50 rounded-lg">
+                  <div className="text-xs text-gray-500">Categoria</div>
+                  <div className="font-medium">{ticket.category}</div>
+                </div>
+              )}
+              {inscricao.shirt_size && (
+                <div className="p-2 bg-gray-50 rounded-lg">
+                  <div className="text-xs text-gray-500">Camiseta</div>
+                  <div className="font-medium">{inscricao.shirt_size}</div>
+                </div>
+              )}
+              {(event?.location || event?.address) && (
+                <div className="col-span-2 p-2 bg-gray-50 rounded-lg">
+                  <div className="text-xs text-gray-500 flex items-center gap-1">
+                    <MapPin className="h-3 w-3" /> Local
+                  </div>
+                  <div className="font-medium truncate">{event?.location || event?.address}</div>
+                </div>
               )}
             </div>
+
+            {/* Avaliação */}
+            {organizer && (
+              <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-100">
+                <div className="flex items-center gap-2">
+                  <Star className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm font-medium text-gray-700">
+                    {hasReviewed ? 'Avaliação enviada' : 'Avaliar organizador'}
+                  </span>
+                </div>
+                {hasReviewed ? (
+                  <div className="flex items-center gap-1 text-green-600">
+                    <CheckCircle className="h-4 w-4" />
+                    {userReview && <StarRating rating={userReview.rating} size="sm" />}
+                  </div>
+                ) : (
+                  <Button
+                    onClick={(e) => { e.stopPropagation(); setReviewModalOpen(true) }}
+                    size="sm"
+                    variant="ghost"
+                    className="text-amber-600 hover:text-amber-700 hover:bg-amber-100 h-7 px-2"
+                  >
+                    Avaliar
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Botão Download */}
+            {onDownloadPDF && (
+              <button
+                onClick={onDownloadPDF}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-[#156634] hover:bg-[#1a7a3e] text-white font-medium rounded-lg transition-colors"
+              >
+                <Download className="h-5 w-5" />
+                Baixar Ingresso
+              </button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
