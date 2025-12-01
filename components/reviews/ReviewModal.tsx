@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { StarRating } from "./StarRating"
-import { Loader2, Send, Trophy, MessageSquare, Building2, Banknote } from "lucide-react"
+import { Loader2, Send, Trophy, MessageSquare, Building2, Banknote, CheckCircle, PartyPopper } from "lucide-react"
 import { toast } from "sonner"
 
 interface ReviewModalProps {
@@ -32,6 +32,7 @@ export function ReviewModal({
   onSuccess,
 }: ReviewModalProps) {
   const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
   const [rating, setRating] = useState(0)
   const [ratingOrganization, setRatingOrganization] = useState(0)
   const [ratingCommunication, setRatingCommunication] = useState(0)
@@ -72,23 +73,28 @@ export function ReviewModal({
         throw new Error(data.error || "Erro ao enviar avaliação")
       }
       
-      toast.success("Avaliação enviada com sucesso! Obrigado pelo feedback.")
-      onOpenChange(false)
+      // Mostrar tela de sucesso
+      setSuccess(true)
       onSuccess?.()
       
-      // Reset form
-      setRating(0)
-      setRatingOrganization(0)
-      setRatingCommunication(0)
-      setRatingStructure(0)
-      setRatingValue(0)
-      setComment("")
-      setIsAnonymous(false)
     } catch (error: any) {
       toast.error(error.message || "Erro ao enviar avaliação")
     } finally {
       setLoading(false)
     }
+  }
+  
+  const handleClose = () => {
+    // Reset form ao fechar
+    setSuccess(false)
+    setRating(0)
+    setRatingOrganization(0)
+    setRatingCommunication(0)
+    setRatingStructure(0)
+    setRatingValue(0)
+    setComment("")
+    setIsAnonymous(false)
+    onOpenChange(false)
   }
   
   const getRatingLabel = (value: number) => {
@@ -97,8 +103,43 @@ export function ReviewModal({
   }
   
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        {/* Tela de Sucesso */}
+        {success ? (
+          <div className="py-8 text-center space-y-4">
+            <div className="relative inline-block">
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                <CheckCircle className="h-10 w-10 text-green-600" />
+              </div>
+              <div className="absolute -top-2 -right-2">
+                <PartyPopper className="h-8 w-8 text-yellow-500" />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="text-xl font-semibold text-gray-900">
+                Avaliação enviada com sucesso!
+              </h3>
+              <p className="text-gray-600">
+                Obrigado pelo seu feedback sobre <span className="font-medium">{organizerName}</span>.
+              </p>
+              <p className="text-sm text-gray-500">
+                Sua avaliação ajuda outros atletas a escolherem eventos de qualidade.
+              </p>
+            </div>
+            
+            <div className="pt-4">
+              <Button
+                onClick={handleClose}
+                className="bg-[#156634] hover:bg-[#1a7a3e] px-8"
+              >
+                Fechar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
         <DialogHeader>
           <DialogTitle className="text-xl">Avaliar Organizador</DialogTitle>
           <DialogDescription>
@@ -227,7 +268,7 @@ export function ReviewModal({
         <div className="flex gap-3 pt-4 border-t">
           <Button
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={handleClose}
             disabled={loading}
             className="flex-1"
           >
@@ -251,6 +292,8 @@ export function ReviewModal({
             )}
           </Button>
         </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )
