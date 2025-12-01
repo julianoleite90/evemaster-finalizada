@@ -204,6 +204,33 @@ export async function POST(request: NextRequest) {
       )
     }
     
+    // Atualizar média e total de avaliações do organizador
+    try {
+      const { data: allReviews } = await supabase
+        .from('organizer_reviews')
+        .select('rating')
+        .eq('organizer_id', organizerId)
+        .eq('is_visible', true)
+      
+      if (allReviews && allReviews.length > 0) {
+        const totalReviews = allReviews.length
+        const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews
+        
+        await supabase
+          .from('organizers')
+          .update({
+            average_rating: Math.round(avgRating * 100) / 100,
+            total_reviews: totalReviews,
+          })
+          .eq('id', organizerId)
+        
+        console.log(`✅ Organizador ${organizerId} atualizado: ${avgRating.toFixed(2)} (${totalReviews} avaliações)`)
+      }
+    } catch (updateError) {
+      console.error('Erro ao atualizar média do organizador:', updateError)
+      // Não falha a requisição se não conseguir atualizar
+    }
+    
     return NextResponse.json({
       success: true,
       review,
