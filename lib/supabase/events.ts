@@ -292,7 +292,7 @@ export async function getEventBySlug(slug: string) {
         if (organizerData) {
           // Formatar dados para o formato esperado
           // IMPORTANTE: Usar company_email do organizador, não user_email do usuário
-              organizer = {
+          organizer = {
             id: organizerData.organizer_id,
             company_name: organizerData.company_name,
             full_name: organizerData.user_full_name, // Nome do usuário como fallback
@@ -301,7 +301,9 @@ export async function getEventBySlug(slug: string) {
             user_id: organizerData.user_id,
             email: organizerData.company_email || organizerData.user_email, // Prioriza company_email
             company_email: organizerData.company_email || organizerData.user_email, // Prioriza company_email
-            events_last_year: organizerData.events_last_year || 0
+            events_last_year: organizerData.events_last_year || 0,
+            average_rating: organizerData.average_rating || 0,
+            total_reviews: organizerData.total_reviews || 0
           }
         }
         
