@@ -461,14 +461,15 @@ function EventSettingsPageContent() {
             }
           }
 
-          // Carregar imagens do evento
-          const { data: images } = await supabase
-            .from("event_images")
-            .select("*")
-            .eq("event_id", eventId)
-            .order("image_order", { ascending: true })
+          // NOTA: Tabela event_images não existe no banco (migration 044 não executada)
+          // TODO: Executar migration 044_add_event_images.sql no Supabase
+          // const { data: images } = await supabase
+          //   .from("event_images")
+          //   .select("*")
+          //   .eq("event_id", eventId)
+          //   .order("image_order", { ascending: true })
           
-          setEventImages(images || [])
+          setEventImages([] /* images || [] */)
 
           // Carregar configurações do evento (incluindo pixels)
           // Sempre buscar separadamente para garantir que temos os dados mais recentes
@@ -2365,16 +2366,18 @@ function EventSettingsPageContent() {
                             className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7"
                             onClick={async () => {
                               try {
-                                const supabase = createClient()
-                                const { error } = await supabase
-                                  .from("event_images")
-                                  .delete()
-                                  .eq("id", img.id)
-                                
-                                if (error) throw error
-                                
-                                setEventImages(prev => prev.filter(i => i.id !== img.id))
-                                toast.success("Imagem removida com sucesso")
+                                // NOTA: Tabela event_images não existe (migration 044 não executada)
+                                toast.error("Funcionalidade indisponível: tabela event_images não existe")
+                                // const supabase = createClient()
+                                // const { error } = await supabase
+                                //   .from("event_images")
+                                //   .delete()
+                                //   .eq("id", img.id)
+                                // 
+                                // if (error) throw error
+                                // 
+                                // setEventImages(prev => prev.filter(i => i.id !== img.id))
+                                // toast.success("Imagem removida com sucesso")
                               } catch (error: any) {
                                 console.error("Erro ao remover imagem:", error)
                                 toast.error("Erro ao remover imagem")
