@@ -226,6 +226,7 @@ function EventSettingsPageContent() {
 
   // Buscar estatísticas de visualizações
   const fetchViewStats = async () => {
+    console.log("🚀 [VIEW STATS] Iniciando fetchViewStats para eventId:", eventId)
     try {
       const supabase = createClient()
       // Calcular início e fim do dia no timezone local
@@ -282,14 +283,15 @@ function EventSettingsPageContent() {
         console.warn("⚠️ [VIEW STATS] Algumas queries falharam:", viewsErrors)
       }
 
-      console.log("📊 [VIEW STATS] Dados retornados:", {
-        viewsData,
-        viewsErrors,
+      console.log("📊 [VIEW STATS] Dados retornados:")
+      console.table({
         eventId,
         hoje: inicioHojeUTC,
         seteDias: seteDiasAtrasUTC,
         trintaDias: trintaDiasAtrasUTC
       })
+      console.log("viewsData:", JSON.stringify(viewsData, null, 2))
+      console.log("viewsErrors:", JSON.stringify(viewsErrors, null, 2))
 
       const viewsTodayCount = viewsData.viewsToday?.count || 0
       const viewsLast7DaysCount = viewsData.viewsLast7Days?.count || 0
@@ -300,7 +302,8 @@ function EventSettingsPageContent() {
         ? ((conversionsCount / viewsLast30DaysCount) * 100)
         : 0
 
-      console.log("📊 [VIEW STATS] Counts calculados:", {
+      console.log("📊 [VIEW STATS] Counts calculados:")
+      console.table({
         viewsTodayCount,
         viewsLast7DaysCount,
         viewsLast30DaysCount,
@@ -320,7 +323,7 @@ function EventSettingsPageContent() {
 
       console.log("✅ [VIEW STATS] Estado atualizado com sucesso")
     } catch (error) {
-      console.error("Erro ao buscar estatísticas de visualizações:", error)
+      console.error("❌ [VIEW STATS] ERRO ao buscar estatísticas:", error)
     }
   }
 
