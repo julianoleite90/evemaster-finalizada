@@ -623,7 +623,7 @@ function EventSettingsPageContent() {
 
       // Desembrulhar: se veio { count, data }, pegar o .data interno
       // Se veio direto como array, usar direto
-      const registrationsData = registrationsResult.data
+      const registrationsData: any = registrationsResult.data
       const registrations = Array.isArray(registrationsData) 
         ? registrationsData 
         : (registrationsData?.data || [])
@@ -640,8 +640,8 @@ function EventSettingsPageContent() {
       console.log("📊 [REPORTS] Total de inscrições encontradas:", registrations.length)
 
       // Buscar dados relacionados separadamente
-      const registrationIds = registrations.map(r => r.id)
-      const ticketIds = registrations.map(r => r.ticket_id).filter(Boolean)
+      const registrationIds = registrations.map((r: any) => r.id)
+      const ticketIds = registrations.map((r: any) => r.ticket_id).filter(Boolean)
 
       console.log("📊 [REPORTS] IDs de tickets:", ticketIds.length)
 
