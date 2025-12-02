@@ -418,8 +418,8 @@ function OrganizerDashboardContent() {
             .limit(10)
         }, { timeout: 8000 })
 
-        const athletesMapUltimos: Map<string, any> = new Map((lastRegData.athletes || []).map((a: any) => [a.registration_id, a]))
-        const ticketsMapUltimos: Map<string, any> = new Map((lastRegData.tickets || []).map((t: any) => [t.id, t]))
+        const athletesMapUltimos: Map<string, any> = new Map(extractArray(lastRegData.athletes).map((a: any) => [a.registration_id, a]))
+        const ticketsMapUltimos: Map<string, any> = new Map(extractArray(lastRegData.tickets).map((t: any) => [t.id, t]))
 
         // Calcular receitas
         const receitaHoje = pagamentosHoje?.reduce((sum: number, p: any) => sum + Number(p.total_amount || 0), 0) || 0

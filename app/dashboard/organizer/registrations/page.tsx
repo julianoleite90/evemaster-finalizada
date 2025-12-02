@@ -232,7 +232,7 @@ function RegistrationsPageContent() {
           console.warn("⚠️ Algumas queries falharam (não crítico):", errors)
         }
 
-        // Usar o mesmo extractArray já definido acima
+        // Usar extractArray para desembrulhar os dados do parallelQueries
         const athletesData = { data: extractArray(relatedData.athletes) }
         const paymentsData = { data: extractArray(relatedData.payments) }
         const ticketsData = { data: extractArray(relatedData.tickets) }
