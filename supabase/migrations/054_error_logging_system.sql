@@ -344,29 +344,29 @@ ORDER BY el.created_at DESC;
 -- View: Error summary by type
 CREATE OR REPLACE VIEW error_summary_by_type AS
 SELECT 
-  error_type,
-  error_code,
+  el.error_type,
+  el.error_code,
   COALESCE(ecr.error_title, el.error_title) as error_title,
   COUNT(*) as error_count,
   COUNT(*) FILTER (WHERE el.is_resolved = false) as unresolved_count,
   MAX(el.created_at) as last_occurrence
 FROM error_logs el
 LEFT JOIN error_code_reference ecr ON el.error_code = ecr.error_code
-GROUP BY error_type, error_code, COALESCE(ecr.error_title, el.error_title)
+GROUP BY el.error_type, el.error_code, COALESCE(ecr.error_title, el.error_title)
 ORDER BY error_count DESC;
 
 -- View: Errors by table
 CREATE OR REPLACE VIEW error_summary_by_table AS
 SELECT 
-  table_name,
-  error_code,
+  el.table_name,
+  el.error_code,
   COALESCE(ecr.error_title, el.error_title) as error_title,
   COUNT(*) as error_count,
   MAX(el.created_at) as last_occurrence
 FROM error_logs el
 LEFT JOIN error_code_reference ecr ON el.error_code = ecr.error_code
-WHERE table_name IS NOT NULL
-GROUP BY table_name, error_code, COALESCE(ecr.error_title, el.error_title)
+WHERE el.table_name IS NOT NULL
+GROUP BY el.table_name, el.error_code, COALESCE(ecr.error_title, el.error_title)
 ORDER BY error_count DESC;
 
 -- View: Critical errors (unresolved)
