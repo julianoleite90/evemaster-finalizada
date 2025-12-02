@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Calendar, Users, DollarSign, TrendingUp, Plus, Eye, ArrowUpRight, Loader2 } from "lucide-react"
+import { Calendar, Users, DollarSign, TrendingUp, Plus, Eye, ArrowUpRight, Loader2, MoveRight, X } from "lucide-react"
 import Link from "next/link"
 import { StatsCard } from "@/components/dashboard/stats-card"
 import { useEffect, useState } from "react"
@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { getOrganizerAccess } from "@/lib/supabase/organizer-access"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, AreaChart, Area } from "recharts"
 import { useUserPermissions } from "@/hooks/use-user-permissions"
 import { useRouter } from "next/navigation"
 
@@ -19,6 +19,7 @@ export default function OrganizerDashboard() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [selectedEventId, setSelectedEventId] = useState<string>("all")
+  const [showFilterTip, setShowFilterTip] = useState(true)
   const [events, setEvents] = useState<any[]>([])
   const [stats, setStats] = useState({
     inscricoesHoje: 0,
@@ -38,6 +39,7 @@ export default function OrganizerDashboard() {
     sexos: [] as Array<{ name: string; value: number; percent: number }>,
     idades: [] as Array<{ name: string; value: number; percent: number }>
   })
+  const [lineChartData, setLineChartData] = useState<Array<{ date: string; inscricoes: number; acessos: number }>>([])
 
   useEffect(() => {
     if (permissionsLoading) {
@@ -79,18 +81,22 @@ export default function OrganizerDashboard() {
         const organizerId = access.organizerId
         console.log("✅ [DASHBOARD] Acesso autorizado. Organizer ID:", organizerId, "É principal:", access.isPrimary)
 
-        // Buscar eventos do organizador
+        // Buscar eventos do organizador (com banner para exibição no filtro)
+        // Excluir eventos em rascunho (draft)
         const { data: eventsData } = await supabase
           .from("events")
-          .select("id, name, slug")
+          .select("id, name, slug, banner_url, event_date, status")
           .eq("organizer_id", organizerId)
-          .order("created_at", { ascending: false })
+          .neq("status", "draft")
+          .order("event_date", { ascending: false })
 
-        setEvents(eventsData || [])
+        // Filtrar eventos de teste/musta
+        const filteredEvents = eventsData?.filter(e => e.name && !e.name.toLowerCase().includes('musta')) || []
+        setEvents(filteredEvents)
 
         // Filtrar por evento selecionado
         const eventIds = selectedEventId === "all" 
-          ? (eventsData?.map(e => e.id) || [])
+          ? filteredEvents.map(e => e.id)
           : [selectedEventId]
 
         if (eventIds.length === 0) {
@@ -120,66 +126,69 @@ export default function OrganizerDashboard() {
         ontem.setDate(ontem.getDate() - 1)
         const inicioOntemUTC = getStartOfDayUTC(ontem)
 
-        const { data: inscricoesHojeData } = await supabase
-          .from("registrations")
-          .select("id, created_at")
-          .in("event_id", eventIds)
-          .gte("created_at", inicioHojeUTC)
-          .lt("created_at", fimHojeUTC)
-
-        const { data: inscricoesOntemData } = await supabase
-          .from("registrations")
-          .select("id, created_at")
-          .in("event_id", eventIds)
-          .gte("created_at", inicioOntemUTC)
-          .lt("created_at", inicioHojeUTC)
-
-        // Buscar pagamentos
-        const { data: pagamentosHoje } = await supabase
-          .from("payments")
-          .select("total_amount")
-          .in("registration_id", inscricoesHojeData?.map(i => i.id) || [])
-          .eq("payment_status", "paid")
-
-        const { data: pagamentosOntem } = await supabase
-          .from("payments")
-          .select("total_amount")
-          .in("registration_id", inscricoesOntemData?.map(i => i.id) || [])
-          .eq("payment_status", "paid")
-
-        // Buscar todas as inscrições para os gráficos
-        const { data: todasInscricoes, error: errorInscricoes } = await supabase
-          .from("registrations")
-          .select("id, ticket_id")
-          .in("event_id", eventIds)
+        // OTIMIZAÇÃO: Buscar dados em paralelo para carregar mais rápido
+        const [
+          { data: inscricoesHojeData },
+          { data: inscricoesOntemData },
+          { data: todasInscricoes, error: errorInscricoes }
+        ] = await Promise.all([
+          supabase
+            .from("registrations")
+            .select("id, created_at")
+            .in("event_id", eventIds)
+            .gte("created_at", inicioHojeUTC)
+            .lt("created_at", fimHojeUTC),
+          supabase
+            .from("registrations")
+            .select("id, created_at")
+            .in("event_id", eventIds)
+            .gte("created_at", inicioOntemUTC)
+            .lt("created_at", inicioHojeUTC),
+          supabase
+            .from("registrations")
+            .select("id, ticket_id")
+            .in("event_id", eventIds)
+        ])
 
         if (errorInscricoes) {
           console.error("❌ [GRAFICOS] Erro ao buscar inscrições:", errorInscricoes)
         }
 
-        console.log("📊 [GRAFICOS] Total de inscrições encontradas:", todasInscricoes?.length || 0)
+        // Buscar pagamentos em paralelo
+        const [{ data: pagamentosHoje }, { data: pagamentosOntem }] = await Promise.all([
+          supabase
+            .from("payments")
+            .select("total_amount")
+            .in("registration_id", inscricoesHojeData?.map(i => i.id) || [])
+            .eq("payment_status", "paid"),
+          supabase
+            .from("payments")
+            .select("total_amount")
+            .in("registration_id", inscricoesOntemData?.map(i => i.id) || [])
+            .eq("payment_status", "paid")
+        ])
 
-        // Buscar dados dos atletas - incluindo age também
+        // Buscar dados de atletas e tickets em paralelo
         const regIdsParaGraficos = todasInscricoes?.map(r => r.id) || []
-        const { data: athletesData, error: errorAthletes } = await supabase
-          .from("athletes")
-          .select("registration_id, gender, birth_date, age")
-          .in("registration_id", regIdsParaGraficos)
+        const ticketIdsParaGraficos = todasInscricoes?.map(r => r.ticket_id).filter(Boolean) || []
+
+        const [
+          { data: athletesData, error: errorAthletes },
+          { data: ticketsData, error: errorTickets }
+        ] = await Promise.all([
+          supabase
+            .from("athletes")
+            .select("registration_id, gender, birth_date, age")
+            .in("registration_id", regIdsParaGraficos),
+          supabase
+            .from("tickets")
+            .select("id, category")
+            .in("id", ticketIdsParaGraficos)
+        ])
 
         if (errorAthletes) {
           console.error("❌ [GRAFICOS] Erro ao buscar atletas:", errorAthletes)
         }
-
-        console.log("📊 [GRAFICOS] Total de atletas encontrados:", athletesData?.length || 0)
-        console.log("📊 [GRAFICOS] Amostra de atletas:", athletesData?.slice(0, 3))
-
-        // Buscar categorias dos tickets
-        const ticketIdsParaGraficos = todasInscricoes?.map(r => r.ticket_id).filter(Boolean) || []
-        const { data: ticketsData, error: errorTickets } = await supabase
-          .from("tickets")
-          .select("id, category")
-          .in("id", ticketIdsParaGraficos)
-
         if (errorTickets) {
           console.error("❌ [GRAFICOS] Erro ao buscar tickets:", errorTickets)
         }
@@ -305,6 +314,64 @@ export default function OrganizerDashboard() {
           idades: idadesData
         })
 
+        // Buscar dados para gráfico de linha (últimos 7 dias)
+        const seteDiasAtras = new Date(agora)
+        seteDiasAtras.setDate(seteDiasAtras.getDate() - 6) // 7 dias incluindo hoje
+        const seteDiasAtrasUTC = getStartOfDayUTC(seteDiasAtras)
+
+        const { data: inscricoesUltimos7Dias } = await supabase
+          .from("registrations")
+          .select("id, created_at")
+          .in("event_id", eventIds)
+          .gte("created_at", seteDiasAtrasUTC)
+
+        // Buscar acessos à landing page dos últimos 7 dias
+        const { data: acessosUltimos7Dias } = await supabase
+          .from("event_views")
+          .select("id, viewed_at")
+          .in("event_id", eventIds)
+          .gte("viewed_at", seteDiasAtrasUTC)
+
+        // Agrupar por dia
+        const diasMap = new Map<string, { inscricoes: number; acessos: number }>()
+        
+        // Inicializar todos os 7 dias
+        for (let i = 6; i >= 0; i--) {
+          const data = new Date(agora)
+          data.setDate(data.getDate() - i)
+          const key = data.toISOString().split('T')[0]
+          diasMap.set(key, { inscricoes: 0, acessos: 0 })
+        }
+
+        // Contar inscrições por dia
+        inscricoesUltimos7Dias?.forEach(reg => {
+          const dia = new Date(reg.created_at).toISOString().split('T')[0]
+          const current = diasMap.get(dia)
+          if (current) {
+            current.inscricoes++
+          }
+        })
+
+        // Contar acessos por dia
+        acessosUltimos7Dias?.forEach(acesso => {
+          const dia = new Date(acesso.viewed_at).toISOString().split('T')[0]
+          const current = diasMap.get(dia)
+          if (current) {
+            current.acessos++
+          }
+        })
+
+        // Converter para array ordenado
+        const lineData = Array.from(diasMap.entries())
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([date, data]) => ({
+            date: new Date(date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }),
+            inscricoes: data.inscricoes,
+            acessos: data.acessos
+          }))
+
+        setLineChartData(lineData)
+
         // Buscar últimas inscrições
         const { data: ultimasInscricoes } = await supabase
           .from("registrations")
@@ -344,43 +411,38 @@ export default function OrganizerDashboard() {
         const receitaHoje = pagamentosHoje?.reduce((sum, p) => sum + Number(p.total_amount || 0), 0) || 0
         const receitaOntem = pagamentosOntem?.reduce((sum, p) => sum + Number(p.total_amount || 0), 0) || 0
 
-        // Buscar visualizações dos eventos hoje e ontem
-        // Usar as mesmas datas UTC calculadas acima
-        const { data: visualizacoesHoje, error: errorViewsHoje } = await supabase
-          .from("event_views")
-          .select("id")
-          .in("event_id", eventIds)
-          .gte("viewed_at", inicioHojeUTC)
-          .lt("viewed_at", fimHojeUTC)
-
-        if (errorViewsHoje) {
-          console.error("❌ [DASHBOARD] Erro ao buscar visualizações hoje:", errorViewsHoje)
-        }
-
-        const { data: visualizacoesOntem, error: errorViewsOntem } = await supabase
-          .from("event_views")
-          .select("id")
-          .in("event_id", eventIds)
-          .gte("viewed_at", inicioOntemUTC)
-          .lt("viewed_at", inicioHojeUTC)
-
-        if (errorViewsOntem) {
-          console.error("❌ [DASHBOARD] Erro ao buscar visualizações ontem:", errorViewsOntem)
-        }
-
-        // Calcular total de visualizações (últimos 30 dias)
+        // OTIMIZAÇÃO: Buscar todas visualizações em paralelo
         const trintaDiasAtras = new Date(agora)
         trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30)
         const trintaDiasAtrasUTC = getStartOfDayUTC(trintaDiasAtras)
-        const { count: totalVisualizacoes, error: errorTotalViews } = await supabase
-          .from("event_views")
-          .select("*", { count: "exact", head: true })
-          .in("event_id", eventIds)
-          .gte("viewed_at", trintaDiasAtrasUTC)
 
-        if (errorTotalViews) {
-          console.error("❌ [DASHBOARD] Erro ao buscar total de visualizações:", errorTotalViews)
-        }
+        const [
+          { data: visualizacoesHoje, error: errorViewsHoje },
+          { data: visualizacoesOntem, error: errorViewsOntem },
+          { count: totalVisualizacoes, error: errorTotalViews }
+        ] = await Promise.all([
+          supabase
+            .from("event_views")
+            .select("id")
+            .in("event_id", eventIds)
+            .gte("viewed_at", inicioHojeUTC)
+            .lt("viewed_at", fimHojeUTC),
+          supabase
+            .from("event_views")
+            .select("id")
+            .in("event_id", eventIds)
+            .gte("viewed_at", inicioOntemUTC)
+            .lt("viewed_at", inicioHojeUTC),
+          supabase
+            .from("event_views")
+            .select("*", { count: "exact", head: true })
+            .in("event_id", eventIds)
+            .gte("viewed_at", trintaDiasAtrasUTC)
+        ])
+
+        if (errorViewsHoje) console.error("❌ [DASHBOARD] Erro visualizações hoje:", errorViewsHoje)
+        if (errorViewsOntem) console.error("❌ [DASHBOARD] Erro visualizações ontem:", errorViewsOntem)
+        if (errorTotalViews) console.error("❌ [DASHBOARD] Erro total visualizações:", errorTotalViews)
 
         console.log("📊 [DASHBOARD] Estatísticas de visualizações:", {
           eventIds,
@@ -454,20 +516,62 @@ export default function OrganizerDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
-          {events.length > 0 && (
-            <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-              <SelectTrigger className="w-full md:w-[250px]">
-                <SelectValue placeholder="Filtrar por evento" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os eventos</SelectItem>
-                {events.map((event) => (
-                  <SelectItem key={event.id} value={event.id}>
-                    {event.name}
+          {events.filter(e => e.name && !e.name.toLowerCase().includes('musta')).length > 0 && (
+            <>
+              {/* Notificação animada à esquerda */}
+              {showFilterTip && (
+                <div className="hidden md:flex items-center gap-1 animate-bounce">
+                  <div className="bg-[#156634]/5 border border-[#156634]/10 text-[#156634] text-xs px-2 py-1 rounded flex items-center gap-1.5">
+                    <span className="font-medium">Filtre por evento</span>
+                    <MoveRight className="w-3.5 h-3.5" />
+                  </div>
+                  <button 
+                    onClick={() => setShowFilterTip(false)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+                <SelectTrigger className="w-full md:w-[260px] h-9">
+                  <SelectValue placeholder="Filtrar por evento" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[220px] w-[280px]">
+                  <SelectItem value="all">
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
+                        <Calendar className="w-3 h-3 text-gray-500" />
+                      </div>
+                      <span className="text-sm">Todos</span>
+                      <span className="text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">
+                        {events.filter(e => e.name && !e.name.toLowerCase().includes('musta')).length}
+                      </span>
+                    </div>
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  {events
+                    .filter(event => event.name && !event.name.toLowerCase().includes('musta'))
+                    .map((event) => (
+                    <SelectItem key={event.id} value={event.id} title={event.name}>
+                      <div className="flex items-center gap-2 group/item">
+                        {event.banner_url ? (
+                          <img 
+                            src={event.banner_url} 
+                            alt="" 
+                            className="w-5 h-5 rounded object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-5 h-5 rounded bg-[#156634]/10 flex items-center justify-center flex-shrink-0">
+                            <Calendar className="w-3 h-3 text-[#156634]" />
+                          </div>
+                        )}
+                        <span className="text-sm truncate max-w-[190px]" title={event.name}>{event.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
           )}
         <Button asChild>
           <Link href="/dashboard/organizer/events/new" className="flex items-center">
@@ -532,181 +636,290 @@ export default function OrganizerDashboard() {
         </Card>
       </div>
 
-      {/* Gráficos de Pizza */}
-      {(chartData.categorias.length > 0 || chartData.sexos.length > 0 || chartData.idades.length > 0) && (
-        <div className="grid gap-6 md:grid-cols-3">
-          {/* Gráfico por Categoria */}
-          {chartData.categorias.length > 0 && (
-            <Card className="shadow-lg border-2 border-gray-100 hover:shadow-xl transition-shadow">
-              <CardHeader className="pb-3 border-b bg-gradient-to-r from-green-50 to-emerald-50">
-                <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-[#156634]"></div>
-                  Inscritos por Categoria
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <ResponsiveContainer width="100%" height={320}>
-                  <PieChart>
-                    <Pie
-                      data={chartData.categorias}
-                      cx="50%"
-                      cy="45%"
-                      labelLine={true}
-                      label={({ name, percent }) => percent ? `${(percent * 100).toFixed(0)}%` : ''}
-                      outerRadius={100}
-                      innerRadius={40}
-                      fill="#8884d8"
-                      dataKey="value"
-                      stroke="#fff"
-                      strokeWidth={2}
-                    >
-                      {chartData.categorias.map((entry, index) => {
-                        const colors = ['#156634', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef']
-                        return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+      {/* Gráficos - Layout: Pizzas à esquerda, Linha à direita */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Bloco com 3 Gráficos de Pizza */}
+        {(chartData.categorias.length > 0 || chartData.sexos.length > 0 || chartData.idades.length > 0) && (
+          <Card className="shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold">Distribuição de Inscritos</CardTitle>
+              <CardDescription>Categoria, Gênero e Faixa Etária</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4">
+                {/* Pizza - Categoria */}
+                {chartData.categorias.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-700 mb-2 text-center">Categoria</p>
+                    <ResponsiveContainer width="100%" height={120}>
+                      <PieChart>
+                        <Pie
+                          data={chartData.categorias}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={45}
+                          innerRadius={20}
+                          dataKey="value"
+                          stroke="#fff"
+                          strokeWidth={2}
+                        >
+                          {chartData.categorias.map((entry, index) => {
+                            const colors = ['#156634', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#3b82f6']
+                            return <Cell key={`cell-cat-${index}`} fill={colors[index % colors.length]} />
+                          })}
+                        </Pie>
+                        <Tooltip 
+                          formatter={(value: number, name: string, props: any) => [
+                            `${value} (${(props.payload.percent * 100).toFixed(0)}%)`,
+                            props.payload.name
+                          ]}
+                          contentStyle={{ fontSize: '11px', padding: '4px 8px' }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="space-y-1.5 mt-2">
+                      {chartData.categorias.map((item, idx) => {
+                        const colors = ['#156634', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#3b82f6']
+                        const total = chartData.categorias.reduce((s, i) => s + i.value, 0)
+                        const percent = total > 0 ? (item.value / total) * 100 : 0
+                        return (
+                          <div key={idx} className="space-y-0.5">
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-gray-600 truncate max-w-[60px]" title={item.name}>{item.name}</span>
+                              <span className="font-medium text-gray-800">{percent.toFixed(0)}%</span>
+                            </div>
+                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full rounded-full transition-all" 
+                                style={{ width: `${percent}%`, backgroundColor: colors[idx % colors.length] }}
+                              />
+                            </div>
+                          </div>
+                        )
                       })}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value: number, name: string, props: any) => [
-                        `${value} inscritos (${props.payload.percent.toFixed(1)}%)`,
-                        props.payload.name
-                      ]}
-                      contentStyle={{ 
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '8px',
-                        padding: '8px 12px'
-                      }}
-                    />
-                    <Legend 
-                      verticalAlign="bottom" 
-                      height={36}
-                      formatter={(value, entry: any) => (
-                        <span style={{ color: entry.color, fontSize: '12px', fontWeight: 500 }}>
-                          {value}
-                        </span>
-                      )}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
+                    </div>
+                  </div>
+                )}
 
-          {/* Gráfico por Gênero */}
-          {chartData.sexos.length > 0 && (
-            <Card className="shadow-lg border-2 border-gray-100 hover:shadow-xl transition-shadow">
-              <CardHeader className="pb-3 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
-                <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                  Inscritos por Gênero
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <ResponsiveContainer width="100%" height={320}>
-                  <PieChart>
-                    <Pie
-                      data={chartData.sexos}
-                      cx="50%"
-                      cy="45%"
-                      labelLine={true}
-                      label={({ name, percent }) => percent ? `${(percent * 100).toFixed(0)}%` : ''}
-                      outerRadius={100}
-                      innerRadius={40}
-                      fill="#8884d8"
-                      dataKey="value"
-                      stroke="#fff"
-                      strokeWidth={2}
-                    >
-                      {chartData.sexos.map((entry, index) => {
-                        const colors = ['#3b82f6', '#ec4899', '#8b5cf6', '#06b6d4', '#14b8a6', '#10b981']
-                        return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                {/* Pizza - Gênero */}
+                {chartData.sexos.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-700 mb-2 text-center">Gênero</p>
+                    <ResponsiveContainer width="100%" height={120}>
+                      <PieChart>
+                        <Pie
+                          data={chartData.sexos}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={45}
+                          innerRadius={20}
+                          dataKey="value"
+                          stroke="#fff"
+                          strokeWidth={2}
+                        >
+                          {chartData.sexos.map((entry, index) => {
+                            const colors = ['#3b82f6', '#ec4899', '#8b5cf6', '#06b6d4']
+                            return <Cell key={`cell-sex-${index}`} fill={colors[index % colors.length]} />
+                          })}
+                        </Pie>
+                        <Tooltip 
+                          formatter={(value: number, name: string, props: any) => [
+                            `${value} (${(props.payload.percent * 100).toFixed(0)}%)`,
+                            props.payload.name
+                          ]}
+                          contentStyle={{ fontSize: '11px', padding: '4px 8px' }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="space-y-1.5 mt-2">
+                      {chartData.sexos.map((item, idx) => {
+                        const colors = ['#3b82f6', '#ec4899', '#8b5cf6', '#06b6d4']
+                        const total = chartData.sexos.reduce((s, i) => s + i.value, 0)
+                        const percent = total > 0 ? (item.value / total) * 100 : 0
+                        return (
+                          <div key={idx} className="space-y-0.5">
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-gray-600">{item.name}</span>
+                              <span className="font-medium text-gray-800">{percent.toFixed(0)}%</span>
+                            </div>
+                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full rounded-full transition-all" 
+                                style={{ width: `${percent}%`, backgroundColor: colors[idx % colors.length] }}
+                              />
+                            </div>
+                          </div>
+                        )
                       })}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value: number, name: string, props: any) => [
-                        `${value} inscritos (${props.payload.percent.toFixed(1)}%)`,
-                        props.payload.name
-                      ]}
-                      contentStyle={{ 
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '8px',
-                        padding: '8px 12px'
-                      }}
-                    />
-                    <Legend 
-                      verticalAlign="bottom" 
-                      height={36}
-                      formatter={(value, entry: any) => (
-                        <span style={{ color: entry.color, fontSize: '12px', fontWeight: 500 }}>
-                          {value}
-                        </span>
-                      )}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
+                    </div>
+                  </div>
+                )}
 
-          {/* Gráfico por Idade */}
-          {chartData.idades.length > 0 && (
-            <Card className="shadow-lg border-2 border-gray-100 hover:shadow-xl transition-shadow">
-              <CardHeader className="pb-3 border-b bg-gradient-to-r from-orange-50 to-amber-50">
-                <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-                  Inscritos por Idade
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <ResponsiveContainer width="100%" height={320}>
-                  <PieChart>
-                    <Pie
-                      data={chartData.idades}
-                      cx="50%"
-                      cy="45%"
-                      labelLine={true}
-                      label={({ name, percent }) => percent ? `${(percent * 100).toFixed(0)}%` : ''}
-                      outerRadius={100}
-                      innerRadius={40}
-                      fill="#8884d8"
-                      dataKey="value"
-                      stroke="#fff"
-                      strokeWidth={2}
-                    >
-                      {chartData.idades.map((entry, index) => {
-                        const colors = ['#f59e0b', '#ef4444', '#10b981', '#6366f1', '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#06b6d4', '#22c55e']
-                        return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                {/* Pizza - Idade */}
+                {chartData.idades.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-700 mb-2 text-center">Faixa Etária</p>
+                    <ResponsiveContainer width="100%" height={120}>
+                      <PieChart>
+                        <Pie
+                          data={chartData.idades}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={45}
+                          innerRadius={20}
+                          dataKey="value"
+                          stroke="#fff"
+                          strokeWidth={2}
+                        >
+                          {chartData.idades.map((entry, index) => {
+                            const colors = ['#f59e0b', '#ef4444', '#10b981', '#6366f1', '#ec4899', '#14b8a6', '#f97316']
+                            return <Cell key={`cell-age-${index}`} fill={colors[index % colors.length]} />
+                          })}
+                        </Pie>
+                        <Tooltip 
+                          formatter={(value: number, name: string, props: any) => [
+                            `${value} (${(props.payload.percent * 100).toFixed(0)}%)`,
+                            props.payload.name
+                          ]}
+                          contentStyle={{ fontSize: '11px', padding: '4px 8px' }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="space-y-1.5 mt-2">
+                      {chartData.idades.map((item, idx) => {
+                        const colors = ['#f59e0b', '#ef4444', '#10b981', '#6366f1', '#ec4899', '#14b8a6', '#f97316']
+                        const total = chartData.idades.reduce((s, i) => s + i.value, 0)
+                        const percent = total > 0 ? (item.value / total) * 100 : 0
+                        return (
+                          <div key={idx} className="space-y-0.5">
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-gray-600">{item.name}</span>
+                              <span className="font-medium text-gray-800">{percent.toFixed(0)}%</span>
+                            </div>
+                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full rounded-full transition-all" 
+                                style={{ width: `${percent}%`, backgroundColor: colors[idx % colors.length] }}
+                              />
+                            </div>
+                          </div>
+                        )
                       })}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value: number, name: string, props: any) => [
-                        `${value} inscritos (${props.payload.percent.toFixed(1)}%)`,
-                        props.payload.name
-                      ]}
-                      contentStyle={{ 
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '8px',
-                        padding: '8px 12px'
-                      }}
-                    />
-                    <Legend 
-                      verticalAlign="bottom" 
-                      height={36}
-                      formatter={(value, entry: any) => (
-                        <span style={{ color: entry.color, fontSize: '12px', fontWeight: 500 }}>
-                          {value}
-                        </span>
-                      )}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Gráfico de Linha - Inscrições e Acessos últimos 7 dias */}
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold">Evolução - Últimos 7 dias</CardTitle>
+            <CardDescription>Acessos à landing page vs Inscrições</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {lineChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={lineChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorInscricoes" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#156634" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#156634" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorAcessos" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis 
+                    dataKey="date" 
+                    tick={{ fontSize: 11, fill: '#6b7280' }}
+                    axisLine={{ stroke: '#e5e7eb' }}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 11, fill: '#6b7280' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '12px'
+                    }}
+                    formatter={(value: number, name: string) => [
+                      `${value}`,
+                      name === 'inscricoes' ? 'Inscrições' : 'Acessos LP'
+                    ]}
+                  />
+                  <Legend 
+                    verticalAlign="top"
+                    height={30}
+                    formatter={(value) => (
+                      <span style={{ fontSize: '11px', color: '#6b7280' }}>
+                        {value === 'acessos' ? 'Acessos Landing Page' : 'Inscrições'}
+                      </span>
+                    )}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="acessos" 
+                    stroke="#3b82f6" 
+                    strokeWidth={2}
+                    fill="url(#colorAcessos)"
+                    dot={{ fill: '#3b82f6', strokeWidth: 2, r: 3 }}
+                    activeDot={{ r: 5, fill: '#3b82f6' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="inscricoes" 
+                    stroke="#156634" 
+                    strokeWidth={2}
+                    fill="url(#colorInscricoes)"
+                    dot={{ fill: '#156634', strokeWidth: 2, r: 3 }}
+                    activeDot={{ r: 5, fill: '#156634' }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[220px] text-gray-400 text-sm">
+                Sem dados para exibir
+              </div>
+            )}
+            {lineChartData.length > 0 && (
+              <div className="flex items-center justify-center gap-8 mt-3 pt-3 border-t">
+                <div className="text-center">
+                  <p className="text-xl font-bold text-blue-600">
+                    {lineChartData.reduce((sum, d) => sum + d.acessos, 0)}
+                  </p>
+                  <p className="text-xs text-gray-500">Acessos LP</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xl font-bold text-[#156634]">
+                    {lineChartData.reduce((sum, d) => sum + d.inscricoes, 0)}
+                  </p>
+                  <p className="text-xs text-gray-500">Inscrições</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xl font-bold text-emerald-600">
+                    {(() => {
+                      const totalAcessos = lineChartData.reduce((sum, d) => sum + d.acessos, 0)
+                      const totalInscricoes = lineChartData.reduce((sum, d) => sum + d.inscricoes, 0)
+                      return totalAcessos > 0 ? ((totalInscricoes / totalAcessos) * 100).toFixed(1) : '0'
+                    })()}%
+                  </p>
+                  <p className="text-xs text-gray-500">Conversão</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Últimos Inscritos */}
       <Card>
