@@ -599,18 +599,18 @@ function EventSettingsPageContent() {
     try {
       const supabase = createClient()
       
-      // Buscar inscrições com LIMITE e timeout
+      // Buscar inscrições com LIMITE e timeout (SEM head: true - precisamos dos dados)
       const registrationsResult = await safeQuery(
         async () => await supabase
-        .from("registrations")
-        .select(`
-          id,
-          created_at,
-          ticket_id,
-          shirt_size
-        `)
-        .eq("event_id", eventId)
-        .order("created_at", { ascending: true })
+          .from("registrations")
+          .select(`
+            id,
+            created_at,
+            ticket_id,
+            shirt_size
+          `)
+          .eq("event_id", eventId)
+          .order("created_at", { ascending: true })
           .limit(1000), // LIMITE: máximo 1000 para relatórios
         { timeout: 20000, retries: 2 }
       )
@@ -621,8 +621,14 @@ function EventSettingsPageContent() {
         return
       }
 
-      const registrations = registrationsResult.data || []
+      // Desembrulhar: se veio { count, data }, pegar o .data interno
+      // Se veio direto como array, usar direto
+      const registrationsData = registrationsResult.data
+      const registrations = Array.isArray(registrationsData) 
+        ? registrationsData 
+        : (registrationsData?.data || [])
 
+      console.log("✅ [REPORTS] Tipo de registrationsResult.data:", typeof registrationsResult.data, Array.isArray(registrationsResult.data) ? 'é array' : 'não é array')
       console.log("✅ [REPORTS] Inscrições encontradas:", registrations?.length || 0)
 
       if (!registrations || registrations.length === 0) {
