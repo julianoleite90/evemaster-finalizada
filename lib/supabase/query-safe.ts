@@ -69,11 +69,13 @@ export async function safeQuery<T>(
         console.log(`✅ [QUERY RETRY] Succeeded after ${retryCount} retries`)
       }
 
-      // Retornar objeto completo para preservar .count (quando head: true)
-      // Se tiver count, o resultado vem como { count, data, error }
-      // Se não, vem como { data, error }
+      // Preservar .count quando existe (head: true)
+      // Para queries com count: retornar { data: resultCompleto, ... }
+      // Para queries normais: retornar { data: result.data, ... }
+      const finalData = 'count' in result ? result : result.data
+      
       return {
-        data: result.count !== undefined ? result : result.data,
+        data: finalData,
         error: null,
         duration,
         retryCount,
