@@ -266,7 +266,9 @@ function RegistrationsPageContent() {
           const athlete = athletesMap.get(reg.id)
           const payment = paymentsMap.get(reg.id)
           const ticket = reg.ticket_id ? ticketsMap.get(reg.ticket_id) : null
-          const clube = payment?.running_club_id ? clubesMap.get(payment.running_club_id) : null
+          // NOTA: running_club_id não existe em payments
+          // TODO: Buscar clube via running_club_participants usando registration_id
+          const clube = null // payment?.running_club_id ? clubesMap.get(payment.running_club_id) : null
           
           return {
             id: reg.id,
@@ -294,9 +296,9 @@ function RegistrationsPageContent() {
             estado: athlete?.state || undefined,
             cep: athlete?.zip_code || undefined,
             tamanhoCamiseta: reg.shirt_size || undefined,
-            cupomCodigo: payment?.coupon_code || undefined,
-            cupomDesconto: payment?.discount_amount ? Number(payment.discount_amount) : undefined,
-            clubeId: payment?.running_club_id || undefined,
+            cupomCodigo: undefined, // payment?.coupon_code (não existe em payments)
+            cupomDesconto: undefined, // payment?.discount_amount (não existe em payments)
+            clubeId: undefined, // payment?.running_club_id (não existe em payments)
             clubeNome: clube?.name || undefined
           }
         })
