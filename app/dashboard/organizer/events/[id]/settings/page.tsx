@@ -679,10 +679,13 @@ function EventSettingsPageContent() {
         console.warn("⚠️ [REPORTS] Algumas queries falharam (não crítico):", relatedErrors)
       }
 
-      const ticketsData = { data: relatedData.tickets || [] }
-      const paymentsData = { data: relatedData.payments || [] }
-      const athletesData = { data: relatedData.athletes || [], error: relatedErrors.athletes || null }
-      const viewsData = { data: relatedData.views || [] }
+      // Desembrulhar dados do parallelQueries (podem vir como array ou { count, data })
+      const extractArray = (val: any) => Array.isArray(val) ? val : (val?.data || [])
+      
+      const ticketsData = { data: extractArray(relatedData.tickets) }
+      const paymentsData = { data: extractArray(relatedData.payments) }
+      const athletesData = { data: extractArray(relatedData.athletes), error: relatedErrors.athletes || null }
+      const viewsData = { data: extractArray(relatedData.views) }
 
       if (relatedErrors.athletes) {
         console.error("❌ [REPORTS] Erro ao buscar atletas:", relatedErrors.athletes)
