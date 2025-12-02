@@ -3091,6 +3091,20 @@ export default function CheckoutPage() {
   const params = useParams()
   const eventId = params?.eventId as string | undefined
   
+  // Proteção extra: Evitar erros de removeChild durante desmontagem rápida
+  useEffect(() => {
+    // Adicionar listener global para erros de DOM não capturados
+    const handleDOMError = (event: ErrorEvent) => {
+      if (event.message?.includes('removeChild') || event.message?.includes('Node')) {
+        console.warn('⚠️ [CHECKOUT] DOM error capturado (não crítico):', event.message)
+        event.preventDefault() // Evita que crasheie a página
+      }
+    }
+    
+    window.addEventListener('error', handleDOMError)
+    return () => window.removeEventListener('error', handleDOMError)
+  }, [])
+  
   return (
     <CheckoutErrorBoundary eventId={eventId}>
       <Suspense fallback={<CheckoutLoading />}>

@@ -60,7 +60,7 @@ interface Registration {
   clubeNome?: string
 }
 
-export default function RegistrationsPage() {
+function RegistrationsPageContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedEvent, setSelectedEvent] = useState<string>("all")
   const [selectedStatus, setSelectedStatus] = useState<string>("all")
@@ -165,52 +165,72 @@ export default function RegistrationsPage() {
           return
         }
 
-        // Buscar todas as inscrições dos eventos do organizador
-        const { data: allRegistrations, error: regError } = await supabase
-          .from("registrations")
-          .select(`
-            id,
-            registration_number,
-            created_at,
-            event_id,
-            ticket_id,
-            status,
-            shirt_size,
-            events:event_id (
-              name
-            )
-          `)
-          .in("event_id", eventIds)
-          .order("created_at", { ascending: false })
+        // Buscar inscrições com LIMITE para evitar crash
+        const registrationsResult = await safeQuery(
+          () => supabase
+            .from("registrations")
+            .select(`
+              id,
+              registration_number,
+              created_at,
+              event_id,
+              ticket_id,
+              status,
+              shirt_size,
+              events:event_id (
+                name
+              )
+            `)
+            .in("event_id", eventIds)
+            .order("created_at", { ascending: false })
+            .limit(500), // LIMITE: máximo 500 registros por vez
+          { timeout: 15000, retries: 2 }
+        )
 
-        if (regError) {
-          console.error("Erro ao buscar inscrições:", regError)
+        if (registrationsResult.error) {
+          console.error("Erro ao buscar inscrições:", registrationsResult.error)
           toast.error("Erro ao carregar inscrições")
           return
         }
 
-        // Buscar dados relacionados separadamente
+        const allRegistrations = registrationsResult.data || []
+
+        // Buscar dados relacionados com parallelQueries (não falha tudo se uma query falhar)
         const registrationIds = allRegistrations?.map(r => r.id) || []
+        const ticketIds = allRegistrations?.map(r => r.ticket_id).filter(Boolean) || []
         
-        const [athletesData, paymentsData, ticketsData, clubesData] = await Promise.all([
-          supabase
+        const { data: relatedData, errors } = await parallelQueries({
+          athletes: () => supabase
             .from("athletes")
             .select("registration_id, full_name, email, phone, cpf, birth_date, gender, address, address_number, address_complement, neighborhood, city, state, zip_code")
-            .in("registration_id", registrationIds),
-          supabase
+            .in("registration_id", registrationIds)
+            .limit(500),
+          payments: () => supabase
             .from("payments")
             .select("registration_id, payment_status, total_amount, payment_method, coupon_code, discount_amount, running_club_id")
-            .in("registration_id", registrationIds),
-          supabase
+            .in("registration_id", registrationIds)
+            .limit(500),
+          tickets: () => supabase
             .from("tickets")
             .select("id, category, price")
-            .in("id", allRegistrations?.map(r => r.ticket_id).filter(Boolean) || []),
-          supabase
+            .in("id", ticketIds)
+            .limit(500),
+          clubes: () => supabase
             .from("running_clubs")
             .select("id, name, event_id")
             .in("event_id", eventIds)
             .eq("status", "accepted")
-        ])
+        }, { timeout: 10000, retries: 1 })
+
+        // Log erros mas não bloqueia (queries independentes)
+        if (Object.keys(errors).length > 0) {
+          console.warn("⚠️ Algumas queries falharam (não crítico):", errors)
+        }
+
+        const athletesData = { data: relatedData.athletes || [] }
+        const paymentsData = { data: relatedData.payments || [] }
+        const ticketsData = { data: relatedData.tickets || [] }
+        const clubesData = { data: relatedData.clubes || [] }
 
         // Criar mapas para lookup rápido
         const athletesMap = new Map((athletesData.data || []).map(a => [a.registration_id, a]))
@@ -1421,5 +1441,14 @@ export default function RegistrationsPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+// Wrap com Error Boundary para proteger contra crashes
+export default function RegistrationsPage() {
+  return (
+    <DashboardErrorBoundary page="registrations">
+      <RegistrationsPageContent />
+    </DashboardErrorBoundary>
   )
 }

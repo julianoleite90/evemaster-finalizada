@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { parallelQueries, safeQuery } from "@/lib/supabase/query-safe"
+import { DashboardErrorBoundary } from "@/components/error/DashboardErrorBoundary"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -102,7 +104,7 @@ const ITENS_KIT = [
   { value: "outros", label: "Outros" },
 ]
 
-export default function EventSettingsPage() {
+function EventSettingsPageContent() {
   const params = useParams()
   const router = useRouter()
   const eventId = params.id as string
@@ -248,38 +250,42 @@ export default function EventSettingsPage() {
       trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30)
       const trintaDiasAtrasUTC = getStartOfDayUTC(trintaDiasAtras)
 
-      // Buscar visualizações
-      const [viewsToday, viewsLast7Days, viewsLast30Days, totalViews, registrations] = await Promise.all([
-        supabase
+      // Buscar visualizações com parallelQueries (não crasheia se uma falhar)
+      const { data: viewsData, errors: viewsErrors } = await parallelQueries({
+        viewsToday: () => supabase
           .from("event_views")
           .select("*", { count: "exact", head: true })
           .eq("event_id", eventId)
           .gte("viewed_at", inicioHojeUTC)
           .lt("viewed_at", fimHojeUTC),
-        supabase
+        viewsLast7Days: () => supabase
           .from("event_views")
           .select("*", { count: "exact", head: true })
           .eq("event_id", eventId)
           .gte("viewed_at", seteDiasAtrasUTC),
-        supabase
+        viewsLast30Days: () => supabase
           .from("event_views")
           .select("*", { count: "exact", head: true })
           .eq("event_id", eventId)
           .gte("viewed_at", trintaDiasAtrasUTC),
-        supabase
+        totalViews: () => supabase
           .from("event_views")
           .select("*", { count: "exact", head: true })
           .eq("event_id", eventId),
-        supabase
+        registrations: () => supabase
           .from("registrations")
           .select("id", { count: "exact", head: true })
           .eq("event_id", eventId)
-      ])
+      }, { timeout: 10000, retries: 1 })
 
-      const viewsTodayCount = viewsToday.count || 0
-      const viewsLast7DaysCount = viewsLast7Days.count || 0
-      const viewsLast30DaysCount = viewsLast30Days.count || 0
-      const totalViewsCount = totalViews.count || 0
+      if (Object.keys(viewsErrors).length > 0) {
+        console.warn("⚠️ [VIEW STATS] Algumas queries falharam:", viewsErrors)
+      }
+
+      const viewsTodayCount = viewsData.viewsToday?.count || 0
+      const viewsLast7DaysCount = viewsData.viewsLast7Days?.count || 0
+      const viewsLast30DaysCount = viewsData.viewsLast30Days?.count || 0
+      const totalViewsCount = viewsData.totalViews?.count || 0
       const conversionsCount = registrations.count || 0
       const conversionRateValue = viewsLast30DaysCount > 0 
         ? ((conversionsCount / viewsLast30DaysCount) * 100)
@@ -568,23 +574,29 @@ export default function EventSettingsPage() {
     try {
       const supabase = createClient()
       
-      // Buscar inscrições
-      const { data: registrations, error: regError } = await supabase
-        .from("registrations")
-        .select(`
-          id,
-          created_at,
-          ticket_id,
-          shirt_size
-        `)
-        .eq("event_id", eventId)
-        .order("created_at", { ascending: true })
+      // Buscar inscrições com LIMITE e timeout
+      const registrationsResult = await safeQuery(
+        () => supabase
+          .from("registrations")
+          .select(`
+            id,
+            created_at,
+            ticket_id,
+            shirt_size
+          `)
+          .eq("event_id", eventId)
+          .order("created_at", { ascending: true })
+          .limit(1000), // LIMITE: máximo 1000 para relatórios
+        { timeout: 20000, retries: 2 }
+      )
 
-      if (regError) {
-        console.error("❌ [REPORTS] Erro ao buscar inscrições:", regError)
+      if (registrationsResult.error) {
+        console.error("❌ [REPORTS] Erro ao buscar inscrições:", registrationsResult.error)
         setReportData(prev => ({ ...prev, loading: false }))
         return
       }
+
+      const registrations = registrationsResult.data || []
 
       console.log("✅ [REPORTS] Inscrições encontradas:", registrations?.length || 0)
 
@@ -602,29 +614,47 @@ export default function EventSettingsPage() {
 
       console.log("📊 [REPORTS] IDs de tickets:", ticketIds.length)
 
-      const [ticketsData, paymentsData, athletesDataResult, viewsData] = await Promise.all([
-        ticketIds.length > 0 ? supabase
-          .from("tickets")
-          .select("id, category, price")
-          .in("id", ticketIds) : { data: [], error: null },
-        registrationIds.length > 0 ? supabase
-          .from("payments")
-          .select("registration_id, total_amount, discount_amount, payment_status, coupon_code, affiliate_id")
-          .in("registration_id", registrationIds) : { data: [], error: null },
-        registrationIds.length > 0 ? supabase
-          .from("athletes")
-          .select("registration_id, gender, birth_date, age")
-          .in("registration_id", registrationIds) : { data: [], error: null },
-        supabase
+      // Buscar dados relacionados com parallelQueries e limites
+      const { data: relatedData, errors: relatedErrors } = await parallelQueries({
+        tickets: ticketIds.length > 0 
+          ? () => supabase
+              .from("tickets")
+              .select("id, category, price")
+              .in("id", ticketIds)
+              .limit(1000)
+          : () => Promise.resolve({ data: [], error: null }),
+        payments: registrationIds.length > 0 
+          ? () => supabase
+              .from("payments")
+              .select("registration_id, total_amount, discount_amount, payment_status, coupon_code, affiliate_id")
+              .in("registration_id", registrationIds)
+              .limit(1000)
+          : () => Promise.resolve({ data: [], error: null }),
+        athletes: registrationIds.length > 0 
+          ? () => supabase
+              .from("athletes")
+              .select("registration_id, gender, birth_date, age")
+              .in("registration_id", registrationIds)
+              .limit(1000)
+          : () => Promise.resolve({ data: [], error: null }),
+        views: () => supabase
           .from("event_views")
           .select("viewed_at")
           .eq("event_id", eventId)
-      ])
+          .limit(5000) // Limitar views a 5000
+      }, { timeout: 15000, retries: 1 })
 
-      const athletesData = athletesDataResult.error ? { data: [], error: athletesDataResult.error } : athletesDataResult
+      if (Object.keys(relatedErrors).length > 0) {
+        console.warn("⚠️ [REPORTS] Algumas queries falharam (não crítico):", relatedErrors)
+      }
 
-      if (athletesDataResult.error) {
-        console.error("❌ [REPORTS] Erro ao buscar atletas:", athletesDataResult.error)
+      const ticketsData = { data: relatedData.tickets || [] }
+      const paymentsData = { data: relatedData.payments || [] }
+      const athletesData = { data: relatedData.athletes || [], error: relatedErrors.athletes || null }
+      const viewsData = { data: relatedData.views || [] }
+
+      if (relatedErrors.athletes) {
+        console.error("❌ [REPORTS] Erro ao buscar atletas:", relatedErrors.athletes)
       }
 
       // Buscar afiliados únicos dos pagamentos
@@ -4949,5 +4979,14 @@ export default function EventSettingsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+// Wrap com Error Boundary para proteger contra crashes
+export default function EventSettingsPage() {
+  return (
+    <DashboardErrorBoundary page="event-settings">
+      <EventSettingsPageContent />
+    </DashboardErrorBoundary>
   )
 }
