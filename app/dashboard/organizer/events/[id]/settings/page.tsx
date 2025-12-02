@@ -293,11 +293,12 @@ function EventSettingsPageContent() {
       console.log("viewsData:", JSON.stringify(viewsData, null, 2))
       console.log("viewsErrors:", JSON.stringify(viewsErrors, null, 2))
 
-      const viewsTodayCount = viewsData.viewsToday?.count || 0
-      const viewsLast7DaysCount = viewsData.viewsLast7Days?.count || 0
-      const viewsLast30DaysCount = viewsData.viewsLast30Days?.count || 0
-      const totalViewsCount = viewsData.totalViews?.count || 0
-      const conversionsCount = viewsData.registrations?.count || 0
+      // Acessar .count do resultado da query (que vem em .data pela estrutura do parallelQueries)
+      const viewsTodayCount = (viewsData.viewsToday as any)?.count || 0
+      const viewsLast7DaysCount = (viewsData.viewsLast7Days as any)?.count || 0
+      const viewsLast30DaysCount = (viewsData.viewsLast30Days as any)?.count || 0
+      const totalViewsCount = (viewsData.totalViews as any)?.count || 0
+      const conversionsCount = (viewsData.registrations as any)?.count || 0
       const conversionRateValue = viewsLast30DaysCount > 0 
         ? ((conversionsCount / viewsLast30DaysCount) * 100)
         : 0
