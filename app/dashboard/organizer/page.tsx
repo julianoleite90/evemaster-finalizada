@@ -130,21 +130,21 @@ function OrganizerDashboardContent() {
 
         // OTIMIZAÇÃO: Buscar dados em paralelo com parallelQueries (não crasheia se uma falhar)
         const { data: registrationsData, errors: regErrors } = await parallelQueries({
-          inscricoesHoje: () => supabase
+          inscricoesHoje: async () => await supabase
             .from("registrations")
             .select("id, created_at")
             .in("event_id", eventIds)
             .gte("created_at", inicioHojeUTC)
             .lt("created_at", fimHojeUTC)
             .limit(500),
-          inscricoesOntem: () => supabase
+          inscricoesOntem: async () => await supabase
             .from("registrations")
             .select("id, created_at")
             .in("event_id", eventIds)
             .gte("created_at", inicioOntemUTC)
             .lt("created_at", inicioHojeUTC)
             .limit(500),
-          todasInscricoes: () => supabase
+          todasInscricoes: async () => await supabase
             .from("registrations")
             .select("id, ticket_id")
             .in("event_id", eventIds)
@@ -161,16 +161,16 @@ function OrganizerDashboardContent() {
 
         // Buscar pagamentos em paralelo
         const { data: paymentsData } = await parallelQueries({
-          pagamentosHoje: () => supabase
+          pagamentosHoje: async () => await supabase
             .from("payments")
             .select("total_amount")
-            .in("registration_id", inscricoesHojeData?.map(i => i.id) || [])
+            .in("registration_id", inscricoesHojeData?.map((i: any) => i.id) || [])
             .eq("payment_status", "paid")
             .limit(500),
-          pagamentosOntem: () => supabase
+          pagamentosOntem: async () => await supabase
             .from("payments")
             .select("total_amount")
-            .in("registration_id", inscricoesOntemData?.map(i => i.id) || [])
+            .in("registration_id", inscricoesOntemData?.map((i: any) => i.id) || [])
             .eq("payment_status", "paid")
             .limit(500)
         }, { timeout: 10000 })
@@ -179,16 +179,16 @@ function OrganizerDashboardContent() {
         const pagamentosOntem = paymentsData.pagamentosOntem || []
 
         // Buscar dados de atletas e tickets com parallelQueries
-        const regIdsParaGraficos = todasInscricoes?.map(r => r.id) || []
-        const ticketIdsParaGraficos = todasInscricoes?.map(r => r.ticket_id).filter(Boolean) || []
+        const regIdsParaGraficos = todasInscricoes?.map((r: any) => r.id) || []
+        const ticketIdsParaGraficos = todasInscricoes?.map((r: any) => r.ticket_id).filter(Boolean) || []
 
         const { data: chartData, errors: chartErrors } = await parallelQueries({
-          athletes: () => supabase
+          athletes: async () => await supabase
             .from("athletes")
             .select("registration_id, gender, birth_date, age")
             .in("registration_id", regIdsParaGraficos)
             .limit(1000),
-          tickets: () => supabase
+          tickets: async () => await supabase
             .from("tickets")
             .select("id, category")
             .in("id", ticketIdsParaGraficos)
@@ -202,8 +202,8 @@ function OrganizerDashboardContent() {
         const athletesData = chartData.athletes || []
         const ticketsData = chartData.tickets || []
 
-        const ticketsMap = new Map((ticketsData || []).map(t => [t.id, t]))
-        const athletesMap = new Map((athletesData || []).map(a => [a.registration_id, a]))
+        const ticketsMap: Map<string, any> = new Map((ticketsData || []).map((t: any) => [t.id, t]))
+        const athletesMap: Map<string, any> = new Map((athletesData || []).map((a: any) => [a.registration_id, a]))
 
         // Calcular dados para gráficos
         const categoriasMap = new Map<string, number>()
@@ -399,28 +399,28 @@ function OrganizerDashboardContent() {
           .limit(6)
 
         // Buscar dados relacionados
-        const regIds = ultimasInscricoes?.map(r => r.id) || []
-        const ticketIds = ultimasInscricoes?.map(r => r.ticket_id).filter(Boolean) || []
+        const regIds = ultimasInscricoes?.map((r: any) => r.id) || []
+        const ticketIds = ultimasInscricoes?.map((r: any) => r.ticket_id).filter(Boolean) || []
         
         const { data: lastRegData } = await parallelQueries({
-          athletes: () => supabase
+          athletes: async () => await supabase
             .from("athletes")
             .select("registration_id, full_name")
             .in("registration_id", regIds)
             .limit(10),
-          tickets: () => supabase
+          tickets: async () => await supabase
             .from("tickets")
             .select("id, category")
             .in("id", ticketIds)
             .limit(10)
         }, { timeout: 8000 })
 
-        const athletesMapUltimos = new Map((lastRegData.athletes || []).map(a => [a.registration_id, a]))
-        const ticketsMapUltimos = new Map((lastRegData.tickets || []).map(t => [t.id, t]))
+        const athletesMapUltimos: Map<string, any> = new Map((lastRegData.athletes || []).map((a: any) => [a.registration_id, a]))
+        const ticketsMapUltimos: Map<string, any> = new Map((lastRegData.tickets || []).map((t: any) => [t.id, t]))
 
         // Calcular receitas
-        const receitaHoje = pagamentosHoje?.reduce((sum, p) => sum + Number(p.total_amount || 0), 0) || 0
-        const receitaOntem = pagamentosOntem?.reduce((sum, p) => sum + Number(p.total_amount || 0), 0) || 0
+        const receitaHoje = pagamentosHoje?.reduce((sum: number, p: any) => sum + Number(p.total_amount || 0), 0) || 0
+        const receitaOntem = pagamentosOntem?.reduce((sum: number, p: any) => sum + Number(p.total_amount || 0), 0) || 0
 
         // OTIMIZAÇÃO: Buscar visualizações com parallelQueries
         const trintaDiasAtras = new Date(agora)
@@ -428,21 +428,21 @@ function OrganizerDashboardContent() {
         const trintaDiasAtrasUTC = getStartOfDayUTC(trintaDiasAtras)
 
         const { data: viewsData, errors: viewsErrors } = await parallelQueries({
-          viewsHoje: () => supabase
+          viewsHoje: async () => await supabase
             .from("event_views")
             .select("id")
             .in("event_id", eventIds)
             .gte("viewed_at", inicioHojeUTC)
             .lt("viewed_at", fimHojeUTC)
             .limit(1000),
-          viewsOntem: () => supabase
+          viewsOntem: async () => await supabase
             .from("event_views")
             .select("id")
             .in("event_id", eventIds)
             .gte("viewed_at", inicioOntemUTC)
             .lt("viewed_at", inicioHojeUTC)
             .limit(1000),
-          totalViews: () => supabase
+          totalViews: async () => await supabase
             .from("event_views")
             .select("*", { count: "exact", head: true })
             .in("event_id", eventIds)
@@ -456,8 +456,6 @@ function OrganizerDashboardContent() {
         if (Object.keys(viewsErrors).length > 0) {
           console.warn("⚠️ [DASHBOARD] Erros ao buscar visualizações:", viewsErrors)
         }
-        if (errorViewsOntem) console.error("❌ [DASHBOARD] Erro visualizações ontem:", errorViewsOntem)
-        if (errorTotalViews) console.error("❌ [DASHBOARD] Erro total visualizações:", errorTotalViews)
 
         console.log("📊 [DASHBOARD] Estatísticas de visualizações:", {
           eventIds,

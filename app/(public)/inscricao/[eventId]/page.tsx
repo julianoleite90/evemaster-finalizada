@@ -2822,13 +2822,13 @@ function CheckoutContent() {
                   let categoriasDisponiveis: any[] = []
                   if (loteId && ingressosParam && eventData) {
                     try {
-                      const ingressosObj = JSON.parse(decodeURIComponent(ingressosParam))
-                      const lote = eventData.ticket_batches?.find((b: any) => b.id === loteId)
-                      if (lote && lote.tickets) {
-                        categoriasDisponiveis = lote.tickets.filter((t: any) => {
-                          const quantidade = Number(ingressosObj[t.category] || 0)
-                          return quantidade > 0
-                        })
+                    const ingressosObj = JSON.parse(decodeURIComponent(ingressosParam))
+                    const lote = eventData.ticket_batches?.find((b: any) => b.id === loteId)
+                    if (lote && lote.tickets) {
+                      categoriasDisponiveis = lote.tickets.filter((t: any) => {
+                        const quantidade = Number(ingressosObj[t.category] || 0)
+                        return quantidade > 0
+                      })
                       }
                     } catch (parseError) {
                       console.error("❌ [CHECKOUT] Erro ao parsear categorias:", parseError)

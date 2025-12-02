@@ -109,7 +109,7 @@ export async function safeQuery<T>(
 /**
  * Busca dados com paginação automática
  */
-export async function paginatedQuery<T>(
+export async function paginatedQuery<T = any>(
   supabase: SupabaseClient,
   tableName: string,
   options: {
@@ -128,8 +128,10 @@ export async function paginatedQuery<T>(
     offset = 0,
   } = options
 
-  return safeQuery(async () => {
-    let query = supabase
+  const startTime = performance.now()
+
+  try {
+    let query: any = supabase
       .from(tableName)
       .select(select, { count: 'exact' })
       .range(offset, offset + limit - 1)
@@ -148,8 +150,27 @@ export async function paginatedQuery<T>(
       query = query.order(order.column, { ascending: order.ascending ?? true })
     }
 
-    return await query
-  })
+    const result = await query
+    const duration = performance.now() - startTime
+
+    if (result.error) {
+      throw new Error(result.error.message || 'Query failed')
+    }
+
+    return {
+      data: result.data as T[],
+      error: null,
+      duration,
+      retryCount: 0,
+    }
+  } catch (error: any) {
+    return {
+      data: null,
+      error,
+      duration: performance.now() - startTime,
+      retryCount: 0,
+    }
+  }
 }
 
 /**

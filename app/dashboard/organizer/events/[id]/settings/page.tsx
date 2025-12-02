@@ -252,27 +252,27 @@ function EventSettingsPageContent() {
 
       // Buscar visualizações com parallelQueries (não crasheia se uma falhar)
       const { data: viewsData, errors: viewsErrors } = await parallelQueries({
-        viewsToday: () => supabase
+        viewsToday: async () => await supabase
           .from("event_views")
           .select("*", { count: "exact", head: true })
           .eq("event_id", eventId)
           .gte("viewed_at", inicioHojeUTC)
           .lt("viewed_at", fimHojeUTC),
-        viewsLast7Days: () => supabase
+        viewsLast7Days: async () => await supabase
           .from("event_views")
           .select("*", { count: "exact", head: true })
           .eq("event_id", eventId)
           .gte("viewed_at", seteDiasAtrasUTC),
-        viewsLast30Days: () => supabase
+        viewsLast30Days: async () => await supabase
           .from("event_views")
           .select("*", { count: "exact", head: true })
           .eq("event_id", eventId)
           .gte("viewed_at", trintaDiasAtrasUTC),
-        totalViews: () => supabase
+        totalViews: async () => await supabase
           .from("event_views")
           .select("*", { count: "exact", head: true })
           .eq("event_id", eventId),
-        registrations: () => supabase
+        registrations: async () => await supabase
           .from("registrations")
           .select("id", { count: "exact", head: true })
           .eq("event_id", eventId)
@@ -286,7 +286,7 @@ function EventSettingsPageContent() {
       const viewsLast7DaysCount = viewsData.viewsLast7Days?.count || 0
       const viewsLast30DaysCount = viewsData.viewsLast30Days?.count || 0
       const totalViewsCount = viewsData.totalViews?.count || 0
-      const conversionsCount = registrations.count || 0
+      const conversionsCount = viewsData.registrations?.count || 0
       const conversionRateValue = viewsLast30DaysCount > 0 
         ? ((conversionsCount / viewsLast30DaysCount) * 100)
         : 0
@@ -576,7 +576,7 @@ function EventSettingsPageContent() {
       
       // Buscar inscrições com LIMITE e timeout
       const registrationsResult = await safeQuery(
-        () => supabase
+        async () => await supabase
           .from("registrations")
           .select(`
             id,
@@ -617,27 +617,27 @@ function EventSettingsPageContent() {
       // Buscar dados relacionados com parallelQueries e limites
       const { data: relatedData, errors: relatedErrors } = await parallelQueries({
         tickets: ticketIds.length > 0 
-          ? () => supabase
+          ? async () => await supabase
               .from("tickets")
               .select("id, category, price")
               .in("id", ticketIds)
               .limit(1000)
-          : () => Promise.resolve({ data: [], error: null }),
+          : async () => Promise.resolve({ data: [], error: null }),
         payments: registrationIds.length > 0 
-          ? () => supabase
+          ? async () => await supabase
               .from("payments")
-              .select("registration_id, total_amount, discount_amount, payment_status, coupon_code, affiliate_id")
+              .select("registration_id, total_amount, payment_status, affiliate_id")
               .in("registration_id", registrationIds)
               .limit(1000)
-          : () => Promise.resolve({ data: [], error: null }),
+          : async () => Promise.resolve({ data: [], error: null }),
         athletes: registrationIds.length > 0 
-          ? () => supabase
+          ? async () => await supabase
               .from("athletes")
               .select("registration_id, gender, birth_date, age")
               .in("registration_id", registrationIds)
               .limit(1000)
-          : () => Promise.resolve({ data: [], error: null }),
-        views: () => supabase
+          : async () => Promise.resolve({ data: [], error: null }),
+        views: async () => await supabase
           .from("event_views")
           .select("viewed_at")
           .eq("event_id", eventId)
@@ -659,7 +659,7 @@ function EventSettingsPageContent() {
 
       // Buscar afiliados únicos dos pagamentos
       const uniqueAffiliateIds = [...new Set((paymentsData.data || [])
-        .map(p => p.affiliate_id)
+        .map((p: any) => p.affiliate_id)
         .filter(Boolean))]
       
       const { data: affiliatesData } = uniqueAffiliateIds.length > 0 ? await supabase
@@ -668,10 +668,10 @@ function EventSettingsPageContent() {
         .in("id", uniqueAffiliateIds) : { data: null }
 
       // Criar mapas para lookup rápido
-      const ticketsMap = new Map((ticketsData.data || []).map(t => [t.id, t]))
-      const paymentsMap = new Map((paymentsData.data || []).map(p => [p.registration_id, p]))
-      const affiliatesMap = new Map((affiliatesData || []).map(a => [a.id, a]))
-      const athletesMap = new Map((athletesData.data || []).map(a => [a.registration_id, a]))
+      const ticketsMap: Map<string, any> = new Map((ticketsData.data || []).map((t: any) => [t.id, t]))
+      const paymentsMap: Map<string, any> = new Map((paymentsData.data || []).map((p: any) => [p.registration_id, p]))
+      const affiliatesMap: Map<string, any> = new Map((affiliatesData || []).map((a: any) => [a.id, a]))
+      const athletesMap: Map<string, any> = new Map((athletesData.data || []).map((a: any) => [a.registration_id, a]))
 
       console.log("📊 [REPORTS] Tickets encontrados:", ticketsMap.size)
       console.log("📊 [REPORTS] Pagamentos encontrados:", paymentsMap.size)
@@ -718,27 +718,26 @@ function EventSettingsPageContent() {
         // Buscar pagamento
         const payment = paymentsMap.get(reg.id)
         
-        // Processar cupom do pagamento (se existir)
-        if (payment?.coupon_code) {
-          const existing = couponMap.get(payment.coupon_code) || { uses: 0, discount: 0, revenue: 0 }
-          existing.uses++
-          couponMap.set(payment.coupon_code, existing)
-        }
+        // NOTA: coupon_code e discount_amount não existem em payments
+        // Essas informações devem vir de registrations ou coupons
+        // TODO: Buscar coupon_code e discount da tabela correta
         
         if (payment && payment.payment_status === 'paid') {
           paidCount++
           const amount = parseFloat(payment.total_amount) || 0
-          const discount = parseFloat(payment.discount_amount) || 0
+          // const discount = parseFloat(payment.discount_amount) || 0 // Coluna não existe
+          const discount = 0 // Temporário até integrar com tabela correta
           totalRevenue += amount
           totalDiscounts += discount
           
           revenueByDate.set(date, (revenueByDate.get(date) || 0) + amount)
           
-          if (payment.coupon_code) {
-            const coupon = couponMap.get(payment.coupon_code)!
-            coupon.discount += discount
-            coupon.revenue += amount
-          }
+          // Cupons - TODO: buscar de registrations ou tabela de coupons
+          // if (payment.coupon_code) {
+          //   const coupon = couponMap.get(payment.coupon_code)!
+          //   coupon.discount += discount
+          //   coupon.revenue += amount
+          // }
         }
 
         // Buscar afiliado do pagamento (já temos payment declarado acima)

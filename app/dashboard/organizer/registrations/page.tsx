@@ -28,6 +28,8 @@ import { useState, useEffect } from "react"
 import { format } from "date-fns"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import { parallelQueries, safeQuery } from "@/lib/supabase/query-safe"
+import { DashboardErrorBoundary } from "@/components/error/DashboardErrorBoundary"
 import { getOrganizerAccess } from "@/lib/supabase/organizer-access"
 
 interface Registration {
@@ -167,7 +169,7 @@ function RegistrationsPageContent() {
 
         // Buscar inscrições com LIMITE para evitar crash
         const registrationsResult = await safeQuery(
-          () => supabase
+          async () => await supabase
             .from("registrations")
             .select(`
               id,
@@ -200,22 +202,22 @@ function RegistrationsPageContent() {
         const ticketIds = allRegistrations?.map(r => r.ticket_id).filter(Boolean) || []
         
         const { data: relatedData, errors } = await parallelQueries({
-          athletes: () => supabase
+          athletes: async () => await supabase
             .from("athletes")
             .select("registration_id, full_name, email, phone, cpf, birth_date, gender, address, address_number, address_complement, neighborhood, city, state, zip_code")
             .in("registration_id", registrationIds)
             .limit(500),
-          payments: () => supabase
+          payments: async () => await supabase
             .from("payments")
-            .select("registration_id, payment_status, total_amount, payment_method, coupon_code, discount_amount, running_club_id")
+            .select("registration_id, payment_status, total_amount, payment_method, running_club_id")
             .in("registration_id", registrationIds)
             .limit(500),
-          tickets: () => supabase
+          tickets: async () => await supabase
             .from("tickets")
             .select("id, category, price")
             .in("id", ticketIds)
             .limit(500),
-          clubes: () => supabase
+          clubes: async () => await supabase
             .from("running_clubs")
             .select("id, name, event_id")
             .in("event_id", eventIds)
@@ -233,14 +235,14 @@ function RegistrationsPageContent() {
         const clubesData = { data: relatedData.clubes || [] }
 
         // Criar mapas para lookup rápido
-        const athletesMap = new Map((athletesData.data || []).map(a => [a.registration_id, a]))
-        const paymentsMap = new Map((paymentsData.data || []).map(p => [p.registration_id, p]))
-        const ticketsMap = new Map((ticketsData.data || []).map(t => [t.id, t]))
-        const clubesMap = new Map((clubesData.data || []).map(c => [c.id, c]))
+        const athletesMap: Map<string, any> = new Map((athletesData.data || []).map((a: any) => [a.registration_id, a]))
+        const paymentsMap: Map<string, any> = new Map((paymentsData.data || []).map((p: any) => [p.registration_id, p]))
+        const ticketsMap: Map<string, any> = new Map((ticketsData.data || []).map((t: any) => [t.id, t]))
+        const clubesMap: Map<string, any> = new Map((clubesData.data || []).map((c: any) => [c.id, c]))
         
         // Preparar lista de clubes para o filtro
-        const uniqueClubes = Array.from(new Map((clubesData.data || []).map(c => [c.id, c])).values())
-        setClubesList(uniqueClubes.map(c => ({ id: c.id, name: c.name || `Clube ${c.id.substring(0, 8)}` })))
+        const uniqueClubes = Array.from(new Map((clubesData.data || []).map((c: any) => [c.id, c])).values())
+        setClubesList(uniqueClubes.map((c: any) => ({ id: c.id, name: c.name || `Clube ${c.id.substring(0, 8)}` })))
 
         // Função auxiliar para calcular idade
         const calculateAge = (birthDate: string) => {
@@ -1161,9 +1163,8 @@ function RegistrationsPageContent() {
               {/* Lista de inscrições */}
             <div className="divide-y">
                 {paginatedRegistrations.map((registration) => (
-                <Link
+                <div
                   key={registration.id}
-                  href={`/dashboard/organizer/registrations/${registration.id}`}
                   className="block hover:bg-gray-50/50 transition-colors"
                 >
                     <div className="px-4 py-3">
@@ -1380,7 +1381,7 @@ function RegistrationsPageContent() {
                         </div>
                     </div>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
 
