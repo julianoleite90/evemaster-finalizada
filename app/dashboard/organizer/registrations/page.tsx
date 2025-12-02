@@ -195,7 +195,9 @@ function RegistrationsPageContent() {
           return
         }
 
-        const allRegistrations = registrationsResult.data || []
+        // Desembrulhar: se veio { count, data }, pegar o .data interno
+        const extractArray = (val: any) => Array.isArray(val) ? val : (val?.data || [])
+        const allRegistrations = extractArray(registrationsResult.data)
 
         // Buscar dados relacionados com parallelQueries (não falha tudo se uma query falhar)
         const registrationIds = allRegistrations?.map(r => r.id) || []
@@ -229,10 +231,13 @@ function RegistrationsPageContent() {
           console.warn("⚠️ Algumas queries falharam (não crítico):", errors)
         }
 
-        const athletesData = { data: relatedData.athletes || [] }
-        const paymentsData = { data: relatedData.payments || [] }
-        const ticketsData = { data: relatedData.tickets || [] }
-        const clubesData = { data: relatedData.clubes || [] }
+        // Helper para desembrulhar arrays (podem vir como array ou { count, data })
+        const extractArray = (val: any) => Array.isArray(val) ? val : (val?.data || [])
+        
+        const athletesData = { data: extractArray(relatedData.athletes) }
+        const paymentsData = { data: extractArray(relatedData.payments) }
+        const ticketsData = { data: extractArray(relatedData.tickets) }
+        const clubesData = { data: extractArray(relatedData.clubes) }
 
         // Criar mapas para lookup rápido
         const athletesMap: Map<string, any> = new Map((athletesData.data || []).map((a: any) => [a.registration_id, a]))

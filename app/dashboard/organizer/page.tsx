@@ -151,9 +151,12 @@ function OrganizerDashboardContent() {
             .limit(1000)
         }, { timeout: 15000, retries: 1 })
 
-        const inscricoesHojeData = registrationsData.inscricoesHoje || []
-        const inscricoesOntemData = registrationsData.inscricoesOntem || []
-        const todasInscricoes = registrationsData.todasInscricoes || []
+        // Helper para desembrulhar arrays (podem vir como array ou { count, data })
+        const extractArray = (val: any) => Array.isArray(val) ? val : (val?.data || [])
+        
+        const inscricoesHojeData = extractArray(registrationsData.inscricoesHoje)
+        const inscricoesOntemData = extractArray(registrationsData.inscricoesOntem)
+        const todasInscricoes = extractArray(registrationsData.todasInscricoes)
 
         if (Object.keys(regErrors).length > 0) {
           console.warn("⚠️ [DASHBOARD] Algumas queries de inscrições falharam:", regErrors)
@@ -175,8 +178,8 @@ function OrganizerDashboardContent() {
             .limit(500)
         }, { timeout: 10000 })
 
-        const pagamentosHoje = paymentsData.pagamentosHoje || []
-        const pagamentosOntem = paymentsData.pagamentosOntem || []
+        const pagamentosHoje = extractArray(paymentsData.pagamentosHoje)
+        const pagamentosOntem = extractArray(paymentsData.pagamentosOntem)
 
         // Buscar dados de atletas e tickets com parallelQueries
         const regIdsParaGraficos = todasInscricoes?.map((r: any) => r.id) || []
@@ -199,8 +202,8 @@ function OrganizerDashboardContent() {
           console.warn("⚠️ [DASHBOARD] Erros ao buscar dados de gráficos:", chartErrors)
         }
 
-        const athletesData = chartData.athletes || []
-        const ticketsData = chartData.tickets || []
+        const athletesData = extractArray(chartData.athletes)
+        const ticketsData = extractArray(chartData.tickets)
 
         const ticketsMap: Map<string, any> = new Map((ticketsData || []).map((t: any) => [t.id, t]))
         const athletesMap: Map<string, any> = new Map((athletesData || []).map((a: any) => [a.registration_id, a]))
@@ -449,9 +452,9 @@ function OrganizerDashboardContent() {
             .gte("viewed_at", trintaDiasAtrasUTC)
         }, { timeout: 10000 })
 
-        const visualizacoesHoje = viewsData.viewsHoje || []
-        const visualizacoesOntem = viewsData.viewsOntem || []
-        const totalVisualizacoes = viewsData.totalViews?.count || 0
+        const visualizacoesHoje = extractArray(viewsData.viewsHoje)
+        const visualizacoesOntem = extractArray(viewsData.viewsOntem)
+        const totalVisualizacoes = (viewsData.totalViews as any)?.count || 0
 
         if (Object.keys(viewsErrors).length > 0) {
           console.warn("⚠️ [DASHBOARD] Erros ao buscar visualizações:", viewsErrors)
