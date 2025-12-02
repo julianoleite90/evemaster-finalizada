@@ -1218,3 +1218,186 @@ function gerarTemplateOTP(dados: EmailOTP): string {
 </html>
   `
 }
+
+// ============================================================================
+// ERROR NOTIFICATION EMAIL
+// ============================================================================
+
+export interface ErrorNotificationData {
+  errorType: string
+  errorCode: string | null
+  errorTitle: string
+  errorMessage: string
+  errorDetail?: string | null
+  errorHint?: string | null
+  tableName?: string | null
+  userEmail?: string | null
+  requestPath?: string | null
+  requestMethod?: string | null
+  stackTrace?: string | null
+  timestamp: Date
+  errorId?: string | null
+}
+
+/**
+ * Send error notification email to admin
+ */
+export async function enviarEmailErro(dados: ErrorNotificationData): Promise<{ success: boolean; error?: string }> {
+  const adminEmail = 'julianodesouzaleite@gmail.com'
+  
+  console.log('🚨 [Resend] Sending error notification email')
+  
+  if (!resendClient) {
+    console.error('❌ [Resend] Client not available for error notification')
+    return { success: false, error: 'Resend client not configured' }
+  }
+
+  try {
+    const severityColor = dados.errorType === 'critical' ? '#dc2626' : 
+                          dados.errorType === 'payment' ? '#ea580c' : '#ef4444'
+    
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #1a1a1a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <table role="presentation" width="100%" style="border-collapse: collapse;">
+    <tr>
+      <td style="padding: 40px 20px;">
+        <table role="presentation" width="100%" style="max-width: 650px; margin: 0 auto; background-color: #262626; border-radius: 12px; overflow: hidden; border: 1px solid #333;">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, ${severityColor} 0%, #991b1b 100%); padding: 24px 32px;">
+              <table width="100%">
+                <tr>
+                  <td>
+                    <span style="font-size: 24px;">🚨</span>
+                    <span style="color: #ffffff; font-size: 20px; font-weight: 700; margin-left: 12px;">ERROR ALERT</span>
+                  </td>
+                  <td style="text-align: right;">
+                    <span style="background: rgba(255,255,255,0.2); color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">${dados.errorType.toUpperCase()}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Error Title -->
+          <tr>
+            <td style="padding: 32px 32px 16px;">
+              <h1 style="color: #ffffff; font-size: 22px; margin: 0 0 8px; font-weight: 600;">${dados.errorTitle}</h1>
+              ${dados.errorCode ? `<span style="background: #374151; color: #9ca3af; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-family: monospace;">Code: ${dados.errorCode}</span>` : ''}
+            </td>
+          </tr>
+
+          <!-- Error Message -->
+          <tr>
+            <td style="padding: 0 32px 24px;">
+              <div style="background: #1f2937; border-left: 4px solid ${severityColor}; padding: 16px 20px; border-radius: 0 8px 8px 0;">
+                <p style="color: #f3f4f6; font-size: 14px; margin: 0; line-height: 1.6; font-family: monospace; word-break: break-word;">${dados.errorMessage}</p>
+              </div>
+            </td>
+          </tr>
+
+          ${dados.errorDetail ? `
+          <!-- Error Detail -->
+          <tr>
+            <td style="padding: 0 32px 24px;">
+              <p style="color: #9ca3af; font-size: 12px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 1px;">Detail</p>
+              <p style="color: #d1d5db; font-size: 13px; margin: 0; background: #1f2937; padding: 12px 16px; border-radius: 8px;">${dados.errorDetail}</p>
+            </td>
+          </tr>
+          ` : ''}
+
+          ${dados.errorHint ? `
+          <!-- Error Hint -->
+          <tr>
+            <td style="padding: 0 32px 24px;">
+              <p style="color: #9ca3af; font-size: 12px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 1px;">💡 Hint</p>
+              <p style="color: #86efac; font-size: 13px; margin: 0; background: #14532d; padding: 12px 16px; border-radius: 8px;">${dados.errorHint}</p>
+            </td>
+          </tr>
+          ` : ''}
+
+          <!-- Context Info -->
+          <tr>
+            <td style="padding: 0 32px 24px;">
+              <p style="color: #9ca3af; font-size: 12px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: 1px;">Context</p>
+              <table width="100%" style="background: #1f2937; border-radius: 8px; border-collapse: collapse;">
+                ${dados.tableName ? `
+                <tr>
+                  <td style="padding: 10px 16px; border-bottom: 1px solid #374151; width: 120px;"><span style="color: #9ca3af; font-size: 12px;">Table</span></td>
+                  <td style="padding: 10px 16px; border-bottom: 1px solid #374151;"><span style="color: #f3f4f6; font-size: 13px; font-family: monospace;">${dados.tableName}</span></td>
+                </tr>
+                ` : ''}
+                ${dados.requestPath ? `
+                <tr>
+                  <td style="padding: 10px 16px; border-bottom: 1px solid #374151;"><span style="color: #9ca3af; font-size: 12px;">Endpoint</span></td>
+                  <td style="padding: 10px 16px; border-bottom: 1px solid #374151;"><span style="color: #60a5fa; font-size: 13px;">${dados.requestMethod || 'GET'} ${dados.requestPath}</span></td>
+                </tr>
+                ` : ''}
+                ${dados.userEmail ? `
+                <tr>
+                  <td style="padding: 10px 16px; border-bottom: 1px solid #374151;"><span style="color: #9ca3af; font-size: 12px;">User</span></td>
+                  <td style="padding: 10px 16px; border-bottom: 1px solid #374151;"><span style="color: #f3f4f6; font-size: 13px;">${dados.userEmail}</span></td>
+                </tr>
+                ` : ''}
+                <tr>
+                  <td style="padding: 10px 16px;"><span style="color: #9ca3af; font-size: 12px;">Time</span></td>
+                  <td style="padding: 10px 16px;"><span style="color: #f3f4f6; font-size: 13px;">${dados.timestamp.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</span></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          ${dados.stackTrace ? `
+          <!-- Stack Trace -->
+          <tr>
+            <td style="padding: 0 32px 24px;">
+              <details style="background: #1f2937; border-radius: 8px; padding: 12px 16px;">
+                <summary style="color: #9ca3af; font-size: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px;">Stack Trace</summary>
+                <pre style="color: #d1d5db; font-size: 11px; margin: 12px 0 0; overflow-x: auto; white-space: pre-wrap; word-break: break-word; line-height: 1.5;">${dados.stackTrace.substring(0, 1500)}${dados.stackTrace.length > 1500 ? '...' : ''}</pre>
+              </details>
+            </td>
+          </tr>
+          ` : ''}
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #1f2937; padding: 20px 32px; text-align: center; border-top: 1px solid #374151;">
+              ${dados.errorId ? `<p style="color: #6b7280; font-size: 11px; margin: 0 0 8px; font-family: monospace;">Error ID: ${dados.errorId}</p>` : ''}
+              <p style="color: #6b7280; font-size: 11px; margin: 0;">EveMaster Error Monitoring System</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `
+
+    const { error } = await resendClient.emails.send({
+      from: 'EveMaster Alerts <alertas@evemaster.app>',
+      to: adminEmail,
+      subject: `🚨 [${dados.errorType.toUpperCase()}] ${dados.errorTitle}`,
+      html,
+    })
+
+    if (error) {
+      console.error('❌ [Resend] Error sending notification:', error)
+      return { success: false, error: error.message }
+    }
+
+    console.log('✅ [Resend] Error notification sent to', adminEmail)
+    return { success: true }
+  } catch (error: any) {
+    console.error('❌ [Resend] Exception sending error notification:', error)
+    return { success: false, error: error.message }
+  }
+}
