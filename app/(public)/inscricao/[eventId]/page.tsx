@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useParams, useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,7 @@ import { getEventById } from "@/lib/supabase/events"
 import { createClient } from "@/lib/supabase/client"
 import EventPixels from "@/components/analytics/EventPixels"
 import { CPFLoginInline } from "@/components/auth/CPFLoginInline"
+import { CheckoutErrorBoundary } from "@/components/error/CheckoutErrorBoundary"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -112,7 +113,8 @@ const normalizarPais = (pais: string | null | undefined): string => {
   return mapeamento[paisLower] || "brasil"
 }
 
-export default function CheckoutPage() {
+// Componente interno que usa useSearchParams
+function CheckoutContent() {
   const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -326,11 +328,26 @@ export default function CheckoutPage() {
   // Carregar dados do evento e ingressos
   useEffect(() => {
     const fetchData = async () => {
+      // Log inicial para diagnóstico
+      console.log("🔄 [CHECKOUT] Iniciando carregamento do checkout:", {
+        eventId,
+        url: typeof window !== 'undefined' ? window.location.href : 'N/A',
+        searchParams: {
+          lote: searchParams.get("lote"),
+          ingressos: searchParams.get("ingressos"),
+          club: searchParams.get("club"),
+          ref: searchParams.get("ref"),
+        },
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A',
+        timestamp: new Date().toISOString(),
+      })
+      
       try {
         setLoading(true)
         const event = await getEventById(eventId)
         
         if (!event) {
+          console.error("❌ [CHECKOUT] Evento não encontrado:", eventId)
           toast.error("Evento não encontrado")
           router.push("/")
           return
@@ -390,7 +407,21 @@ export default function CheckoutPage() {
           return
         }
 
-        const ingressosObj = JSON.parse(decodeURIComponent(ingressosParam))
+        // Parsear ingressos com tratamento de erro
+        let ingressosObj: Record<string, number>
+        try {
+          ingressosObj = JSON.parse(decodeURIComponent(ingressosParam))
+        } catch (parseError) {
+          console.error("❌ [CHECKOUT] Erro ao parsear parâmetro ingressos:", {
+            error: parseError,
+            ingressosParam,
+            decodedParam: decodeURIComponent(ingressosParam || ''),
+            url: typeof window !== 'undefined' ? window.location.href : 'N/A'
+          })
+          toast.error("Erro nos dados dos ingressos. Por favor, selecione novamente.")
+          router.push(`/evento/${eventId}`)
+          return
+        }
         
         // Buscar detalhes do lote
         const lote = event.ticket_batches?.find((b: any) => b.id === loteId)
@@ -444,11 +475,57 @@ export default function CheckoutPage() {
           paisResidencia: pais 
         })))
         
-      } catch (error) {
-        console.error("Erro ao carregar dados:", error)
+        console.log("✅ [CHECKOUT] Dados carregados com sucesso:", {
+          eventName: event.name,
+          eventId: event.id,
+          totalIngressos: listaIngressos.length,
+          temKit: verificarKit,
+          temCamiseta: verificarCamiseta,
+          pais,
+          idioma,
+        })
+        
+      } catch (error: any) {
+        // Log detalhado para diagnóstico
+        console.error("❌ [CHECKOUT] Erro ao carregar dados do checkout:", {
+          error: error?.message || error,
+          stack: error?.stack?.substring(0, 500),
+          eventId,
+          url: typeof window !== 'undefined' ? window.location.href : 'N/A',
+          searchParams: {
+            lote: searchParams.get("lote"),
+            ingressos: searchParams.get("ingressos")?.substring(0, 100),
+          },
+          timestamp: new Date().toISOString(),
+        })
+        
+        // Enviar erro para o servidor (banco + email)
+        try {
+          await fetch('/api/log-error', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              errorMessage: error?.message || 'Erro ao carregar checkout',
+              errorStack: error?.stack,
+              errorType: 'registration',
+              url: typeof window !== 'undefined' ? window.location.href : null,
+              userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+              eventId,
+              page: 'checkout-load',
+              additionalData: {
+                lote: searchParams.get("lote"),
+                ingressosParam: searchParams.get("ingressos")?.substring(0, 50),
+              },
+            }),
+          })
+        } catch (logError) {
+          console.error('Falha ao logar erro:', logError)
+        }
+        
         toast.error("Erro ao carregar dados do checkout")
       } finally {
         setLoading(false)
+        console.log("✅ [CHECKOUT] Carregamento finalizado")
       }
     }
 
@@ -785,7 +862,14 @@ export default function CheckoutPage() {
       return
     }
 
-    const ingressosObj = JSON.parse(decodeURIComponent(ingressosParam))
+    let ingressosObj: Record<string, number>
+    try {
+      ingressosObj = JSON.parse(decodeURIComponent(ingressosParam))
+    } catch (parseError) {
+      console.error("❌ [CHECKOUT] Erro ao parsear ingressos (confirmarIncluirParticipantes):", parseError)
+      toast.error('Erro nos dados dos ingressos')
+      return
+    }
     const lote = eventData.ticket_batches?.find((b: any) => b.id === loteId)
     if (!lote) {
       toast.error('Lote não encontrado')
@@ -1703,8 +1787,36 @@ export default function CheckoutPage() {
       router.push(`/inscricao/${eventId}/obrigado?resumo=${resumoParam}`)
       
     } catch (error: any) {
-      console.error("Erro ao finalizar:", error)
-      toast.error("Erro ao finalizar inscrição")
+      console.error("❌ [CHECKOUT] Erro ao finalizar inscrição:", error)
+      
+      // Enviar erro para o servidor (banco + email)
+      try {
+        await fetch('/api/log-error', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            errorMessage: error?.message || 'Erro desconhecido ao finalizar inscrição',
+            errorStack: error?.stack,
+            errorType: 'registration',
+            url: typeof window !== 'undefined' ? window.location.href : null,
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+            eventId,
+            eventName: eventData?.name,
+            page: 'checkout-submit',
+            additionalData: {
+              participantesCount: participantes.length,
+              meioPagamento,
+              totalIngressos: ingressosSelecionados.length,
+              isGratuito: isGratuito(),
+              step: currentStep,
+            },
+          }),
+        })
+      } catch (logError) {
+        console.error('Falha ao logar erro:', logError)
+      }
+      
+      toast.error("Erro ao finalizar inscrição. Por favor, tente novamente.")
     } finally {
       setSubmitting(false)
     }
@@ -2709,13 +2821,17 @@ export default function CheckoutPage() {
                   const ingressosParam = searchParams.get("ingressos")
                   let categoriasDisponiveis: any[] = []
                   if (loteId && ingressosParam && eventData) {
-                    const ingressosObj = JSON.parse(decodeURIComponent(ingressosParam))
-                    const lote = eventData.ticket_batches?.find((b: any) => b.id === loteId)
-                    if (lote && lote.tickets) {
-                      categoriasDisponiveis = lote.tickets.filter((t: any) => {
-                        const quantidade = Number(ingressosObj[t.category] || 0)
-                        return quantidade > 0
-                      })
+                    try {
+                      const ingressosObj = JSON.parse(decodeURIComponent(ingressosParam))
+                      const lote = eventData.ticket_batches?.find((b: any) => b.id === loteId)
+                      if (lote && lote.tickets) {
+                        categoriasDisponiveis = lote.tickets.filter((t: any) => {
+                          const quantidade = Number(ingressosObj[t.category] || 0)
+                          return quantidade > 0
+                        })
+                      }
+                    } catch (parseError) {
+                      console.error("❌ [CHECKOUT] Erro ao parsear categorias:", parseError)
                     }
                   }
 
@@ -2954,5 +3070,32 @@ export default function CheckoutPage() {
       </Dialog>
 
     </div>
+  )
+}
+
+// Loading fallback para o Suspense
+function CheckoutLoading() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[#156634] mx-auto mb-4" />
+        <p className="text-gray-600">Carregando checkout...</p>
+      </div>
+    </div>
+  )
+}
+
+// Componente exportado com Error Boundary e Suspense para useSearchParams
+export default function CheckoutPage() {
+  // Extrair eventId dos params para passar ao Error Boundary
+  const params = useParams()
+  const eventId = params?.eventId as string | undefined
+  
+  return (
+    <CheckoutErrorBoundary eventId={eventId}>
+      <Suspense fallback={<CheckoutLoading />}>
+        <CheckoutContent />
+      </Suspense>
+    </CheckoutErrorBoundary>
   )
 }

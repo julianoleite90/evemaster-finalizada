@@ -17,8 +17,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Image from "next/image"
 import Link from "next/link"
 import { RatingDisplay } from "@/components/reviews/StarRating"
+import { EventErrorBoundary } from "@/components/error/EventErrorBoundary"
 
-export default function EventoLandingPage() {
+// Componente interno da página do evento
+function EventoLandingPageContent() {
   const params = useParams()
   const router = useRouter()
   const slug = params.slug as string
@@ -1263,5 +1265,17 @@ export default function EventoLandingPage() {
         </div>
       </footer>
     </div>
+  )
+}
+
+// Componente exportado com Error Boundary para capturar erros
+export default function EventoLandingPage() {
+  const params = useParams()
+  const slug = params?.slug as string | undefined
+  
+  return (
+    <EventErrorBoundary eventSlug={slug}>
+      <EventoLandingPageContent />
+    </EventErrorBoundary>
   )
 }
