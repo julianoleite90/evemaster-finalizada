@@ -209,7 +209,7 @@ function RegistrationsPageContent() {
             .limit(500),
           payments: async () => await supabase
             .from("payments")
-            .select("registration_id, payment_status, total_amount, payment_method, running_club_id")
+            .select("registration_id, payment_status, total_amount, payment_method")
             .in("registration_id", registrationIds)
             .limit(500),
           tickets: async () => await supabase
