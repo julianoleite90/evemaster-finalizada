@@ -170,21 +170,21 @@ function RegistrationsPageContent() {
         // Buscar inscrições com LIMITE para evitar crash
         const registrationsResult = await safeQuery(
           async () => await supabase
-            .from("registrations")
-            .select(`
-              id,
-              registration_number,
-              created_at,
-              event_id,
-              ticket_id,
-              status,
-              shirt_size,
-              events:event_id (
-                name
-              )
-            `)
-            .in("event_id", eventIds)
-            .order("created_at", { ascending: false })
+          .from("registrations")
+          .select(`
+            id,
+            registration_number,
+            created_at,
+            event_id,
+            ticket_id,
+            status,
+            shirt_size,
+            events:event_id (
+              name
+            )
+          `)
+          .in("event_id", eventIds)
+          .order("created_at", { ascending: false })
             .limit(500), // LIMITE: máximo 500 registros por vez
           { timeout: 15000, retries: 2 }
         )

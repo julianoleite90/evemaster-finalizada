@@ -282,6 +282,15 @@ function EventSettingsPageContent() {
         console.warn("⚠️ [VIEW STATS] Algumas queries falharam:", viewsErrors)
       }
 
+      console.log("📊 [VIEW STATS] Dados retornados:", {
+        viewsData,
+        viewsErrors,
+        eventId,
+        hoje: inicioHojeUTC,
+        seteDias: seteDiasAtrasUTC,
+        trintaDias: trintaDiasAtrasUTC
+      })
+
       const viewsTodayCount = viewsData.viewsToday?.count || 0
       const viewsLast7DaysCount = viewsData.viewsLast7Days?.count || 0
       const viewsLast30DaysCount = viewsData.viewsLast30Days?.count || 0
@@ -291,6 +300,15 @@ function EventSettingsPageContent() {
         ? ((conversionsCount / viewsLast30DaysCount) * 100)
         : 0
 
+      console.log("📊 [VIEW STATS] Counts calculados:", {
+        viewsTodayCount,
+        viewsLast7DaysCount,
+        viewsLast30DaysCount,
+        totalViewsCount,
+        conversionsCount,
+        conversionRateValue
+      })
+
       setViewStats({
         totalViews: totalViewsCount,
         viewsToday: viewsTodayCount,
@@ -299,6 +317,8 @@ function EventSettingsPageContent() {
         conversions: conversionsCount,
         conversionRate: Number(conversionRateValue.toFixed(2))
       })
+
+      console.log("✅ [VIEW STATS] Estado atualizado com sucesso")
     } catch (error) {
       console.error("Erro ao buscar estatísticas de visualizações:", error)
     }
@@ -578,15 +598,15 @@ function EventSettingsPageContent() {
       // Buscar inscrições com LIMITE e timeout
       const registrationsResult = await safeQuery(
         async () => await supabase
-          .from("registrations")
-          .select(`
-            id,
-            created_at,
-            ticket_id,
-            shirt_size
-          `)
-          .eq("event_id", eventId)
-          .order("created_at", { ascending: true })
+        .from("registrations")
+        .select(`
+          id,
+          created_at,
+          ticket_id,
+          shirt_size
+        `)
+        .eq("event_id", eventId)
+        .order("created_at", { ascending: true })
           .limit(1000), // LIMITE: máximo 1000 para relatórios
         { timeout: 20000, retries: 2 }
       )
@@ -619,22 +639,22 @@ function EventSettingsPageContent() {
       const { data: relatedData, errors: relatedErrors } = await parallelQueries({
         tickets: ticketIds.length > 0 
           ? async () => await supabase
-              .from("tickets")
-              .select("id, category, price")
+          .from("tickets")
+          .select("id, category, price")
               .in("id", ticketIds)
               .limit(1000)
           : async () => Promise.resolve({ data: [], error: null }),
         payments: registrationIds.length > 0 
           ? async () => await supabase
-              .from("payments")
+          .from("payments")
               .select("registration_id, total_amount, payment_status, affiliate_id")
               .in("registration_id", registrationIds)
               .limit(1000)
           : async () => Promise.resolve({ data: [], error: null }),
         athletes: registrationIds.length > 0 
           ? async () => await supabase
-              .from("athletes")
-              .select("registration_id, gender, birth_date, age")
+          .from("athletes")
+          .select("registration_id, gender, birth_date, age")
               .in("registration_id", registrationIds)
               .limit(1000)
           : async () => Promise.resolve({ data: [], error: null }),
