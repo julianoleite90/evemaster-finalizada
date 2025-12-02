@@ -195,8 +195,9 @@ function RegistrationsPageContent() {
           return
         }
 
-        // Desembrulhar: se veio { count, data }, pegar o .data interno
+        // Helper para desembrulhar arrays (podem vir como array ou { count, data })
         const extractArray = (val: any) => Array.isArray(val) ? val : (val?.data || [])
+        
         const allRegistrations = extractArray(registrationsResult.data)
 
         // Buscar dados relacionados com parallelQueries (não falha tudo se uma query falhar)
@@ -231,9 +232,7 @@ function RegistrationsPageContent() {
           console.warn("⚠️ Algumas queries falharam (não crítico):", errors)
         }
 
-        // Helper para desembrulhar arrays (podem vir como array ou { count, data })
-        const extractArray = (val: any) => Array.isArray(val) ? val : (val?.data || [])
-        
+        // Usar o mesmo extractArray já definido acima
         const athletesData = { data: extractArray(relatedData.athletes) }
         const paymentsData = { data: extractArray(relatedData.payments) }
         const ticketsData = { data: extractArray(relatedData.tickets) }
