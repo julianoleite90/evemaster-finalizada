@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -41,7 +43,7 @@ export default function ForgotPasswordPage() {
       setEmailSent(true)
       toast.success("Email de recuperação enviado!")
     } catch (error: any) {
-      console.error("Erro ao enviar email:", error)
+      logger.error("Erro ao enviar email:", error)
       toast.error(error.message || "Erro ao enviar email. Tente novamente.")
     } finally {
       setLoading(false)

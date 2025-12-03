@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image"
@@ -86,7 +88,7 @@ export default function Home() {
 
         setEvents(data || [])
       } catch (error) {
-        console.error("Erro ao buscar eventos:", error)
+        logger.error("Erro ao buscar eventos:", error)
       } finally {
         setLoading(false)
       }

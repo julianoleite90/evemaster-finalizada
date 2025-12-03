@@ -1,3 +1,4 @@
+import { apiLogger as logger } from "@/lib/utils/logger"
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -166,7 +167,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Erro ao gerar PDF do ingresso:', error)
+    logger.error('Erro ao gerar PDF do ingresso:', error)
     return NextResponse.json(
       { error: 'Erro ao gerar ingresso', details: error.message },
       { status: 500 }

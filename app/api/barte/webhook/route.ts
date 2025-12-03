@@ -1,25 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createBarteSplit, getPlatformSellerId } from '@/lib/barte/client'
+import { paymentLogger as logger } from '@/lib/utils/logger'
 
 /**
  * Webhook para receber notificações da Barte sobre mudanças de status de pagamento
  * Quando um pagamento é aprovado, criar o split automaticamente
+ * 
+ * IMPORTANTE: BARTE_WEBHOOK_SECRET deve estar configurado em produção!
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    
-    // Verificar autenticação (se a Barte enviar um token)
+    // Verificar autenticação - OBRIGATÓRIO em produção
     const authHeader = request.headers.get('authorization')
     const webhookSecret = process.env.BARTE_WEBHOOK_SECRET
     
-    if (webhookSecret && authHeader !== `Bearer ${webhookSecret}`) {
+    // Em produção, BARTE_WEBHOOK_SECRET é obrigatório
+    if (process.env.NODE_ENV === 'production' && !webhookSecret) {
+      logger.error('BARTE_WEBHOOK_SECRET não configurado em produção!')
       return NextResponse.json(
-        { error: 'Não autorizado' },
-        { status: 401 }
+        { error: 'Configuração de segurança ausente' },
+        { status: 500 }
       )
     }
+    
+    // Validar token se configurado
+    if (webhookSecret) {
+      if (!authHeader) {
+        logger.warn('Requisição sem header de autorização')
+        return NextResponse.json(
+          { error: 'Autorização necessária' },
+          { status: 401 }
+        )
+      }
+      
+      if (authHeader !== `Bearer ${webhookSecret}`) {
+        logger.warn('Token inválido')
+        return NextResponse.json(
+          { error: 'Não autorizado' },
+          { status: 401 }
+        )
+      }
+    } else if (process.env.NODE_ENV === 'development') {
+      logger.warn('Rodando sem validação de token (apenas dev)')
+    }
+    
+    const body = await request.json()
 
     const { charge_uuid, status, event_type } = body as {
       charge_uuid: string
@@ -59,7 +85,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (paymentError || !payment) {
-      console.error('Payment não encontrado para charge:', charge_uuid)
+      logger.error('Payment não encontrado para charge:', charge_uuid)
       return NextResponse.json(
         { error: 'Payment não encontrado' },
         { status: 404 }
@@ -109,11 +135,11 @@ export async function POST(request: NextRequest) {
           })
         
         if (conversionError) {
-          console.error('Erro ao registrar conversão:', conversionError)
+          logger.error('Erro ao registrar conversão:', conversionError)
           // Não falhar o webhook se a conversão não for registrada
         }
       } catch (err) {
-        console.error('Erro ao registrar conversão:', err)
+        logger.error('Erro ao registrar conversão:', err)
         // Não falhar o webhook se a conversão não for registrada
       }
 
@@ -173,16 +199,16 @@ export async function POST(request: NextRequest) {
 
       if (!splitResponse.ok) {
         const error = await splitResponse.json()
-        console.error('Erro ao criar split:', error)
+        logger.error('Erro ao criar split:', error)
         // Não falhar o webhook, apenas logar o erro
       }
     } catch (splitError) {
-      console.error('Erro ao chamar create-split:', splitError)
+      logger.error('Erro ao chamar create-split:', splitError)
     }
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('Erro no webhook da Barte:', error)
+    logger.error('Erro no webhook da Barte:', error)
     return NextResponse.json(
       { error: error.message || 'Erro ao processar webhook' },
       { status: 500 }

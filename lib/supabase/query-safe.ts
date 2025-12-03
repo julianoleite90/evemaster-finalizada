@@ -75,7 +75,7 @@ export async function safeQuery<T>(
       const finalData = 'count' in result ? result : result.data
       
       return {
-        data: finalData,
+        data: finalData as T | null,
         error: null,
         duration,
         retryCount,

@@ -1,3 +1,4 @@
+import { apiLogger as logger } from "@/lib/utils/logger"
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createBarteSplit, getPlatformSellerId, getBarteCharge } from '@/lib/barte/client'
@@ -113,7 +114,7 @@ export async function POST(request: NextRequest) {
           type: 'fixed',
         })
       } else {
-        console.warn(`Afiliado ${payment.affiliate_id} não possui barte_seller_id configurado`)
+        logger.warn(`Afiliado ${payment.affiliate_id} não possui barte_seller_id configurado`)
       }
     }
 
@@ -147,7 +148,7 @@ export async function POST(request: NextRequest) {
       .eq('id', payment_id)
 
     if (updateError) {
-      console.error('Erro ao atualizar payment com split:', updateError)
+      logger.error('Erro ao atualizar payment com split:', updateError)
     }
 
     return NextResponse.json({
@@ -156,7 +157,7 @@ export async function POST(request: NextRequest) {
       sellers,
     })
   } catch (error: any) {
-    console.error('Erro ao criar split na Barte:', error)
+    logger.error('Erro ao criar split na Barte:', error)
     return NextResponse.json(
       { error: error.message || 'Erro ao criar split' },
       { status: 500 }

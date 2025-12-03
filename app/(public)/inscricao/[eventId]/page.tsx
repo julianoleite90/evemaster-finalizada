@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react"
 import { useParams, useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { checkoutLogger as logger } from "@/lib/utils/logger"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -21,97 +22,35 @@ import { CPFLoginInline } from "@/components/auth/CPFLoginInline"
 import { CheckoutErrorBoundary } from "@/components/error/CheckoutErrorBoundary"
 import Link from "next/link"
 import Image from "next/image"
-
-// Tamanhos de camiseta
-const TAMANHOS_CAMISETA = ["PP", "P", "M", "G", "GG", "XG", "XXG"]
-
-interface Participante {
-  nome: string
-  email: string
-  telefone: string
-  idade: string
-  genero: string
-  paisResidencia: string
-  cep: string
-  endereco: string
-  numero: string
-  complemento: string
-  bairro: string
-  cidade: string
-  estado: string
-  cpf: string
-  tamanhoCamiseta: string
-  aceiteTermo: boolean
-  contatoEmergenciaNome: string
-  contatoEmergenciaTelefone: string
-}
-
-const participanteVazio: Participante = {
-  nome: "",
-  email: "",
-  telefone: "",
-  idade: "",
-  genero: "",
-  paisResidencia: "brasil",
-  cep: "",
-  endereco: "",
-  numero: "",
-  complemento: "",
-  bairro: "",
-  cidade: "",
-  estado: "",
-  cpf: "",
-  tamanhoCamiseta: "",
-  aceiteTermo: false,
-  contatoEmergenciaNome: "",
-  contatoEmergenciaTelefone: "",
-}
-
-// Lista de países
-const PAISES = [
-  { value: "brasil", label: "🇧🇷 Brasil", labelEs: "🇧🇷 Brasil", labelEn: "🇧🇷 Brazil" },
-  { value: "argentina", label: "🇦🇷 Argentina", labelEs: "🇦🇷 Argentina", labelEn: "🇦🇷 Argentina" },
-  { value: "chile", label: "🇨🇱 Chile", labelEs: "🇨🇱 Chile", labelEn: "🇨🇱 Chile" },
-  { value: "uruguai", label: "🇺🇾 Uruguai", labelEs: "🇺🇾 Uruguay", labelEn: "🇺🇾 Uruguay" },
-  { value: "paraguai", label: "🇵🇾 Paraguai", labelEs: "🇵🇾 Paraguay", labelEn: "🇵🇾 Paraguay" },
-  { value: "peru", label: "🇵🇪 Peru", labelEs: "🇵🇪 Perú", labelEn: "🇵🇪 Peru" },
-  { value: "colombia", label: "🇨🇴 Colômbia", labelEs: "🇨🇴 Colombia", labelEn: "🇨🇴 Colombia" },
-  { value: "mexico", label: "🇲🇽 México", labelEs: "🇲🇽 México", labelEn: "🇲🇽 Mexico" },
-  { value: "eua", label: "🇺🇸 Estados Unidos", labelEs: "🇺🇸 Estados Unidos", labelEn: "🇺🇸 United States" },
-  { value: "outro", label: "🌍 Outro país", labelEs: "🌍 Otro país", labelEn: "🌍 Other country" },
-]
-
-// Função para normalizar o país do evento para o formato usado no Select
-const normalizarPais = (pais: string | null | undefined): string => {
-  if (!pais) return "brasil"
-  
-  const paisLower = pais.toLowerCase().trim()
-  
-  // Mapear variações comuns do nome do país para o valor do Select
-  const mapeamento: Record<string, string> = {
-    "brasil": "brasil",
-    "brazil": "brasil",
-    "argentina": "argentina",
-    "chile": "chile",
-    "uruguai": "uruguai",
-    "uruguay": "uruguai",
-    "paraguai": "paraguai",
-    "paraguay": "paraguai",
-    "peru": "peru",
-    "perú": "peru",
-    "colombia": "colombia",
-    "colômbia": "colombia",
-    "mexico": "mexico",
-    "méxico": "mexico",
-    "eua": "eua",
-    "estados unidos": "eua",
-    "united states": "eua",
-    "usa": "eua",
-    "us": "eua",
-  }
-  
-  return mapeamento[paisLower] || "brasil"
-}
+import { OrderSummary, StepIndicator, CheckoutFooter, Step1PersonalData, Step2Address, Step3PaymentAndTerms } from "./components"
+import { 
+  Participante, 
+  participanteVazio, 
+  TAMANHOS_CAMISETA, 
+  PAISES, 
+  normalizarPais,
+  Idioma,
+  traducoes,
+  createTranslator
+} from "./types"
+import {
+  useCheckoutLoading,
+  useCheckoutNavigation,
+  useCheckoutConfig,
+  useCheckoutUI
+} from "./hooks"
+import {
+  formatCPF,
+  formatDNI,
+  formatDocumento,
+  formatTelefone,
+  formatCEP,
+  mascararEmail,
+  calcularTotalPedido,
+  isEventoGratuito,
+  validarDocumento,
+  validarEmail
+} from "./utils"
 
 // Componente interno que usa useSearchParams
 function CheckoutContent() {
@@ -120,9 +59,9 @@ function CheckoutContent() {
   const router = useRouter()
   const eventId = params.eventId as string
 
-  const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-  const [loadingCep, setLoadingCep] = useState(false)
+  // Estados de loading (hook)
+  const { loading, setLoading, submitting, setSubmitting, loadingCep, setLoadingCep, verificandoCpf, setVerificandoCpf } = useCheckoutLoading()
+  
   const [eventData, setEventData] = useState<any>(null)
   const [ingressosSelecionados, setIngressosSelecionados] = useState<any[]>([])
   const [currentStep, setCurrentStep] = useState(1)
@@ -132,204 +71,37 @@ function CheckoutContent() {
   const [temKit, setTemKit] = useState(false)
   const [temCamiseta, setTemCamiseta] = useState(false)
   const [paisEvento, setPaisEvento] = useState("brasil")
-  const [idioma, setIdioma] = useState("pt")
+  const [idioma, setIdioma] = useState<Idioma>("pt")
   const [runningClub, setRunningClub] = useState<any>(null) // Dados do clube de corrida se houver
   
-  // Estados
+  // Estados de usuário
   const [usuarioLogado, setUsuarioLogado] = useState<any>(null)
   const [perfisSalvos, setPerfisSalvos] = useState<any[]>([])
-  const [mostrarSelecaoParticipantes, setMostrarSelecaoParticipantes] = useState(false)
   
   // Estados para login inline por CPF
-  const [showCpfLogin, setShowCpfLogin] = useState(false)
   const [cpfVerificado, setCpfVerificado] = useState<string | null>(null)
   const [cpfUserData, setCpfUserData] = useState<{ id: string; maskedEmail: string; fullName: string } | null>(null)
-  const [verificandoCpf, setVerificandoCpf] = useState(false)
   const [salvarPerfil, setSalvarPerfil] = useState<{ [key: number]: boolean }>({})
-  const [permiteEdicao, setPermiteEdicao] = useState(false) // Controla se permite editar campos quando logado
   
-  // Novos estados para o fluxo inteligente
-  const [mostrarPopupIncluirParticipantes, setMostrarPopupIncluirParticipantes] = useState(false)
+  // Estados de UI (hook)
+  const { showCpfLogin, setShowCpfLogin, mostrarSelecaoParticipantes, setMostrarSelecaoParticipantes, mostrarPopupIncluirParticipantes, setMostrarPopupIncluirParticipantes, mostrarBuscaParticipantes, setMostrarBuscaParticipantes, permiteEdicao, setPermiteEdicao } = useCheckoutUI()
+  
+  // Estados para o fluxo inteligente (parcialmente migrado para hooks)
   const [quantidadeParticipantesAdicionais, setQuantidadeParticipantesAdicionais] = useState(1)
-  const [mostrarBuscaParticipantes, setMostrarBuscaParticipantes] = useState(false)
   const [termoBuscaParticipante, setTermoBuscaParticipante] = useState("")
-  const [participanteAtualEmEdicao, setParticipanteAtualEmEdicao] = useState<number | null>(null) // Qual participante está sendo editado na busca
-  const [quantidadeIngressosInicial, setQuantidadeIngressosInicial] = useState<number>(0) // Quantidade inicial de ingressos selecionados
-  const [perfisSelecionadosPopup, setPerfisSelecionadosPopup] = useState<{ perfilId: string, categoriaId: string }[]>([]) // Perfis selecionados no popup com suas categorias
+  const [participanteAtualEmEdicao, setParticipanteAtualEmEdicao] = useState<number | null>(null)
+  const [quantidadeIngressosInicial, setQuantidadeIngressosInicial] = useState<number>(0)
+  const [perfisSelecionadosPopup, setPerfisSelecionadosPopup] = useState<{ perfilId: string, categoriaId: string }[]>([])
 
-  const footerPaymentText: Record<string, string> = {
-    pt: "Aceitamos todos os cartões, Pix e Boleto",
-    es: "Aceptamos todas las tarjetas, Pix y Boleto",
-    en: "We accept all credit cards, Pix and Boleto",
-  }
-
-  // Traduções
-  const traducoes: Record<string, Record<string, string>> = {
-    pt: {
-      pagamentoSeguro: "Pagamento 100% seguro",
-      dadosPessoais: "Dados Pessoais",
-      endereco: "Endereço",
-      pagamento: "Pagamento",
-      finalizarInscricao: "Finalizar Inscrição",
-      nomeCompleto: "Nome Completo",
-      email: "Email",
-      telefone: "Telefone",
-      idade: "Idade",
-      genero: "Gênero",
-      masculino: "Masculino",
-      feminino: "Feminino",
-      outro: "Outro",
-      prefiroNaoInformar: "Prefiro não informar",
-      cep: "CEP",
-      estado: "Estado",
-      cidade: "Cidade",
-      bairro: "Bairro",
-      numero: "Número",
-      complemento: "Complemento",
-      cpf: "CPF",
-      documento: "Documento",
-      formaPagamento: "Forma de Pagamento",
-      pix: "PIX",
-      pagamentoInstantaneo: "Pagamento instantâneo",
-      cartaoCredito: "Cartão de Crédito",
-      parceleAte: "Parcele em até 12x",
-      boleto: "Boleto Bancário",
-      vencimento: "Vencimento em 3 dias úteis",
-      termoResponsabilidade: "Termo de Responsabilidade",
-      liAceito: "Li e aceito o termo de responsabilidade",
-      voltar: "Voltar",
-      continuar: "Continuar",
-      finalizarPagar: "Finalizar e Pagar",
-      resumoInscricao: "Resumo da Inscrição",
-      subtotal: "Subtotal",
-      taxaServico: "Taxa de serviço",
-      total: "Total",
-      participante: "Participante",
-      ingresso: "Ingresso",
-      ingressos: "ingresso(s)",
-      selecione: "Selecione",
-      tamanhoCamiseta: "Tamanho da Camiseta",
-      paisResidencia: "País de Residência",
-      plataformaDescricao: "Plataforma para gestão, compra e venda de ingressos para eventos esportivos.",
-      parceleAteCartao: "Parcelamento em até 12x no cartão",
-      usuarioEncontrado: "Usuário encontrado no sistema",
-    },
-    es: {
-      pagamentoSeguro: "Pago 100% seguro",
-      dadosPessoais: "Datos Personales",
-      endereco: "Dirección",
-      pagamento: "Pago",
-      finalizarInscricao: "Finalizar Inscripción",
-      nomeCompleto: "Nombre Completo",
-      email: "Correo Electrónico",
-      telefone: "Teléfono",
-      idade: "Edad",
-      genero: "Género",
-      masculino: "Masculino",
-      feminino: "Femenino",
-      outro: "Otro",
-      prefiroNaoInformar: "Prefiero no informar",
-      cep: "Código Postal",
-      estado: "Provincia/Estado",
-      cidade: "Ciudad",
-      bairro: "Barrio",
-      numero: "Número",
-      complemento: "Complemento",
-      cpf: "CPF",
-      documento: "Documento",
-      formaPagamento: "Forma de Pago",
-      pix: "PIX",
-      pagamentoInstantaneo: "Pago instantáneo",
-      cartaoCredito: "Tarjeta de Crédito",
-      parceleAte: "Hasta 12 cuotas",
-      boleto: "Boleto Bancario",
-      vencimento: "Vencimiento en 3 días hábiles",
-      termoResponsabilidade: "Término de Responsabilidad",
-      liAceito: "He leído y acepto el término de responsabilidad",
-      voltar: "Volver",
-      continuar: "Continuar",
-      finalizarPagar: "Finalizar y Pagar",
-      resumoInscricao: "Resumen de la Inscripción",
-      subtotal: "Subtotal",
-      taxaServico: "Tarifa de servicio",
-      total: "Total",
-      participante: "Participante",
-      ingresso: "Entrada",
-      ingressos: "entrada(s)",
-      selecione: "Seleccione",
-      tamanhoCamiseta: "Talla de Camiseta",
-      paisResidencia: "País de Residencia",
-      plataformaDescricao: "Plataforma para gestión, compra y venta de entradas para eventos deportivos.",
-      parceleAteCartao: "Pago en hasta 12 cuotas con tarjeta",
-      usuarioEncontrado: "Usuario encontrado en el sistema",
-      contatoEmergencia: "Contacto de Emergencia",
-      contatoEmergenciaNome: "Nombre del Contacto",
-      contatoEmergenciaTelefone: "Teléfono del Contacto",
-      contatoEmergenciaDescricao: "Proporcione un contacto para emergencias durante el evento",
-    },
-    en: {
-      pagamentoSeguro: "100% Secure Payment",
-      dadosPessoais: "Personal Information",
-      endereco: "Address",
-      pagamento: "Payment",
-      finalizarInscricao: "Complete Registration",
-      nomeCompleto: "Full Name",
-      email: "Email",
-      telefone: "Phone",
-      idade: "Age",
-      genero: "Gender",
-      masculino: "Male",
-      feminino: "Female",
-      outro: "Other",
-      prefiroNaoInformar: "Prefer not to say",
-      cep: "Postal Code",
-      estado: "State/Province",
-      cidade: "City",
-      bairro: "Neighborhood",
-      numero: "Number",
-      complemento: "Apt/Suite",
-      cpf: "CPF",
-      documento: "ID Document",
-      formaPagamento: "Payment Method",
-      pix: "PIX",
-      pagamentoInstantaneo: "Instant payment",
-      cartaoCredito: "Credit Card",
-      parceleAte: "Up to 12 installments",
-      boleto: "Bank Slip",
-      vencimento: "Due in 3 business days",
-      termoResponsabilidade: "Liability Waiver",
-      liAceito: "I have read and accept the liability waiver",
-      voltar: "Back",
-      continuar: "Continue",
-      finalizarPagar: "Complete & Pay",
-      resumoInscricao: "Registration Summary",
-      subtotal: "Subtotal",
-      taxaServico: "Service fee",
-      total: "Total",
-      participante: "Participant",
-      ingresso: "Ticket",
-      ingressos: "ticket(s)",
-      selecione: "Select",
-      tamanhoCamiseta: "T-Shirt Size",
-      paisResidencia: "Country of Residence",
-      plataformaDescricao: "Platform for management, purchase and sale of tickets for sporting events.",
-      parceleAteCartao: "Installments up to 12x on card",
-      usuarioEncontrado: "User found in the system",
-      contatoEmergencia: "Emergency Contact",
-      contatoEmergenciaNome: "Contact Name",
-      contatoEmergenciaTelefone: "Contact Phone",
-      contatoEmergenciaDescricao: "Provide a contact for emergencies during the event",
-    },
-  }
-
-  const t = (key: string) => traducoes[idioma]?.[key] || traducoes.pt[key] || key
+  // Tradutor usando traduções centralizadas
+  const t = createTranslator(idioma)
   const isBrasil = paisEvento === "brasil"
 
   // Carregar dados do evento e ingressos
   useEffect(() => {
     const fetchData = async () => {
       // Log inicial para diagnóstico
-      console.log("🔄 [CHECKOUT] Iniciando carregamento do checkout:", {
+      logger.log("🔄 [CHECKOUT] Iniciando carregamento do checkout:", {
         eventId,
         url: typeof window !== 'undefined' ? window.location.href : 'N/A',
         searchParams: {
@@ -347,7 +119,7 @@ function CheckoutContent() {
         const event = await getEventById(eventId)
         
         if (!event) {
-          console.error("❌ [CHECKOUT] Evento não encontrado:", eventId)
+          logger.error("❌ [CHECKOUT] Evento não encontrado:", eventId)
           toast.error("Evento não encontrado")
           router.push("/")
           return
@@ -412,7 +184,7 @@ function CheckoutContent() {
         try {
           ingressosObj = JSON.parse(decodeURIComponent(ingressosParam))
         } catch (parseError) {
-          console.error("❌ [CHECKOUT] Erro ao parsear parâmetro ingressos:", {
+          logger.error("❌ [CHECKOUT] Erro ao parsear parâmetro ingressos:", {
             error: parseError,
             ingressosParam,
             decodedParam: decodeURIComponent(ingressosParam || ''),
@@ -475,7 +247,7 @@ function CheckoutContent() {
           paisResidencia: pais 
         })))
         
-        console.log("✅ [CHECKOUT] Dados carregados com sucesso:", {
+        logger.log("✅ [CHECKOUT] Dados carregados com sucesso:", {
           eventName: event.name,
           eventId: event.id,
           totalIngressos: listaIngressos.length,
@@ -487,7 +259,7 @@ function CheckoutContent() {
         
       } catch (error: any) {
         // Log detalhado para diagnóstico
-        console.error("❌ [CHECKOUT] Erro ao carregar dados do checkout:", {
+        logger.error("❌ [CHECKOUT] Erro ao carregar dados do checkout:", {
           error: error?.message || error,
           stack: error?.stack?.substring(0, 500),
           eventId,
@@ -519,13 +291,13 @@ function CheckoutContent() {
             }),
           })
         } catch (logError) {
-          console.error('Falha ao logar erro:', logError)
+          logger.error('Falha ao logar erro:', logError)
         }
         
         toast.error("Erro ao carregar dados do checkout")
       } finally {
         setLoading(false)
-        console.log("✅ [CHECKOUT] Carregamento finalizado")
+        logger.log("✅ [CHECKOUT] Carregamento finalizado")
       }
     }
 
@@ -557,7 +329,7 @@ function CheckoutContent() {
       }
       setParticipantes(novosParticipantes)
     } catch (error) {
-      console.error("Erro ao buscar CEP:", error)
+      logger.error("Erro ao buscar CEP:", error)
     } finally {
       setLoadingCep(false)
     }
@@ -574,59 +346,12 @@ function CheckoutContent() {
   }
 
   // Formatar CPF (Brasil)
-  const formatCPF = (value: string) => {
-    return value
-      .replace(/\D/g, "")
-      .slice(0, 11)
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d{1,2})/, "$1-$2")
-  }
-
-  // Formatar DNI (Argentina)
-  const formatDNI = (value: string) => {
-    const cleaned = value.replace(/\D/g, "")
-    if (cleaned.length <= 2) return cleaned
-    if (cleaned.length <= 5) return `${cleaned.slice(0, 2)}.${cleaned.slice(2)}`
-    return `${cleaned.slice(0, 2)}.${cleaned.slice(2, 5)}.${cleaned.slice(5, 8)}`
-  }
-
-  // Formatar documento baseado no país
-  const formatDocumento = (value: string, pais: string) => {
-    if (pais === "brasil") {
-      return formatCPF(value)
-    } else if (pais === "argentina") {
-      return formatDNI(value)
-    }
-    // Para outros países, apenas remover caracteres não numéricos e limitar tamanho
-    return value.replace(/\D/g, "").slice(0, 20)
-  }
-
-  // Função para mascarar email (exemplo: julianodesouzaleite@gmail.com → julianode*******@g******)
-  const mascararEmail = (email: string) => {
-    if (!email) return ''
-    const [local, domain] = email.split('@')
-    if (!local || !domain) return email
-    
-    // Mostrar primeiras 7 letras do local + asteriscos
-    const localMasked = local.length > 7 
-      ? local.substring(0, 7) + '*'.repeat(7) // julianode + 7 asteriscos
-      : local.substring(0, Math.min(3, local.length)) + '*'.repeat(Math.max(3, local.length - 3))
-    
-    // Mostrar primeira letra do domínio + asteriscos
-    const domainMasked = domain.length > 1
-      ? domain.substring(0, 1) + '*'.repeat(6) // g + 6 asteriscos
-      : domain
-    
-    return `${localMasked}@${domainMasked}`
-  }
-
   // Verificar se CPF já tem conta cadastrada
   const verificarCpfCadastrado = async (cpf: string) => {
     const participante = participantes[currentParticipante]
     const cleanCPF = cpf.replace(/\D/g, '')
     
-    console.log('🔍 [CPF Check] Verificando CPF:', {
+    logger.log('🔍 [CPF Check] Verificando CPF:', {
       cpfOriginal: cpf,
       cleanCPF,
       paisResidencia: participante.paisResidencia,
@@ -638,29 +363,29 @@ function CheckoutContent() {
     // Só verificar se for brasileiro e CPF completo
     // Aceitar "brasil" ou vazio/undefined (padrão é Brasil)
     if (participante.paisResidencia && participante.paisResidencia !== "brasil") {
-      console.log('🔍 [CPF Check] Ignorando - país não é Brasil:', participante.paisResidencia)
+      logger.log('🔍 [CPF Check] Ignorando - país não é Brasil:', participante.paisResidencia)
       return
     }
     
     if (cleanCPF.length !== 11) {
-      console.log('🔍 [CPF Check] Ignorando - CPF incompleto:', cleanCPF.length, 'dígitos')
+      logger.log('🔍 [CPF Check] Ignorando - CPF incompleto:', cleanCPF.length, 'dígitos')
       return
     }
     
     // Não verificar se já está logado ou se já verificamos este CPF
     if (usuarioLogado) {
-      console.log('🔍 [CPF Check] Ignorando - usuário já logado')
+      logger.log('🔍 [CPF Check] Ignorando - usuário já logado')
       return
     }
     
     if (cpfVerificado === cleanCPF) {
-      console.log('🔍 [CPF Check] Ignorando - CPF já verificado anteriormente')
+      logger.log('🔍 [CPF Check] Ignorando - CPF já verificado anteriormente')
       return
     }
     
     try {
       setVerificandoCpf(true)
-      console.log('🔍 [CPF Check] Chamando API...')
+      logger.log('🔍 [CPF Check] Chamando API...')
       
       const response = await fetch('/api/auth/verificar-cpf', {
         method: 'POST',
@@ -669,20 +394,20 @@ function CheckoutContent() {
       })
       
       const data = await response.json()
-      console.log('🔍 [CPF Check] Resposta da API:', data)
+      logger.log('🔍 [CPF Check] Resposta da API:', data)
       
       if (response.ok && data.exists && data.userData) {
         // CPF encontrado - mostrar bloco inline
-        console.log('✅ [CPF Check] CPF encontrado! Mostrando opção de login...')
+        logger.log('✅ [CPF Check] CPF encontrado! Mostrando opção de login...')
         setCpfVerificado(cleanCPF)
         setCpfUserData(data.userData)
         setShowCpfLogin(true)
       } else {
-        console.log('ℹ️ [CPF Check] CPF não encontrado no sistema')
+        logger.log('ℹ️ [CPF Check] CPF não encontrado no sistema')
         setShowCpfLogin(false)
       }
     } catch (error) {
-      console.error('❌ [CPF Check] Erro ao verificar CPF:', error)
+      logger.error('❌ [CPF Check] Erro ao verificar CPF:', error)
     } finally {
       setVerificandoCpf(false)
     }
@@ -748,7 +473,7 @@ function CheckoutContent() {
         setPerfisSalvos(data.profiles)
       }
     } catch (error) {
-      console.error('Erro ao buscar perfis salvos:', error)
+      logger.error('Erro ao buscar perfis salvos:', error)
     }
   }
 
@@ -771,7 +496,15 @@ function CheckoutContent() {
     } else {
       // Tentar obter userId do primeiro participante através da API criar-conta-automatica
       try {
+        if (participantes.length === 0) {
+          logger.warn('⚠️ [CHECKOUT] Nenhum participante para criar conta')
+          return
+        }
         const primeiroParticipante = participantes[0]
+        if (!primeiroParticipante?.email) {
+          logger.warn('⚠️ [CHECKOUT] Primeiro participante sem email')
+          return
+        }
         const createAccountResponse = await fetch('/api/auth/criar-conta-automatica', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -788,7 +521,7 @@ function CheckoutContent() {
           userIdPrincipal = accountResult.userId || null
         }
       } catch (error) {
-        console.error('Erro ao obter userId do principal:', error)
+        logger.error('Erro ao obter userId do principal:', error)
       }
     }
 
@@ -834,7 +567,7 @@ function CheckoutContent() {
         toast.error(data.error || 'Erro ao salvar perfil')
       }
     } catch (error) {
-      console.error('Erro ao salvar perfil:', error)
+      logger.error('Erro ao salvar perfil:', error)
       toast.error('Erro ao salvar perfil')
     }
   }
@@ -866,7 +599,7 @@ function CheckoutContent() {
     try {
       ingressosObj = JSON.parse(decodeURIComponent(ingressosParam))
     } catch (parseError) {
-      console.error("❌ [CHECKOUT] Erro ao parsear ingressos (confirmarIncluirParticipantes):", parseError)
+      logger.error("❌ [CHECKOUT] Erro ao parsear ingressos (confirmarIncluirParticipantes):", parseError)
       toast.error('Erro nos dados dos ingressos')
       return
     }
@@ -1009,60 +742,11 @@ function CheckoutContent() {
   }
 
   // Formatar telefone
-  const formatTelefone = (value: string) => {
-    return value
-      .replace(/\D/g, "")
-      .slice(0, 11)
-      .replace(/(\d{2})(\d)/, "($1) $2")
-      .replace(/(\d{5})(\d)/, "$1-$2")
-  }
+  // Calcular total usando função utilitária
+  const calcularTotal = () => calcularTotalPedido(ingressosSelecionados, runningClub)
 
-  // Formatar CEP
-  const formatCEP = (value: string) => {
-    return value
-      .replace(/\D/g, "")
-      .slice(0, 8)
-      .replace(/(\d{5})(\d)/, "$1-$2")
-  }
-
-  // Calcular total
-  const calcularTotal = () => {
-    let subtotal = ingressosSelecionados.reduce((sum, ing) => sum + ing.valor, 0)
-    let desconto = 0
-    
-    // Aplicar desconto do clube de corrida se houver
-    if (runningClub && runningClub.base_discount > 0) {
-      // Calcular desconto base (percentual)
-      const descontoBase = (subtotal * runningClub.base_discount) / 100
-      desconto += descontoBase
-      
-      // Verificar desconto progressivo
-      if (runningClub.progressive_discount_threshold && 
-          runningClub.progressive_discount_value &&
-          ingressosSelecionados.length >= runningClub.progressive_discount_threshold) {
-        const descontoProgressivo = (subtotal * runningClub.progressive_discount_value) / 100
-        desconto += descontoProgressivo
-      }
-      
-    }
-    
-    const subtotalComDesconto = Math.max(0, subtotal - desconto)
-    const taxa = subtotalComDesconto > 0 ? ingressosSelecionados.length * 5 : 0
-    const total = subtotalComDesconto + taxa
-    
-    return { 
-      subtotal, 
-      desconto, 
-      subtotalComDesconto,
-      taxa, 
-      total 
-    }
-  }
-
-  // Verificar se é gratuito
-  const isGratuito = () => {
-    return ingressosSelecionados.every(ing => ing.gratuito)
-  }
+  // Verificar se é gratuito usando função utilitária
+  const isGratuito = () => isEventoGratuito(ingressosSelecionados)
 
   // Validar step atual
   const validarStep = () => {
@@ -1236,7 +920,7 @@ function CheckoutContent() {
 
           if (!createAccountResponse.ok) {
             const errorData = await createAccountResponse.json().catch(() => ({}))
-            console.error('❌ Erro na API criar-conta-automatica:', createAccountResponse.status, errorData)
+            logger.error('❌ Erro na API criar-conta-automatica:', createAccountResponse.status, errorData)
             // Continuar tentando buscar/criar usuário manualmente
           } else {
           const accountResult = await createAccountResponse.json()
@@ -1248,13 +932,14 @@ function CheckoutContent() {
             }
           }
         } catch (accountError) {
-          console.error('Erro ao criar conta para', participante.email, ':', accountError)
+          logger.error('Erro ao criar conta para', participante.email, ':', accountError)
           // Não bloquear o fluxo se falhar
         }
       }
 
       // Salvar perfis de participantes se solicitado
-      const userIdPrincipal = usuarioLogado?.id || userIdsMap.get(participantes[0]?.email) || null
+      const primeiroParticipanteEmail = participantes.length > 0 ? participantes[0]?.email : null
+      const userIdPrincipal = usuarioLogado?.id || (primeiroParticipanteEmail ? userIdsMap.get(primeiroParticipanteEmail) : null) || null
       if (userIdPrincipal) {
         for (let i = 0; i < participantes.length; i++) {
           if (salvarPerfil[i] && i > 0) { // Apenas salvar perfis de acompanhantes (i > 0)
@@ -1285,7 +970,7 @@ function CheckoutContent() {
                   }),
                 })
               } catch (error) {
-                console.error('Erro ao salvar perfil do participante', i, ':', error)
+                logger.error('Erro ao salvar perfil do participante', i, ':', error)
                 // Não bloquear o fluxo se falhar
               }
             }
@@ -1314,7 +999,7 @@ function CheckoutContent() {
           .single()
 
         if (ticketFetchError) {
-          console.error("ERRO AO BUSCAR TICKET:", ticketFetchError)
+          logger.error("ERRO AO BUSCAR TICKET:", ticketFetchError)
           toast.error("Erro ao validar ticket selecionado")
           throw ticketFetchError
         }
@@ -1433,7 +1118,7 @@ function CheckoutContent() {
             athleteId = existingUserById.id
           } else {
             // Usuário existe no auth mas não na tabela users - criar registro
-            console.log('[Inscrição] Criando registro na tabela users para userId:', userId)
+            logger.log('[Inscrição] Criando registro na tabela users para userId:', userId)
             const { data: newUser, error: userError } = await supabase
               .from('users')
               .insert({
@@ -1448,7 +1133,7 @@ function CheckoutContent() {
             if (newUser && !userError) {
               athleteId = newUser.id
             } else {
-              console.error("Erro ao criar usuário na tabela users:", userError)
+              logger.error("Erro ao criar usuário na tabela users:", userError)
               // Tentar criar sem o ID específico
               const { data: fallbackUser, error: fallbackError } = await supabase
                 .from('users')
@@ -1463,7 +1148,7 @@ function CheckoutContent() {
               if (fallbackUser && !fallbackError) {
                 athleteId = fallbackUser.id
               } else {
-                console.error("Erro ao criar usuário fallback:", fallbackError)
+                logger.error("Erro ao criar usuário fallback:", fallbackError)
                 toast.error("Erro ao vincular usuário à inscrição")
                 throw new Error("Erro ao criar usuário")
               }
@@ -1484,7 +1169,7 @@ function CheckoutContent() {
           if (newUser && !userError) {
             athleteId = newUser.id
           } else {
-            console.error("Erro ao criar usuário para inscrição:", userError)
+            logger.error("Erro ao criar usuário para inscrição:", userError)
             toast.error("Erro ao vincular usuário à inscrição")
             throw new Error("Erro ao criar usuário")
           }
@@ -1505,7 +1190,7 @@ function CheckoutContent() {
 
 
         if (regError) {
-          console.error("ERRO INSCRIÇÃO:", JSON.stringify(regError, null, 2))
+          logger.error("ERRO INSCRIÇÃO:", JSON.stringify(regError, null, 2))
           toast.error(`Erro ao criar inscrição: ${regError.message}`)
           throw regError
         }
@@ -1518,7 +1203,7 @@ function CheckoutContent() {
         // 2. Criar atleta vinculado à inscrição
         // Garantir que o país seja salvo corretamente (usar o país do participante, não o padrão)
         const paisParticipante = p.paisResidencia || paisEvento || 'brasil'
-        console.log('🌍 [CHECKOUT] Salvando país do participante:', paisParticipante, 'País do evento:', paisEvento, 'País do participante (p.paisResidencia):', p.paisResidencia)
+        logger.log('🌍 [CHECKOUT] Salvando país do participante:', paisParticipante, 'País do evento:', paisEvento, 'País do participante (p.paisResidencia):', p.paisResidencia)
         
         const athleteData = {
           registration_id: registration.id,
@@ -1549,8 +1234,8 @@ function CheckoutContent() {
 
 
         if (athleteError) {
-          console.error("ERRO ATLETA:", JSON.stringify(athleteError, null, 2))
-          console.error("Detalhes do erro:", {
+          logger.error("ERRO ATLETA:", JSON.stringify(athleteError, null, 2))
+          logger.error("Detalhes do erro:", {
             message: athleteError.message,
             code: athleteError.code,
             details: athleteError.details,
@@ -1561,7 +1246,7 @@ function CheckoutContent() {
           
           // Se o erro for de CPF duplicado, tentar buscar atleta existente
           if (athleteError.code === '23505' || athleteError.message?.includes('duplicate') || athleteError.message?.includes('unique')) {
-            console.log("⚠️ CPF ou email duplicado detectado, tentando buscar atleta existente...")
+            logger.log("⚠️ CPF ou email duplicado detectado, tentando buscar atleta existente...")
             if (athleteData.cpf) {
               const { data: existingAthlete } = await supabase
                 .from("athletes")
@@ -1570,13 +1255,13 @@ function CheckoutContent() {
                 .maybeSingle()
               
               if (existingAthlete) {
-                console.log("✅ Atleta existente encontrado pelo CPF:", existingAthlete.id)
+                logger.log("✅ Atleta existente encontrado pelo CPF:", existingAthlete.id)
                 // Continuar sem bloquear - o atleta já existe
               }
             }
           } else {
             // Outro tipo de erro - não bloqueia, atleta é informação adicional
-            console.warn("⚠️ Erro ao criar atleta (não crítico):", athleteError.message)
+            logger.warn("⚠️ Erro ao criar atleta (não crítico):", athleteError.message)
           }
         }
 
@@ -1600,7 +1285,7 @@ function CheckoutContent() {
             }
             
             valorIngresso = Math.max(0, valorIngresso - descontoAplicado)
-            console.log("🏃 [CHECKOUT] Valor original:", ingresso.valor, "Desconto:", descontoAplicado, "Valor final:", valorIngresso)
+            logger.log("🏃 [CHECKOUT] Valor original:", ingresso.valor, "Desconto:", descontoAplicado, "Valor final:", valorIngresso)
           }
           
           const taxa = 5
@@ -1620,7 +1305,7 @@ function CheckoutContent() {
             .insert(paymentData)
 
           if (payError) {
-            console.error("ERRO PAGAMENTO:", JSON.stringify(payError, null, 2))
+            logger.error("ERRO PAGAMENTO:", JSON.stringify(payError, null, 2))
           }
         }
 
@@ -1632,7 +1317,7 @@ function CheckoutContent() {
           .eq("id", ingresso.id)
 
         if (updateTicketError) {
-          console.error("ERRO AO ATUALIZAR QUANTIDADE:", updateTicketError)
+          logger.error("ERRO AO ATUALIZAR QUANTIDADE:", updateTicketError)
         }
 
         // 5. Se houver clube de corrida, incrementar tickets_used
@@ -1646,14 +1331,14 @@ function CheckoutContent() {
             .eq("id", runningClub.id)
 
           if (updateClubError) {
-            console.error("ERRO AO ATUALIZAR TICKETS_USED DO CLUBE:", updateClubError)
+            logger.error("ERRO AO ATUALIZAR TICKETS_USED DO CLUBE:", updateClubError)
           } else {
-            console.log("✅ [CHECKOUT] Tickets usados do clube atualizado:", runningClub.tickets_used + 1)
+            logger.log("✅ [CHECKOUT] Tickets usados do clube atualizado:", runningClub.tickets_used + 1)
           }
         }
       }
 
-      console.log("=== INSCRIÇÃO CONCLUÍDA COM SUCESSO ===")
+      logger.log("=== INSCRIÇÃO CONCLUÍDA COM SUCESSO ===")
       toast.success("Inscrição realizada com sucesso! Contas criadas automaticamente.")
 
       // Salvar perfis de participantes adicionais marcados para salvar
@@ -1662,7 +1347,7 @@ function CheckoutContent() {
           if (salvarPerfil[i] && participantes[i]?.nome && participantes[i]?.cpf) {
             const p = participantes[i]
             try {
-              console.log(`💾 [CHECKOUT] Salvando perfil do participante ${i}: ${p.nome}`)
+              logger.log(`💾 [CHECKOUT] Salvando perfil do participante ${i}: ${p.nome}`)
               await fetch('/api/participants/salvar-perfil', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1685,16 +1370,20 @@ function CheckoutContent() {
                   emergency_contact_phone: p.contatoEmergenciaTelefone?.replace(/\D/g, '') || null,
                 }),
               })
-              console.log(`✅ [CHECKOUT] Perfil salvo: ${p.nome}`)
+              logger.log(`✅ [CHECKOUT] Perfil salvo: ${p.nome}`)
             } catch (saveError) {
-              console.error(`❌ [CHECKOUT] Erro ao salvar perfil ${p.nome}:`, saveError)
+              logger.error(`❌ [CHECKOUT] Erro ao salvar perfil ${p.nome}:`, saveError)
             }
           }
         }
       }
 
       // Sinalizar que o evento foi atualizado para recarregar dados
-      localStorage.setItem(`event_updated_${eventId}`, 'true')
+      try {
+        localStorage.setItem(`event_updated_${eventId}`, 'true')
+      } catch {
+        // localStorage pode estar cheio ou indisponível
+      }
 
       const resumoFinanceiro = calcularTotal()
       // Formatar data sem problemas de timezone
@@ -1736,7 +1425,7 @@ function CheckoutContent() {
           },
         }
 
-        console.log('📧 [Frontend] Enviando emails de confirmação...', {
+        logger.log('📧 [Frontend] Enviando emails de confirmação...', {
           quantidade: emailPayload.inscricoes.length,
           emails: emailPayload.inscricoes.map(i => i.email),
         })
@@ -1749,17 +1438,17 @@ function CheckoutContent() {
 
         if (!emailResponse.ok) {
           const errorText = await emailResponse.text()
-          console.error('❌ [Frontend] Erro HTTP ao enviar emails:', {
+          logger.error('❌ [Frontend] Erro HTTP ao enviar emails:', {
             status: emailResponse.status,
             statusText: emailResponse.statusText,
             error: errorText,
           })
         } else {
           const emailResult = await emailResponse.json()
-          console.log('✅ [Frontend] Emails processados:', emailResult)
+          logger.log('✅ [Frontend] Emails processados:', emailResult)
         }
       } catch (emailError) {
-        console.error('❌ [Frontend] Erro ao enviar emails:', emailError)
+        logger.error('❌ [Frontend] Erro ao enviar emails:', emailError)
         // Não bloquear o fluxo se o email falhar
       }
       
@@ -1784,10 +1473,15 @@ function CheckoutContent() {
         gratuito: isGratuito(),
       }))
       
-      router.push(`/inscricao/${eventId}/obrigado?resumo=${resumoParam}`)
+      const obrigadoUrl = `/inscricao/${eventId}/obrigado?resumo=${resumoParam}`
+      logger.log('🎉 [CHECKOUT] Inscrição finalizada! Redirecionando para:', obrigadoUrl)
+      
+      // Redirecionar usando window.location para garantir a navegação
+      window.location.href = obrigadoUrl
+      return // Importante: não executar o finally que faz setSubmitting(false)
       
     } catch (error: any) {
-      console.error("❌ [CHECKOUT] Erro ao finalizar inscrição:", error)
+      logger.error("❌ [CHECKOUT] Erro ao finalizar inscrição:", error)
       
       // Enviar erro para o servidor (banco + email)
       try {
@@ -1813,7 +1507,7 @@ function CheckoutContent() {
           }),
         })
       } catch (logError) {
-        console.error('Falha ao logar erro:', logError)
+        logger.error('Falha ao logar erro:', logError)
       }
       
       toast.error("Erro ao finalizar inscrição. Por favor, tente novamente.")
@@ -1879,10 +1573,10 @@ function CheckoutContent() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-8 md:py-12 flex-1">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="w-full max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-8 md:py-12 flex-1">
+        <div className="flex flex-col md:flex-row gap-8">
           {/* Formulário */}
-          <div className="lg:col-span-2">
+          <div className="w-full md:w-2/3">
             {/* Indicador de progresso */}
             {participantes.length > 1 && (
               <div className="mb-6">
@@ -1921,539 +1615,67 @@ function CheckoutContent() {
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    {[1, 2, 3].map((step) => (
-                      <div
-                        key={step}
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                          currentStep === step
-                            ? "bg-[#156634] text-white"
-                            : currentStep > step
-                            ? "bg-green-500 text-white"
-                            : "bg-gray-200 text-gray-600"
-                        }`}
-                      >
-                        {currentStep > step ? <Check className="h-4 w-4" /> : step}
-                      </div>
-                    ))}
-                  </div>
+                  <StepIndicator currentStep={currentStep} />
                 </div>
               </CardHeader>
               <CardContent className="space-y-6 flex-1">
                 {/* Step 1: Dados Pessoais */}
                 {currentStep === 1 && (
-                  <div className="space-y-4">
-                    {/* Botão de edição quando logado */}
-                    {usuarioLogado && currentParticipante === 0 && !permiteEdicao && (
-                      <div className="flex items-center justify-end mb-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setPermiteEdicao(true)}
-                          className="flex items-center gap-2"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                          Editar dados
-                        </Button>
-                      </div>
-                    )}
-                    
-                    {/* País de Residência - Primeiro campo (sempre visível para permitir mudança) */}
-                    <div className="space-y-2">
-                      <Label>{t("paisResidencia")} *</Label>
-                      <Select
-                        value={participante?.paisResidencia || "brasil"}
-                        onValueChange={(value) => {
-                          console.log('🌍 [CHECKOUT] País alterado:', value, 'Participante atual:', participante?.paisResidencia)
-                          // Atualizar país do participante
-                          const novosParticipantes = [...participantes]
-                          novosParticipantes[currentParticipante] = {
-                            ...novosParticipantes[currentParticipante],
-                            paisResidencia: value,
-                            cpf: "" // Limpar documento quando mudar o país para permitir novo formato
-                          }
-                          setParticipantes(novosParticipantes)
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={t("selecione")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PAISES.map((pais) => (
-                            <SelectItem key={pais.value} value={pais.value}>
-                              {idioma === "es" ? pais.labelEs : idioma === "en" ? pais.labelEn : pais.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Documento (CPF/DNI/ID) - Segundo campo */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="cpf">
-                          {participante.paisResidencia === "brasil" 
-                            ? "CPF" 
-                            : participante.paisResidencia === "argentina"
-                            ? "DNI"
-                            : idioma === "es" ? "Documento" : idioma === "en" ? "ID Document" : "Documento"} *
-                        </Label>
-                        {usuarioLogado && currentParticipante === 0 && !permiteEdicao && (
-                          <Lock className="h-4 w-4 text-gray-400" />
-                        )}
-                      </div>
-                      <div className="relative">
-                        <Input
-                          id="cpf"
-                          inputMode="numeric"
-                          value={participante.cpf}
-                          onChange={(e) => {
-                            const formatted = formatDocumento(e.target.value, participante.paisResidencia)
-                            updateParticipante("cpf", formatted)
-                          }}
-                          onBlur={(e) => {
-                            // Verificar se CPF já tem conta ao sair do campo
-                            // Apenas para: participante 1 (index 0), brasileiros, e usuário NÃO logado
-                            if (currentParticipante === 0 && !usuarioLogado && participante.paisResidencia === "brasil") {
-                              verificarCpfCadastrado(e.target.value)
-                            }
-                          }}
-                          placeholder={
-                            participante.paisResidencia === "brasil" 
-                              ? "000.000.000-00" 
-                              : participante.paisResidencia === "argentina"
-                              ? "12.345.678"
-                              : idioma === "es" ? "Número de documento" : "Document number"
-                          }
-                          disabled={!!usuarioLogado && currentParticipante === 0 && !permiteEdicao}
-                        />
-                        {verificandoCpf && (
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                            <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Bloco inline de login por CPF */}
-                      {showCpfLogin && cpfUserData && !usuarioLogado && (
-                        <CPFLoginInline
-                          cpf={participante.cpf}
-                          userData={cpfUserData}
-                          onLoginSuccess={handleCpfLoginSuccess}
-                          onClose={handleCloseCpfLogin}
-                        />
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                      <Label htmlFor="nome">{t("nomeCompleto")} *</Label>
-                        {usuarioLogado && currentParticipante === 0 && !permiteEdicao && (
-                          <Lock className="h-4 w-4 text-gray-400" />
-                        )}
-                      </div>
-                      <Input
-                        id="nome"
-                        value={participante.nome}
-                        onChange={(e) => updateParticipante("nome", e.target.value)}
-                        placeholder={t("nomeCompleto")}
-                        disabled={!!usuarioLogado && currentParticipante === 0 && !permiteEdicao}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="email">{t("email")} *</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={participante.email}
-                          onChange={(e) => updateParticipante("email", e.target.value)}
-                          placeholder="email@example.com"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="telefone">{t("telefone")} *</Label>
-                        <Input
-                          id="telefone"
-                          inputMode="tel"
-                          value={participante.telefone}
-                          onChange={(e) => updateParticipante("telefone", isBrasil ? formatTelefone(e.target.value) : e.target.value)}
-                          placeholder={isBrasil ? "(00) 00000-0000" : "+00 000 000 0000"}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                        <Label htmlFor="idade">{t("idade")} *</Label>
-                          {usuarioLogado && currentParticipante === 0 && !permiteEdicao && (
-                            <Lock className="h-4 w-4 text-gray-400" />
-                          )}
-                        </div>
-                        <Input
-                          id="idade"
-                          type="number"
-                          min="1"
-                          max="120"
-                          value={participante.idade}
-                          onChange={(e) => updateParticipante("idade", e.target.value)}
-                          placeholder="Ex: 30"
-                          disabled={!!usuarioLogado && currentParticipante === 0 && !permiteEdicao}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                        <Label>{t("genero")} *</Label>
-                          {usuarioLogado && currentParticipante === 0 && !permiteEdicao && (
-                            <Lock className="h-4 w-4 text-gray-400" />
-                          )}
-                        </div>
-                        <Select
-                          value={participante.genero}
-                          onValueChange={(value) => updateParticipante("genero", value)}
-                          disabled={!!usuarioLogado && currentParticipante === 0 && !permiteEdicao}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder={t("selecione")} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Masculino">{t("masculino")}</SelectItem>
-                            <SelectItem value="Feminino">{t("feminino")}</SelectItem>
-                            <SelectItem value="Outro">{t("outro")}</SelectItem>
-                            <SelectItem value="Prefiro não informar">{t("prefiroNaoInformar")}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
+                  <Step1PersonalData
+                    participante={participante}
+                    participantes={participantes}
+                    currentParticipante={currentParticipante}
+                    usuarioLogado={usuarioLogado}
+                    permiteEdicao={permiteEdicao}
+                    setPermiteEdicao={setPermiteEdicao}
+                    showCpfLogin={showCpfLogin}
+                    cpfUserData={cpfUserData}
+                    verificandoCpf={verificandoCpf}
+                    idioma={idioma}
+                    isBrasil={isBrasil}
+                    t={t}
+                    updateParticipante={updateParticipante}
+                    setParticipantes={setParticipantes}
+                    verificarCpfCadastrado={verificarCpfCadastrado}
+                    handleCpfLoginSuccess={handleCpfLoginSuccess}
+                    handleCloseCpfLogin={handleCloseCpfLogin}
+                  />
                 )}
 
                 {/* Step 2: Endereço */}
                 {currentStep === 2 && (
-                  <div className="space-y-4">
-                    {/* CEP apenas para Brasil */}
-                    {participante.paisResidencia === "brasil" ? (
-                      <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="cep">CEP *</Label>
-                            <Input
-                              id="cep"
-                              inputMode="numeric"
-                              value={participante.cep}
-                              onChange={(e) => updateParticipante("cep", formatCEP(e.target.value))}
-                              onBlur={(e) => buscarCep(e.target.value, currentParticipante)}
-                              placeholder="00000-000"
-                              disabled={loadingCep}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="estado">{idioma === "es" ? "Estado" : idioma === "en" ? "State" : "Estado"}</Label>
-                            <Input
-                              id="estado"
-                              value={participante.estado}
-                              onChange={(e) => updateParticipante("estado", e.target.value)}
-                              placeholder="UF"
-                              disabled={loadingCep}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="cidade">{idioma === "es" ? "Ciudad" : idioma === "en" ? "City" : "Cidade"}</Label>
-                            <Input
-                              id="cidade"
-                              value={participante.cidade}
-                              onChange={(e) => updateParticipante("cidade", e.target.value)}
-                              placeholder={idioma === "es" ? "Ciudad" : idioma === "en" ? "City" : "Cidade"}
-                              disabled={loadingCep}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="bairro">{idioma === "es" ? "Barrio" : idioma === "en" ? "Neighborhood" : "Bairro"}</Label>
-                            <Input
-                              id="bairro"
-                              value={participante.bairro}
-                              onChange={(e) => updateParticipante("bairro", e.target.value)}
-                              placeholder={idioma === "es" ? "Barrio" : idioma === "en" ? "Neighborhood" : "Bairro"}
-                              disabled={loadingCep}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="endereco">{idioma === "es" ? "Dirección" : idioma === "en" ? "Address" : "Endereço"}</Label>
-                          <Input
-                            id="endereco"
-                            value={participante.endereco}
-                            onChange={(e) => updateParticipante("endereco", e.target.value)}
-                            placeholder="Rua, Avenida..."
-                            disabled={loadingCep}
-                          />
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        {/* Endereço para outros países */}
-                        <div className="space-y-2">
-                          <Label htmlFor="endereco">{idioma === "es" ? "Dirección" : idioma === "en" ? "Address" : "Endereço"} *</Label>
-                          <Input
-                            id="endereco"
-                            value={participante.endereco}
-                            onChange={(e) => updateParticipante("endereco", e.target.value)}
-                            placeholder={participante.paisResidencia === "argentina" ? "Calle, Avenida..." : idioma === "en" ? "Street, Avenue..." : "Rua, Avenida..."}
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="cidade">{idioma === "es" ? "Ciudad" : idioma === "en" ? "City" : "Cidade"} *</Label>
-                            <Input
-                              id="cidade"
-                              value={participante.cidade}
-                              onChange={(e) => updateParticipante("cidade", e.target.value)}
-                              placeholder={idioma === "es" ? "Ciudad" : idioma === "en" ? "City" : "Cidade"}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="estado">{participante.paisResidencia === "argentina" ? "Provincia" : idioma === "es" ? "Estado/Provincia" : idioma === "en" ? "State/Province" : "Estado"}</Label>
-                            <Input
-                              id="estado"
-                              value={participante.estado}
-                              onChange={(e) => updateParticipante("estado", e.target.value)}
-                              placeholder={participante.paisResidencia === "argentina" ? "Provincia" : idioma === "en" ? "State/Province" : "Estado"}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Código Postal para Argentina */}
-                        {participante.paisResidencia === "argentina" && (
-                          <div className="space-y-2">
-                            <Label htmlFor="cep">Código Postal</Label>
-                            <Input
-                              id="cep"
-                              value={participante.cep}
-                              onChange={(e) => updateParticipante("cep", e.target.value)}
-                              placeholder="Ej: C1425"
-                            />
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="numero">{idioma === "es" ? "Número" : idioma === "en" ? "Number" : "Número"} *</Label>
-                        <Input
-                          id="numero"
-                          inputMode="numeric"
-                          value={participante.numero}
-                          onChange={(e) => updateParticipante("numero", e.target.value)}
-                          placeholder="Nº"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="complemento">{idioma === "es" ? "Depto/Piso" : idioma === "en" ? "Apt/Suite" : "Complemento"}</Label>
-                        <Input
-                          id="complemento"
-                          value={participante.complemento}
-                          onChange={(e) => updateParticipante("complemento", e.target.value)}
-                          placeholder={idioma === "es" ? "Depto, Piso..." : idioma === "en" ? "Apt, Suite..." : "Apto, Bloco..."}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <Step2Address
+                    participante={participante}
+                    currentParticipante={currentParticipante}
+                    loadingCep={loadingCep}
+                    idioma={idioma}
+                    t={t}
+                    updateParticipante={updateParticipante}
+                    buscarCep={buscarCep}
+                  />
                 )}
 
                 {/* Step 3: Tamanho Camiseta, Contato de Emergência, Termos e Pagamento */}
                 {currentStep === 3 && (
-                  <div className="space-y-6">
-                    {/* Opção de salvar perfil para participantes adicionais (2+) */}
-                    {participantes.length > 1 && currentParticipante > 0 && (
-                      <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`salvar-perfil-${currentParticipante}`}
-                            checked={salvarPerfil[currentParticipante] || false}
-                            onCheckedChange={(checked) => {
-                              setSalvarPerfil({ ...salvarPerfil, [currentParticipante]: checked === true })
-                              if (checked) {
-                                salvarPerfilParticipante(currentParticipante)
-                              }
-                            }}
-                          />
-                          <Label htmlFor={`salvar-perfil-${currentParticipante}`} className="text-sm font-medium cursor-pointer">
-                            Salvar este perfil para usar em inscrições futuras?
-                          </Label>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1 ml-6">
-                          {usuarioLogado 
-                            ? "Os dados deste participante serão salvos no seu perfil para facilitar próximas inscrições"
-                            : "Os dados serão salvos no perfil do participante principal para facilitar próximas inscrições"}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Nome Contato de Emergência */}
-                    <div className="space-y-2">
-                      <Label htmlFor="contato-emergencia-nome">
-                        {idioma === "es" ? "Nombre del Contacto de Emergencia" : idioma === "en" ? "Emergency Contact Name" : "Nome do Contato de Emergência"} *
-                      </Label>
-                      <Input
-                        id="contato-emergencia-nome"
-                        value={participante.contatoEmergenciaNome}
-                        onChange={(e) => updateParticipante("contatoEmergenciaNome", e.target.value)}
-                        placeholder={idioma === "es" ? "Nombre completo" : idioma === "en" ? "Full name" : "Nome completo"}
-                      />
-                    </div>
-
-                    {/* Telefone Contato de Emergência */}
-                    <div className="space-y-2">
-                      <Label htmlFor="contato-emergencia-telefone">
-                        {idioma === "es" ? "Teléfono del Contacto de Emergencia" : idioma === "en" ? "Emergency Contact Phone" : "Telefone do Contato de Emergência"} *
-                      </Label>
-                      <Input
-                        id="contato-emergencia-telefone"
-                        inputMode="tel"
-                        value={participante.contatoEmergenciaTelefone}
-                        onChange={(e) => {
-                          const formatted = isBrasil ? formatTelefone(e.target.value) : e.target.value
-                          updateParticipante("contatoEmergenciaTelefone", formatted)
-                        }}
-                        placeholder={isBrasil ? "(00) 00000-0000" : "+00 000 000 0000"}
-                      />
-                    </div>
-
-                    {/* Tamanho da Camiseta (se houver kit com camiseta) */}
-                    {temCamiseta && ingresso?.kitItems?.includes("camiseta") && (
-                      <div className="space-y-2">
-                        <Label>{t("tamanhoCamiseta")} *</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {(ingresso.shirtSizes?.length > 0 ? ingresso.shirtSizes : TAMANHOS_CAMISETA).map((tamanho: string) => (
-                            <Button
-                              key={tamanho}
-                              type="button"
-                              variant={participante.tamanhoCamiseta === tamanho ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => updateParticipante("tamanhoCamiseta", tamanho)}
-                              className={participante.tamanhoCamiseta === tamanho ? "bg-[#156634] text-white hover:bg-[#1a7a3e]" : ""}
-                            >
-                              {tamanho}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Termo de Responsabilidade */}
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          id={`aceite-${currentParticipante}`}
-                          checked={participante.aceiteTermo}
-                          onCheckedChange={(checked) => {
-                            const novosParticipantes = [...participantes]
-                            novosParticipantes[currentParticipante] = {
-                              ...novosParticipantes[currentParticipante],
-                              aceiteTermo: checked === true,
-                            }
-                            setParticipantes(novosParticipantes)
-                          }}
-                          className="mt-1"
-                        />
-                        <div className="flex-1">
-                          <Label 
-                            htmlFor={`aceite-${currentParticipante}`} 
-                            className="text-sm font-medium cursor-pointer flex items-center gap-2"
-                          >
-                            {t("liAceito")} *
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <button type="button" className="text-blue-600 hover:text-blue-800">
-                                  <Info className="h-4 w-4" />
-                                </button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                                <DialogHeader>
-                                  <DialogTitle>{t("termoResponsabilidade")}</DialogTitle>
-                                </DialogHeader>
-                                <div className="text-sm text-gray-600 space-y-3">
-                                  <p>
-                                    {idioma === "es" 
-                                      ? "Declaro estar consciente de que la práctica deportiva implica riesgos inherentes a la actividad física."
-                                      : idioma === "en"
-                                      ? "I declare that I am aware that sports practice involves risks inherent to physical activity."
-                                      : "Declaro que estou ciente de que a prática esportiva envolve riscos inerentes à atividade física."}
-                                  </p>
-                                  <p>
-                                    {idioma === "es"
-                                      ? "Certifico estar en plenas condiciones de salud para participar en este evento, habiendo realizado exámenes médicos y obtenido autorización para la práctica deportiva."
-                                      : idioma === "en"
-                                      ? "I certify that I am in full health condition to participate in this event, having undergone medical examinations and obtained clearance for sports practice."
-                                      : "Atesto estar em plenas condições de saúde para participar deste evento, tendo realizado exames médicos e obtido liberação para a prática esportiva."}
-                                  </p>
-                                  <p>
-                                    {idioma === "es"
-                                      ? "Eximo a los organizadores de cualquier responsabilidad por accidentes o problemas de salud derivados de mi participación."
-                                      : idioma === "en"
-                                      ? "I exempt the organizers from any liability for accidents or health problems arising from my participation."
-                                      : "Isento os organizadores de quaisquer responsabilidades por acidentes ou problemas de saúde decorrentes da minha participação."}
-                                  </p>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                          </Label>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Meios de Pagamento (se não for gratuito) */}
-                    {!isGratuito() && (
-                      <div className="space-y-4 pt-2">
-                        <Label className="text-base font-semibold">{t("formaPagamento")} *</Label>
-                        <RadioGroup
-                          value={meioPagamento}
-                          onValueChange={setMeioPagamento}
-                          className="space-y-3"
-                        >
-                          <div className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${meioPagamento === "pix" ? "border-[#156634] bg-green-50" : ""}`}>
-                            <RadioGroupItem value="pix" id="pix" />
-                            <Label htmlFor="pix" className="flex items-center gap-3 cursor-pointer flex-1">
-                              <QrCode className="h-5 w-5 text-green-600" />
-                              <div>
-                                <p className="font-medium">{t("pix")}</p>
-                                <p className="text-xs text-muted-foreground">{t("pagamentoInstantaneo")}</p>
-                              </div>
-                            </Label>
-                          </div>
-                          <div className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${meioPagamento === "cartao" ? "border-[#156634] bg-green-50" : ""}`}>
-                            <RadioGroupItem value="cartao" id="cartao" />
-                            <Label htmlFor="cartao" className="flex items-center gap-3 cursor-pointer flex-1">
-                              <CreditCard className="h-5 w-5 text-blue-600" />
-                              <div>
-                                <p className="font-medium">{t("cartaoCredito")}</p>
-                                <p className="text-xs text-muted-foreground">{t("parceleAte")}</p>
-                              </div>
-                            </Label>
-                          </div>
-                          <div className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${meioPagamento === "boleto" ? "border-[#156634] bg-green-50" : ""}`}>
-                            <RadioGroupItem value="boleto" id="boleto" />
-                            <Label htmlFor="boleto" className="flex items-center gap-3 cursor-pointer flex-1">
-                              <FileText className="h-5 w-5 text-orange-600" />
-                              <div>
-                                <p className="font-medium">{t("boleto")}</p>
-                                <p className="text-xs text-muted-foreground">{t("vencimento")}</p>
-                              </div>
-                            </Label>
-                          </div>
-                        </RadioGroup>
-                      </div>
-                    )}
-                  </div>
+                  <Step3PaymentAndTerms
+                    participante={participante}
+                    participantes={participantes}
+                    currentParticipante={currentParticipante}
+                    usuarioLogado={usuarioLogado}
+                    salvarPerfil={salvarPerfil}
+                    setSalvarPerfil={setSalvarPerfil}
+                    temCamiseta={temCamiseta}
+                    ingresso={ingresso}
+                    meioPagamento={meioPagamento}
+                    setMeioPagamento={setMeioPagamento}
+                    isGratuito={isGratuito()}
+                    idioma={idioma}
+                    isBrasil={isBrasil}
+                    t={t}
+                    updateParticipante={updateParticipante}
+                    setParticipantes={setParticipantes}
+                    salvarPerfilParticipante={salvarPerfilParticipante}
+                  />
                 )}
 
                 {/* Botões de navegação */}
@@ -2491,309 +1713,36 @@ function CheckoutContent() {
           </div>
 
           {/* Resumo */}
-          <div className="lg:col-span-1">
-            <Card className="sticky top-4 min-h-[400px] flex flex-col">
-              <CardHeader>
-                <CardTitle className="text-lg">{t("resumoInscricao")}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 flex-1 flex flex-col justify-between">
-                <div className="space-y-1">
-                  <p className="font-medium text-gray-900">{eventData?.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {eventData?.event_date && (() => {
-                      const [year, month, day] = eventData.event_date.split('-').map(Number)
-                      const date = new Date(year, month - 1, day)
-                      return date.toLocaleDateString(idioma === "en" ? "en-US" : idioma === "es" ? "es-AR" : "pt-BR")
-                    })()}
-                  </p>
-                  {eventData?.location && (
-                    <p className="text-sm text-muted-foreground">
-                      {eventData.location}
-                    </p>
-                  )}
-                  {ingresso && (
-                    <p className="text-xs text-[#156634] font-semibold">
-                      {t("categoria")}: {ingresso.categoria}
-                    </p>
-                  )}
-                </div>
-
-                <Separator />
-
-                <div className="space-y-3 flex-1">
-                  {runningClub && runningClub.base_discount > 0 && (
-                    <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-md">
-                      <p className="text-xs font-semibold text-green-700">
-                        🏃 {idioma === "es" ? "Descuento de Clube de Corrida aplicado" : idioma === "en" ? "Running Club discount applied" : "Desconto de Clube de Corrida aplicado"}
-                      </p>
-                      <p className="text-xs text-green-600">
-                        {runningClub.name || "Clube de Corrida"} - {runningClub.base_discount}%
-                        {runningClub.progressive_discount_threshold && ingressosSelecionados.length >= runningClub.progressive_discount_threshold
-                          ? ` + ${runningClub.progressive_discount_value}%`
-                          : ""}
-                      </p>
-                    </div>
-                  )}
-                  {ingressosSelecionados.map((ing, i) => {
-                    const participanteResumo = participantes[i] || participantes[0]
-                    // Calcular valor com desconto para exibição
-                    let valorExibicao = ing.valor
-                    if (runningClub && runningClub.base_discount > 0) {
-                      let descontoIngresso = (ing.valor * runningClub.base_discount) / 100
-                      if (runningClub.progressive_discount_threshold && 
-                          runningClub.progressive_discount_value &&
-                          ingressosSelecionados.length >= runningClub.progressive_discount_threshold) {
-                        descontoIngresso += (ing.valor * runningClub.progressive_discount_value) / 100
-                      }
-                      valorExibicao = Math.max(0, ing.valor - descontoIngresso)
-                    }
-                    return (
-                      <div key={i} className="border rounded-md p-3 text-sm space-y-2">
-                        <div className="flex items-center justify-between font-medium">
-                          <span>{ing.categoria}</span>
-                          <div className="text-right">
-                            {ing.valor !== valorExibicao && (
-                              <span className="text-xs text-muted-foreground line-through mr-1">
-                                {isBrasil ? "R$" : "$"} {ing.valor.toFixed(2)}
-                              </span>
-                            )}
-                            <span className={ing.valor !== valorExibicao ? "text-green-600" : ""}>
-                              {ing.valor === 0 || ing.gratuito ? (isBrasil ? "R$ 0,00" : "$ 0.00") : `${isBrasil ? "R$" : "$"} ${valorExibicao.toFixed(2)}`}
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {t("participante")}:{" "}
-                          <span className="text-foreground">{participanteResumo?.nome || t("participante")}</span>
-                        </p>
-                        {participanteResumo?.tamanhoCamiseta && (
-                          <p className="text-xs text-muted-foreground">
-                            {t("tamanhoCamiseta")}:{" "}
-                            <span className="text-foreground">{participanteResumo.tamanhoCamiseta}</span>
-                          </p>
-                        )}
-                        {ing.possuiKit && ing.itensKit?.length > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            Kit: <span className="text-foreground">{ing.itensKit.join(", ")}</span>
-                          </p>
-                        )}
-                        {/* Checkbox para salvar participante adicional */}
-                        {i > 0 && participanteResumo?.nome && participanteResumo?.cpf && (
-                          <div className="pt-1 border-t border-dashed">
-                            <label className="flex items-start gap-2 cursor-pointer">
-                              <Checkbox
-                                checked={salvarPerfil[i] || false}
-                                onCheckedChange={(checked) => {
-                                  setSalvarPerfil(prev => ({ ...prev, [i]: checked === true }))
-                                }}
-                                className="mt-0.5"
-                              />
-                              <span className="text-xs text-gray-600 leading-tight">
-                                Salvar <strong>{participanteResumo.nome.split(' ')[0]}</strong> para inscrições futuras
-                              </span>
-                            </label>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t("subtotal")}</span>
-                    <span>{isBrasil ? "R$" : "$"} {subtotal.toFixed(2)}</span>
-                  </div>
-                  {desconto > 0 && runningClub && (
-                    <div className="flex justify-between text-green-600">
-                      <span className="text-muted-foreground">
-                        {idioma === "es" ? "Descuento" : idioma === "en" ? "Discount" : "Desconto"}
-                        {runningClub.progressive_discount_threshold && ingressosSelecionados.length >= runningClub.progressive_discount_threshold
-                          ? ` (${runningClub.base_discount}% + ${runningClub.progressive_discount_value}%)`
-                          : ` (${runningClub.base_discount}%)`}
-                      </span>
-                      <span className="font-semibold">-{isBrasil ? "R$" : "$"} {desconto.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {!isGratuito() && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{t("taxaServico")}</span>
-                      <span>{isBrasil ? "R$" : "$"} {taxa.toFixed(2)}</span>
-                    </div>
-                  )}
-                </div>
-
-                <Separator />
-
-                <div className="flex justify-between font-bold">
-                  <span>{t("total")}</span>
-                  <span className="text-[#156634]">
-                    {isBrasil ? "R$" : "$"} {total.toFixed(2)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="w-full md:w-1/3">
+            <OrderSummary
+              eventData={eventData}
+              ingresso={ingresso}
+              ingressosSelecionados={ingressosSelecionados}
+              participantes={participantes}
+              runningClub={runningClub}
+              subtotal={subtotal}
+              desconto={desconto}
+              taxa={taxa}
+              total={total}
+              isGratuito={isGratuito()}
+              isBrasil={isBrasil}
+              idioma={idioma}
+              salvarPerfil={salvarPerfil}
+              onSalvarPerfilChange={(index, checked) => {
+                setSalvarPerfil(prev => ({ ...prev, [index]: checked }))
+              }}
+              t={t}
+            />
           </div>
         </div>
       </div>
 
       {/* Rodapé Profissional */}
-      <footer className="bg-gray-50/50 border-t border-gray-100 mt-16">
-        <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-8 md:pt-10 pb-6">
-          <div className="max-w-7xl mx-auto">
-            {/* Grid Principal - 2 colunas no mobile, 4 no desktop */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-6 lg:gap-8 mb-6 md:mb-8">
-              {/* Coluna 1: Logo e Descrição */}
-              <div className="col-span-2 md:col-span-1 space-y-3 flex flex-col items-center md:items-start">
-                <div>
-              <Image
-                src="/images/logo/logo.png"
-                alt="EveMaster"
-                    width={126}
-                    height={36}
-                    className="h-6 md:h-7 w-auto opacity-80"
-                  />
-                </div>
-                <p className="text-xs text-gray-500 leading-relaxed max-w-xs text-center md:text-left">
-                  {t("plataformaDescricao")}
-                </p>
-            </div>
-
-              {/* Coluna 2: Formas de Pagamento */}
-              <div className="col-span-2 md:col-span-1 space-y-3 flex flex-col items-center md:items-start">
-                <h3 className="text-xs font-medium text-gray-600">
-                  {idioma === "es" ? "Medios de Pago Aceptados" : idioma === "en" ? "Accepted Payment Methods" : "Meios de Pagamento Aceitos"}
-                </h3>
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
-                  <Image
-                    src="/images/ic-payment-visa.svg"
-                    alt="Visa"
-                    width={40}
-                    height={25}
-                    className="h-5 md:h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
-                  />
-                  <Image
-                    src="/images/ic-payment-master-card.svg"
-                    alt="Mastercard"
-                    width={40}
-                    height={25}
-                    className="h-5 md:h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
-                  />
-                  <Image
-                    src="/images/ic-payment-elo.svg"
-                    alt="Elo"
-                    width={40}
-                    height={25}
-                    className="h-5 md:h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
-                  />
-                  <Image
-                    src="/images/ic-payment-american-express.svg"
-                    alt="American Express"
-                    width={40}
-                    height={25}
-                    className="h-5 md:h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
-                  />
-                  <Image
-                    src="/images/ic-payment-hipercard.svg"
-                    alt="Hipercard"
-                    width={40}
-                    height={25}
-                    className="h-5 md:h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
-                  />
-                  <Image
-                    src="/images/ic-payment-pix.svg"
-                    alt="Pix"
-                    width={40}
-                    height={25}
-                    className="h-5 md:h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
-                  />
-                  <Image
-                    src="/images/ic-payment-boleto.svg"
-                    alt="Boleto"
-                    width={40}
-                    height={25}
-                    className="h-5 md:h-6 w-auto opacity-70 hover:opacity-100 transition-opacity"
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-1 text-center md:text-left">
-                  <span className="text-[#156634]">{t("parceleAteCartao")}</span>
-                </p>
-              </div>
-
-              {/* Coluna 3: Links Legais */}
-              <div className="col-span-1 md:col-span-1 space-y-3 flex flex-col items-center md:items-start md:ml-[20%]">
-                <h3 className="text-xs font-medium text-gray-600">
-                  Legal
-                </h3>
-                <div className="flex flex-col gap-1.5">
-                  <Link 
-                    href="/termos-de-uso" 
-                    className="text-xs text-gray-500 hover:text-[#156634] transition-colors text-center md:text-left"
-                  >
-                    {idioma === "es" ? "Términos de Uso" : idioma === "en" ? "Terms of Use" : "Termos de Uso"}
-              </Link>
-                  <Link 
-                    href="/politica-de-privacidade" 
-                    className="text-xs text-gray-500 hover:text-[#156634] transition-colors text-center md:text-left"
-                  >
-                    {idioma === "es" ? "Política de Privacidad" : idioma === "en" ? "Privacy Policy" : "Política de Privacidade"}
-              </Link>
-                </div>
-              </div>
-
-              {/* Coluna 4: Idioma */}
-              <div className="col-span-1 md:col-span-1 space-y-3 flex flex-col items-center md:items-start">
-                <h3 className="text-xs font-medium text-gray-600 hidden md:block">
-                  Idioma
-                </h3>
-                <Select value={idioma} onValueChange={(val: "pt" | "es" | "en") => setIdioma(val)}>
-                  <SelectTrigger className="w-full max-w-[140px] md:w-[140px] bg-white border-gray-200 text-gray-600 text-xs h-8 md:h-9">
-                    <SelectValue asChild>
-                      <span className="flex items-center">
-                        <span className="text-sm">{idioma === "pt" ? "🇧🇷" : idioma === "es" ? "🇦🇷" : "🇺🇸"}</span>
-                        <span className="text-xs hidden sm:inline ml-[5px]">{idioma === "pt" ? "Português" : idioma === "es" ? "Español" : "English"}</span>
-                        <span className="text-xs sm:hidden ml-[5px]">{idioma === "pt" ? "PT" : idioma === "es" ? "ES" : "EN"}</span>
-                      </span>
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pt">
-                      <span className="flex items-center gap-2">
-                        <span>🇧🇷</span> <span>Português</span>
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="es">
-                      <span className="flex items-center gap-2">
-                        <span>🇦🇷</span> <span>Español</span>
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="en">
-                      <span className="flex items-center gap-2">
-                        <span>🇺🇸</span> <span>English</span>
-                      </span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Separador */}
-            <Separator className="my-6 opacity-30" />
-
-            {/* Rodapé Inferior: CNPJ e Copyright */}
-            <div className="flex flex-col items-center justify-center gap-2 text-xs text-gray-400 text-center">
-              <p>
-                © {new Date().getFullYear()} Evemaster. Todos os direitos reservados.
-                </p>
-              <p>
-                Um software do grupo Fullsale Ltda - CNPJ: 41.953.551/0001-57
-                </p>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <CheckoutFooter 
+        idioma={idioma} 
+        onIdiomaChange={setIdioma} 
+        t={t} 
+      />
 
       {/* Popup: Selecionar perfis salvos para incluir */}
       <Dialog open={mostrarPopupIncluirParticipantes} onOpenChange={setMostrarPopupIncluirParticipantes}>
@@ -2831,7 +1780,7 @@ function CheckoutContent() {
                       })
                       }
                     } catch (parseError) {
-                      console.error("❌ [CHECKOUT] Erro ao parsear categorias:", parseError)
+                      logger.error("❌ [CHECKOUT] Erro ao parsear categorias:", parseError)
                     }
                   }
 
@@ -3096,7 +2045,7 @@ export default function CheckoutPage() {
     // Adicionar listener global para erros de DOM não capturados
     const handleDOMError = (event: ErrorEvent) => {
       if (event.message?.includes('removeChild') || event.message?.includes('Node')) {
-        console.warn('⚠️ [CHECKOUT] DOM error capturado (não crítico):', event.message)
+        logger.warn('⚠️ [CHECKOUT] DOM error capturado (não crítico):', event.message)
         event.preventDefault() // Evita que crasheie a página
       }
     }

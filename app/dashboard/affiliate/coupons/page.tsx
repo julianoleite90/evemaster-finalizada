@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { useState, useEffect, Suspense } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -79,7 +81,7 @@ function AffiliateCouponsPageContent() {
         setCoupons(couponsData.coupons || [])
       }
     } catch (error) {
-      console.error('Erro ao buscar dados:', error)
+      logger.error('Erro ao buscar dados:', error)
       toast.error('Erro ao carregar dados')
     } finally {
       setLoading(false)
@@ -147,7 +149,7 @@ function AffiliateCouponsPageContent() {
         toast.error(error.error || 'Erro ao criar cupom')
       }
     } catch (error) {
-      console.error('Erro ao criar cupom:', error)
+      logger.error('Erro ao criar cupom:', error)
       toast.error('Erro ao criar cupom')
     }
   }

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { authLogger as logger } from "@/lib/utils/logger"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -61,7 +62,7 @@ export default function RegisterPage() {
           setFormData(prev => ({ ...prev, tipoCadastro: "afiliado" }))
         }
       } catch (error) {
-        console.error("Erro ao buscar convite:", error)
+        logger.error("Erro ao buscar convite:", error)
       }
     }
 
@@ -218,7 +219,7 @@ export default function RegisterPage() {
 
       toast.success("Dados da empresa preenchidos automaticamente!")
     } catch (error: any) {
-      console.error("Erro ao buscar CNPJ:", error)
+      logger.error("Erro ao buscar CNPJ:", error)
       toast.error(error.message || "Erro ao buscar CNPJ. Você pode preencher os dados manualmente.")
     } finally {
       setLoadingCNPJ(false)
@@ -350,9 +351,9 @@ export default function RegisterPage() {
       // Isso é esperado e será resolvido automaticamente no primeiro login
       if (userError) {
         if (userError.message?.includes('violates foreign key constraint')) {
-          console.log("Usuário ainda não confirmou email. Registro será criado automaticamente no primeiro login.")
+          logger.log("Usuário ainda não confirmou email. Registro será criado automaticamente no primeiro login.")
         } else {
-          console.error("Erro ao criar usuário:", userError)
+          logger.error("Erro ao criar usuário:", userError)
           // Se não for erro de foreign key, pode ser outro problema, mas não bloqueia o fluxo
         }
       }
@@ -392,9 +393,9 @@ export default function RegisterPage() {
           // (usuário não confirmou email). Isso será resolvido no primeiro login.
           if (organizerError.message?.includes('violates foreign key constraint') || 
               organizerError.message?.includes('row-level security policy')) {
-            console.log("Perfil de organizador será criado quando o usuário confirmar o email e fizer login.")
+            logger.log("Perfil de organizador será criado quando o usuário confirmar o email e fizer login.")
           } else {
-            console.error("Erro ao criar organizador:", organizerError)
+            logger.error("Erro ao criar organizador:", organizerError)
             throw organizerError
           }
         }
@@ -416,9 +417,9 @@ export default function RegisterPage() {
           // (usuário não confirmou email). Isso será resolvido no primeiro login.
           if (affiliateError.message?.includes('violates foreign key constraint') || 
               affiliateError.message?.includes('row-level security policy')) {
-            console.log("Perfil de afiliado será criado quando o usuário confirmar o email e fizer login.")
+            logger.log("Perfil de afiliado será criado quando o usuário confirmar o email e fizer login.")
           } else {
-            console.error("Erro ao criar afiliado:", affiliateError)
+            logger.error("Erro ao criar afiliado:", affiliateError)
             throw affiliateError
           }
         }
@@ -502,7 +503,7 @@ export default function RegisterPage() {
             }
           }
         } catch (affiliateInviteError) {
-          console.error("Erro ao aceitar convite de afiliado:", affiliateInviteError)
+          logger.error("Erro ao aceitar convite de afiliado:", affiliateInviteError)
           // Não bloquear o cadastro se houver erro ao aceitar convite
         }
       }
@@ -510,7 +511,7 @@ export default function RegisterPage() {
       toast.success("Cadastro realizado com sucesso! Verifique seu email para confirmar a conta.")
       router.push("/login")
     } catch (error: any) {
-      console.error("Erro ao criar cadastro:", error)
+      logger.error("Erro ao criar cadastro:", error)
       toast.error(error.message || "Erro ao criar cadastro. Tente novamente.")
     } finally {
       setLoading(false)

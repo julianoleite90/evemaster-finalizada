@@ -1,39 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { rateLimitMiddleware } from '@/lib/security/rate-limit'
+import { verificarOTPSchema, validateRequest, formatZodErrors } from '@/lib/schemas/api-validation'
+import { authLogger as logger } from '@/lib/utils/logger'
 
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
+  // Rate limiting estrito para autenticação (5 tentativas em 15 minutos)
+  const rateLimitResponse = await rateLimitMiddleware(request, 'auth')
+  if (rateLimitResponse) return rateLimitResponse
+
   try {
     const body = await request.json()
-    const { cpf, otp } = body as { cpf: string; otp: string }
-
-    console.log('🔐 [API verificar-otp] Verificando código para CPF:', cpf)
-
-    if (!cpf || !otp) {
-      return NextResponse.json(
-        { error: 'CPF e código são obrigatórios' },
-        { status: 400 }
-      )
-    }
-
-    // Limpar CPF e OTP
-    const cleanCPF = cpf.replace(/\D/g, '')
-    const cleanOTP = otp.replace(/\D/g, '')
     
-    if (cleanCPF.length !== 11) {
+    // Validação com Zod
+    const validation = validateRequest(verificarOTPSchema, body)
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'CPF inválido' },
+        { error: 'Dados inválidos', details: formatZodErrors(validation.error) },
         { status: 400 }
       )
     }
 
-    if (cleanOTP.length !== 6) {
-      return NextResponse.json(
-        { error: 'Código deve ter 6 dígitos' },
-        { status: 400 }
-      )
-    }
+    const { cpf: cleanCPF, otp: cleanOTP } = validation.data
 
     const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -57,7 +47,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (userError || !userData) {
-      console.error('❌ [API verificar-otp] Usuário não encontrado')
+      logger.warn('Usuário não encontrado')
       return NextResponse.json(
         { error: 'Usuário não encontrado' },
         { status: 404 }
@@ -75,7 +65,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (otpError || !otpData) {
-      console.error('❌ [API verificar-otp] Código inválido ou expirado')
+      logger.warn('Código inválido ou expirado')
       return NextResponse.json(
         { error: 'Código inválido ou expirado' },
         { status: 400 }
@@ -105,7 +95,7 @@ export async function POST(request: NextRequest) {
       })
 
       if (linkError) {
-        console.error('❌ [API verificar-otp] Erro ao gerar link:', linkError)
+        logger.error('Erro ao gerar link:', linkError)
       } else if (linkData) {
         // Extrair token do link
         const url = new URL(linkData.properties.action_link)
@@ -125,7 +115,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('✅ [API verificar-otp] Login verificado com sucesso')
+    logger.log('Login verificado com sucesso')
 
     // Retornar dados completos do usuário para preencher o formulário
     return NextResponse.json({
@@ -154,7 +144,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [API verificar-otp] Erro:', error)
+    logger.error('Erro:', error)
     return NextResponse.json(
       { error: error.message || 'Erro interno' },
       { status: 500 }

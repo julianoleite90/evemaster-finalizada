@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,7 +40,7 @@ export default function LoginPage() {
       })
 
       if (error) {
-        console.error("❌ [LOGIN] Erro do Supabase:", {
+        logger.error("❌ [LOGIN] Erro do Supabase:", {
           message: error.message,
           status: error.status,
           name: error.name
@@ -67,7 +69,7 @@ export default function LoginPage() {
         window.location.href = "/my-account"
       }
     } catch (error: any) {
-      console.error("❌ [LOGIN] Erro capturado:", {
+      logger.error("❌ [LOGIN] Erro capturado:", {
         message: error?.message,
         name: error?.name,
         stack: error?.stack
@@ -115,7 +117,7 @@ export default function LoginPage() {
       setTempPasswordSent(true)
       toast.success("Senha temporária enviada! Verifique seu email.")
     } catch (error: any) {
-      console.error("Erro ao enviar senha temporária:", error)
+      logger.error("Erro ao enviar senha temporária:", error)
       toast.error("Erro ao enviar senha temporária. Tente novamente.")
     } finally {
       setLoadingTempPassword(false)

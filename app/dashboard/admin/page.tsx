@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Calendar, Users, DollarSign, TrendingUp, AlertCircle, Loader2, CheckCircle2, XCircle } from "lucide-react"
@@ -78,7 +80,7 @@ export default function AdminDashboard() {
           activeAffiliates: activeAffs || 0,
         })
       } catch (error) {
-        console.error("Erro ao buscar dados:", error)
+        logger.error("Erro ao buscar dados:", error)
         toast.error("Erro ao carregar dados")
       } finally {
         setLoading(false)

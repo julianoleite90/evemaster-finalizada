@@ -1,3 +1,4 @@
+import { apiLogger as logger } from "@/lib/utils/logger"
 import { NextRequest, NextResponse } from 'next/server'
 import { logError, ErrorContext, ErrorType } from '@/lib/error-logger'
 
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
     // Logar o erro (salva no banco e envia email)
     const errorId = await logError(error, context)
 
-    console.log('🚨 [CLIENT ERROR LOGGED]', {
+    logger.log('🚨 [CLIENT ERROR LOGGED]', {
       errorId,
       page,
       eventId,
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [LOG ERROR API] Falha ao registrar erro:', error)
+    logger.error('❌ [LOG ERROR API] Falha ao registrar erro:', error)
     
     return NextResponse.json(
       { 

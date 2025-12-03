@@ -1,3 +1,4 @@
+import { apiLogger as logger } from "@/lib/utils/logger"
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
       })
 
     if (clickError) {
-      console.error('Erro ao registrar clique:', clickError)
+      logger.error('Erro ao registrar clique:', clickError)
       // Não falhar a requisição, apenas logar
     } else {
       // Atualizar contador de cliques
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('Erro ao rastrear clique:', error)
+    logger.error('Erro ao rastrear clique:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

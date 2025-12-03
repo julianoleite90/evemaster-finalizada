@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { enviarEmailParticipanteClube } from '@/lib/email/resend'
 import crypto from 'crypto'
+import { apiLogger as logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (participantError) {
-      console.error('Erro ao criar participante:', participantError)
+      logger.error('Erro ao criar participante:', participantError)
       return NextResponse.json(
         { error: 'Erro ao criar participante', details: participantError.message },
         { status: 500 }
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
       })
 
       if (!emailResult.success) {
-        console.error('Erro ao enviar email:', emailResult.error)
+        logger.error('Erro ao enviar email:', emailResult.error)
         // Não falhar a requisição se o email falhar
       }
     }
@@ -150,7 +151,7 @@ export async function POST(request: NextRequest) {
       participant,
     })
   } catch (error: any) {
-    console.error('Erro ao processar participante:', error)
+    logger.error('Erro ao processar participante:', error)
     return NextResponse.json(
       { error: 'Erro ao processar participante', details: error.message },
       { status: 500 }
@@ -197,7 +198,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (participantsError) {
-      console.error('Erro ao buscar participantes:', participantsError)
+      logger.error('Erro ao buscar participantes:', participantsError)
       return NextResponse.json(
         { error: 'Erro ao buscar participantes' },
         { status: 500 }
@@ -206,7 +207,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ participants: participants || [] })
   } catch (error: any) {
-    console.error('Erro ao buscar participantes:', error)
+    logger.error('Erro ao buscar participantes:', error)
     return NextResponse.json(
       { error: 'Erro ao processar requisição', details: error.message },
       { status: 500 }

@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { useState, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -74,7 +76,7 @@ export default function AcceptAffiliateInvitePage() {
       setInvite(inviteData)
       setLoading(false)
     } catch (err: any) {
-      console.error("Erro ao buscar convite:", err)
+      logger.error("Erro ao buscar convite:", err)
       setError("Erro ao carregar convite")
       setStatus("error")
       setLoading(false)
@@ -128,7 +130,7 @@ export default function AcceptAffiliateInvitePage() {
           .single()
 
         if (affiliateError) {
-          console.error("Erro ao criar perfil de afiliado:", affiliateError)
+          logger.error("Erro ao criar perfil de afiliado:", affiliateError)
           toast.error("Erro ao criar perfil de afiliado")
           setProcessing(false)
           return
@@ -154,7 +156,7 @@ export default function AcceptAffiliateInvitePage() {
         .eq("id", invite.id)
 
       if (updateError) {
-        console.error("Erro ao atualizar convite:", updateError)
+        logger.error("Erro ao atualizar convite:", updateError)
         toast.error("Erro ao aceitar convite")
         setProcessing(false)
         return
@@ -192,7 +194,7 @@ export default function AcceptAffiliateInvitePage() {
         router.push("/dashboard/affiliate")
       }, 2000)
     } catch (err: any) {
-      console.error("Erro ao aceitar convite:", err)
+      logger.error("Erro ao aceitar convite:", err)
       toast.error("Erro ao aceitar convite")
       setProcessing(false)
     }

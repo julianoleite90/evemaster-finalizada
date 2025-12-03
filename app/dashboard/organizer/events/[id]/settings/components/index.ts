@@ -1,0 +1,12 @@
+export { ReportsSection } from './ReportsSection'
+export { BatchesSection } from './BatchesSection'
+export { CouponsSection } from './CouponsSection'
+export { AffiliatesSection } from './AffiliatesSection'
+export { BasicInfoSection } from './BasicInfoSection'
+export { MapsSection } from './MapsSection'
+export { PixelsSection } from './PixelsSection'
+export { PaymentMethodsSection } from './PaymentMethodsSection'
+export { OtherSettingsSection } from './OtherSettingsSection'
+export { ModernNavigation } from './ModernNavigation'
+export { ModernSubMenu } from './ModernSubMenu'
+

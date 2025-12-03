@@ -1,33 +1,27 @@
+import { apiLogger as logger } from "@/lib/utils/logger"
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { rateLimitMiddleware } from '@/lib/security/rate-limit'
+import { criarCupomSchema, validateRequest, formatZodErrors } from '@/lib/schemas/api-validation'
 
 export async function POST(request: NextRequest) {
+  // Rate limiting
+  const rateLimitResponse = await rateLimitMiddleware(request, 'create')
+  if (rateLimitResponse) return rateLimitResponse
+
   try {
     const body = await request.json()
-    const { event_id, code, discount_percentage, discount_amount, affiliate_id, max_uses, expires_at, is_active } = body as {
-      event_id: string
-      code: string
-      discount_percentage?: number | null
-      discount_amount?: number | null
-      affiliate_id?: string | null
-      max_uses?: number | null
-      expires_at?: string | null
-      is_active: boolean
-    }
-
-    if (!event_id || !code) {
+    
+    // Validação com Zod
+    const validation = validateRequest(criarCupomSchema, body)
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Evento e código do cupom são obrigatórios' },
+        { error: 'Dados inválidos', details: formatZodErrors(validation.error) },
         { status: 400 }
       )
     }
-
-    if (!discount_percentage && !discount_amount) {
-      return NextResponse.json(
-        { error: 'Informe o valor do desconto (percentual ou fixo)' },
-        { status: 400 }
-      )
-    }
+    
+    const { event_id, code, discount_percentage, discount_amount, affiliate_id, max_uses, expires_at, is_active } = validation.data
 
     const supabase = await createClient()
 
@@ -73,7 +67,7 @@ export async function POST(request: NextRequest) {
     const { data: existingCoupon } = await supabase
       .from('affiliate_coupons')
       .select('id')
-      .eq('code', code.toUpperCase())
+      .eq('code', code)
       .maybeSingle()
 
     if (existingCoupon) {
@@ -84,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se affiliate_id é válido (se fornecido)
-    if (affiliate_id && affiliate_id !== "") {
+    if (affiliate_id) {
       const { data: affiliate, error: affiliateError } = await supabase
         .from('affiliates')
         .select('id')
@@ -105,7 +99,7 @@ export async function POST(request: NextRequest) {
       .insert({
         event_id,
         affiliate_id: affiliate_id || null,
-        code: code.toUpperCase(),
+        code,
         discount_percentage: discount_percentage || null,
         discount_amount: discount_amount || null,
         max_uses: max_uses || null,
@@ -116,9 +110,9 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (couponError) {
-      console.error('Erro ao criar cupom:', couponError)
+      logger.error('Erro ao criar cupom:', couponError)
       return NextResponse.json(
-        { error: 'Erro ao criar cupom', details: couponError.message },
+        { error: 'Erro ao criar cupom' },
         { status: 500 }
       )
     }
@@ -130,11 +124,10 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Erro ao criar cupom:', error)
+    logger.error('Erro ao criar cupom:', error)
     return NextResponse.json(
-      { error: 'Erro ao processar cupom', details: error.message },
+      { error: 'Erro ao processar cupom' },
       { status: 500 }
     )
   }
 }
-

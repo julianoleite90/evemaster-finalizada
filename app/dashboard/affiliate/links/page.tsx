@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { useState, useEffect, Suspense } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -89,7 +91,7 @@ function AffiliateLinksPageContent() {
         setLinks(formattedLinks)
       }
     } catch (error) {
-      console.error('Erro ao buscar dados:', error)
+      logger.error('Erro ao buscar dados:', error)
       toast.error('Erro ao carregar dados')
     } finally {
       setLoading(false)
@@ -128,7 +130,7 @@ function AffiliateLinksPageContent() {
         toast.error(error.error || 'Erro ao criar link')
       }
     } catch (error) {
-      console.error('Erro ao criar link:', error)
+      logger.error('Erro ao criar link:', error)
       toast.error('Erro ao criar link')
     }
   }
@@ -148,7 +150,7 @@ function AffiliateLinksPageContent() {
         toast.error('Erro ao excluir link')
       }
     } catch (error) {
-      console.error('Erro ao excluir link:', error)
+      logger.error('Erro ao excluir link:', error)
       toast.error('Erro ao excluir link')
     }
   }

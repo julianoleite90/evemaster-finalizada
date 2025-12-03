@@ -116,6 +116,11 @@ export function useEventSettingsAffiliates(eventId: string, organizerId: string 
         affiliateData = newAffiliateData
       }
 
+      if (!affiliateData) {
+        toast.error("Erro ao criar afiliado")
+        return
+      }
+
       // Criar convite
       const { error: inviteError } = await supabase
         .from("event_affiliate_invites")

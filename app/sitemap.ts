@@ -1,5 +1,6 @@
 import { MetadataRoute } from 'next'
 import { createClient as createServerClient } from '@/lib/supabase/server'
+import { apiLogger as logger } from '@/lib/utils/logger'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://evemaster.com.br'
@@ -46,7 +47,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      console.warn('[sitemap] Supabase env vars not set. Skipping dynamic URLs.')
+      logger.warn('[sitemap] Supabase env vars not set. Skipping dynamic URLs.')
       return [...staticUrls]
     }
 
@@ -67,7 +68,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }))
     }
   } catch (error) {
-    console.error('Error generating sitemap for events:', error)
+    logger.error('Error generating sitemap for events:', error)
   }
 
   return [...staticUrls, ...eventUrls]

@@ -1,3 +1,4 @@
+import { apiLogger as logger } from "@/lib/utils/logger"
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
       })
 
     if (codeError) {
-      console.error('Erro ao salvar código:', codeError)
+      logger.error('Erro ao salvar código:', codeError)
       return NextResponse.json(
         { error: 'Erro ao gerar código de login' },
         { status: 500 }
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
     try {
       await enviarEmailCodigoLogin(email, user.full_name || email, code)
     } catch (emailError) {
-      console.error('Erro ao enviar email:', emailError)
+      logger.error('Erro ao enviar email:', emailError)
       // Não falhar se o email não for enviado, mas logar o erro
     }
 
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
       message: 'Código enviado para seu email',
     })
   } catch (error: any) {
-    console.error('Erro ao enviar código de login:', error)
+    logger.error('Erro ao enviar código de login:', error)
     return NextResponse.json(
       { error: 'Erro ao enviar código de login' },
       { status: 500 }

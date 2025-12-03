@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { apiLogger as logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     const cleanCPF = cpf.replace(/\D/g, '')
 
-    console.log('💾 [SALVAR PERFIL] Salvando perfil para user_id:', targetUserId)
+    logger.log('💾 [SALVAR PERFIL] Salvando perfil para user_id:', targetUserId)
 
     // Verificar se já existe perfil com este CPF para este usuário (usando admin)
     const { data: existing } = await supabaseAdmin
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
     let result
     if (existing) {
       // Atualizar perfil existente
-      console.log('📝 [SALVAR PERFIL] Atualizando perfil existente:', existing.id)
+      logger.log('📝 [SALVAR PERFIL] Atualizando perfil existente:', existing.id)
       const { data, error } = await supabaseAdmin
         .from('saved_participant_profiles')
         .update(profileData)
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
       result = data
     } else {
       // Criar novo perfil
-      console.log('➕ [SALVAR PERFIL] Criando novo perfil')
+      logger.log('➕ [SALVAR PERFIL] Criando novo perfil')
       const { data, error } = await supabaseAdmin
         .from('saved_participant_profiles')
         .insert(profileData)
@@ -113,14 +114,14 @@ export async function POST(request: NextRequest) {
       result = data
     }
     
-    console.log('✅ [SALVAR PERFIL] Perfil salvo com sucesso:', result.id)
+    logger.log('✅ [SALVAR PERFIL] Perfil salvo com sucesso:', result.id)
 
     return NextResponse.json({
       success: true,
       profile: result,
     })
   } catch (error: any) {
-    console.error('Erro ao salvar perfil:', error)
+    logger.error('Erro ao salvar perfil:', error)
     return NextResponse.json(
       { error: error.message || 'Erro ao salvar perfil' },
       { status: 500 }

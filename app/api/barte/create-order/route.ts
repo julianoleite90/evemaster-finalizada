@@ -10,8 +10,14 @@ import {
   calculateAffiliateValue,
   calculateOrganizerValueAfterAffiliate,
 } from '@/lib/barte/calculations'
+import { rateLimitMiddleware } from '@/lib/security/rate-limit'
+import { paymentLogger as logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
+  // Rate limiting para evitar abusos
+  const rateLimitResponse = await rateLimitMiddleware(request, 'create')
+  if (rateLimitResponse) return rateLimitResponse
+
   try {
     const body = await request.json()
     const {
@@ -45,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // Buscar dados da inscrição
+    // Buscar dados da inscrição com verificação de ownership
     const { data: registration, error: regError } = await supabase
       .from('registrations')
       .select(`
@@ -54,6 +60,9 @@ export async function POST(request: NextRequest) {
         event:events(
           id,
           name
+        ),
+        athlete:athletes(
+          email
         )
       `)
       .eq('id', registration_id)
@@ -64,6 +73,30 @@ export async function POST(request: NextRequest) {
         { error: 'Inscrição não encontrada' },
         { status: 404 }
       )
+    }
+
+    // Verificar se o buyer_uuid corresponde ao usuário da inscrição
+    // ou se a inscrição pertence ao usuário logado (via sessão)
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    // A inscrição deve pertencer ao usuário logado OU
+    // o buyer_uuid deve corresponder ao user_id da inscrição
+    const isOwner = user && (
+      registration.user_id === user.id ||
+      registration.buyer_id === user.id ||
+      registration.athlete_id === user.id
+    )
+    
+    // Se não é owner e estamos em produção, verificar mais rigorosamente
+    if (!isOwner && process.env.NODE_ENV === 'production') {
+      logger.warn('Tentativa de criar pedido para inscrição de outro usuário:', {
+        registration_id,
+        buyer_uuid,
+        user_id: user?.id,
+        registration_user_id: registration.user_id,
+      })
+      // Não bloqueamos completamente pois pode ser checkout sem login
+      // mas logamos para monitoramento
     }
 
     // Calcular valores
@@ -131,7 +164,7 @@ export async function POST(request: NextRequest) {
       .eq('registration_id', registration_id)
 
     if (updateError) {
-      console.error('Erro ao atualizar payment:', updateError)
+      logger.error('Erro ao atualizar payment:', updateError)
     }
 
     return NextResponse.json({
@@ -148,7 +181,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error: any) {
-    console.error('Erro ao criar pedido na Barte:', error)
+    logger.error('Erro ao criar pedido na Barte:', error)
     return NextResponse.json(
       { error: error.message || 'Erro ao criar pedido' },
       { status: 500 }

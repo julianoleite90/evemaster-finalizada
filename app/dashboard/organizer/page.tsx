@@ -1,6 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { logger } from "@/lib/utils/logger"
 import { Button } from "@/components/ui/button"
 import { Calendar, Users, DollarSign, TrendingUp, Plus, Eye, ArrowUpRight, Loader2, MoveRight, X } from "lucide-react"
 import Link from "next/link"
@@ -10,8 +11,9 @@ import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { getOrganizerAccess } from "@/lib/supabase/organizer-access"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, AreaChart, Area } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, AreaChart, Area, ResponsiveContainer, Tooltip, Legend } from "recharts"
 import { useUserPermissions } from "@/hooks/use-user-permissions"
+import { DistributionChartsCard } from "@/components/charts"
 import { useRouter } from "next/navigation"
 import { parallelQueries } from "@/lib/supabase/query-safe"
 import { DashboardErrorBoundary } from "@/components/error/DashboardErrorBoundary"
@@ -73,7 +75,7 @@ function OrganizerDashboardContent() {
         const access = await getOrganizerAccess(supabase, user.id)
         
         if (!access) {
-          console.error("❌ [DASHBOARD] Usuário não tem acesso ao dashboard do organizador")
+          logger.error("❌ [DASHBOARD] Usuário não tem acesso ao dashboard do organizador")
           toast.error("Você não tem permissão para acessar este dashboard")
           setLoading(false)
           router.push("/dashboard/organizer/events")
@@ -81,7 +83,7 @@ function OrganizerDashboardContent() {
         }
 
         const organizerId = access.organizerId
-        console.log("✅ [DASHBOARD] Acesso autorizado. Organizer ID:", organizerId, "É principal:", access.isPrimary)
+        logger.log("✅ [DASHBOARD] Acesso autorizado. Organizer ID:", organizerId, "É principal:", access.isPrimary)
 
         // Buscar eventos do organizador (com banner para exibição no filtro)
         // Excluir eventos em rascunho (draft)
@@ -129,11 +131,13 @@ function OrganizerDashboardContent() {
         const inicioOntemUTC = getStartOfDayUTC(ontem)
 
         // OTIMIZAÇÃO: Buscar dados em paralelo com parallelQueries (não crasheia se uma falhar)
+        // IMPORTANTE: Excluir inscrições canceladas de todas as estatísticas
         const { data: registrationsData, errors: regErrors } = await parallelQueries({
           inscricoesHoje: async () => await supabase
             .from("registrations")
             .select("id, created_at")
             .in("event_id", eventIds)
+            .neq("status", "cancelled")
             .gte("created_at", inicioHojeUTC)
             .lt("created_at", fimHojeUTC)
             .limit(500),
@@ -141,6 +145,7 @@ function OrganizerDashboardContent() {
             .from("registrations")
             .select("id, created_at")
             .in("event_id", eventIds)
+            .neq("status", "cancelled")
             .gte("created_at", inicioOntemUTC)
             .lt("created_at", inicioHojeUTC)
             .limit(500),
@@ -148,6 +153,7 @@ function OrganizerDashboardContent() {
             .from("registrations")
             .select("id, ticket_id")
             .in("event_id", eventIds)
+            .neq("status", "cancelled")
             .limit(1000)
         }, { timeout: 15000, retries: 1 })
 
@@ -159,7 +165,7 @@ function OrganizerDashboardContent() {
         const todasInscricoes = extractArray(registrationsData.todasInscricoes)
 
         if (Object.keys(regErrors).length > 0) {
-          console.warn("⚠️ [DASHBOARD] Algumas queries de inscrições falharam:", regErrors)
+          logger.warn("⚠️ [DASHBOARD] Algumas queries de inscrições falharam:", regErrors)
         }
 
         // Buscar pagamentos em paralelo
@@ -199,7 +205,7 @@ function OrganizerDashboardContent() {
         }, { timeout: 10000, retries: 1 })
 
         if (Object.keys(chartErrors).length > 0) {
-          console.warn("⚠️ [DASHBOARD] Erros ao buscar dados de gráficos:", chartErrors)
+          logger.warn("⚠️ [DASHBOARD] Erros ao buscar dados de gráficos:", chartErrors)
         }
 
         const athletesData = extractArray(chartData.athletes)
@@ -271,7 +277,7 @@ function OrganizerDashboardContent() {
                   }
                 }
               } catch (error) {
-                console.error('Erro ao calcular idade:', error, athlete.birth_date)
+                logger.error('Erro ao calcular idade:', error, athlete.birth_date)
               }
             }
 
@@ -291,7 +297,7 @@ function OrganizerDashboardContent() {
           }
         })
 
-        console.log("📊 [GRAFICOS] Estatísticas:", {
+        logger.log("📊 [GRAFICOS] Estatísticas:", {
           totalInscricoes: todasInscricoes?.length || 0,
           totalComCategoria,
           totalComSexo,
@@ -335,6 +341,7 @@ function OrganizerDashboardContent() {
           .from("registrations")
           .select("id, created_at")
           .in("event_id", eventIds)
+          .neq("status", "cancelled")
           .gte("created_at", seteDiasAtrasUTC)
 
         // Buscar acessos à landing page dos últimos 7 dias
@@ -384,7 +391,7 @@ function OrganizerDashboardContent() {
 
         setLineChartData(lineData)
 
-        // Buscar últimas inscrições
+        // Buscar últimas inscrições (excluir canceladas)
         const { data: ultimasInscricoes } = await supabase
           .from("registrations")
           .select(`
@@ -398,6 +405,7 @@ function OrganizerDashboardContent() {
             )
           `)
           .in("event_id", eventIds)
+          .neq("status", "cancelled")
           .order("created_at", { ascending: false })
           .limit(6)
 
@@ -457,10 +465,10 @@ function OrganizerDashboardContent() {
         const totalVisualizacoes = (viewsData.totalViews as any)?.count || 0
 
         if (Object.keys(viewsErrors).length > 0) {
-          console.warn("⚠️ [DASHBOARD] Erros ao buscar visualizações:", viewsErrors)
+          logger.warn("⚠️ [DASHBOARD] Erros ao buscar visualizações:", viewsErrors)
         }
 
-        console.log("📊 [DASHBOARD] Estatísticas de visualizações:", {
+        logger.log("📊 [DASHBOARD] Estatísticas de visualizações:", {
           eventIds,
           visualizacoesHoje: visualizacoesHoje?.length || 0,
           visualizacoesOntem: visualizacoesOntem?.length || 0,
@@ -504,7 +512,7 @@ function OrganizerDashboardContent() {
 
         setUltimosInscritos(inscricoesFormatadas)
       } catch (error: any) {
-        console.error("Erro ao buscar dados:", error)
+        logger.error("Erro ao buscar dados:", error)
         toast.error("Erro ao carregar dados do dashboard")
       } finally {
         setLoading(false)
@@ -654,7 +662,7 @@ function OrganizerDashboardContent() {
 
       {/* Gráficos - Layout: Pizzas à esquerda, Linha à direita */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Bloco com 3 Gráficos de Pizza */}
+        {/* Bloco com 3 Gráficos de Pizza - Componente Reutilizável */}
         {(chartData.categorias.length > 0 || chartData.sexos.length > 0 || chartData.idades.length > 0) && (
           <Card className="shadow-sm">
             <CardHeader className="pb-2">
@@ -662,169 +670,12 @@ function OrganizerDashboardContent() {
               <CardDescription>Categoria, Gênero e Faixa Etária</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-4">
-                {/* Pizza - Categoria */}
-                {chartData.categorias.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-700 mb-2 text-center">Categoria</p>
-                    <ResponsiveContainer width="100%" height={120}>
-                      <PieChart>
-                        <Pie
-                          data={chartData.categorias}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={45}
-                          innerRadius={20}
-                          dataKey="value"
-                          stroke="#fff"
-                          strokeWidth={2}
-                        >
-                          {chartData.categorias.map((entry, index) => {
-                            const colors = ['#156634', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#3b82f6']
-                            return <Cell key={`cell-cat-${index}`} fill={colors[index % colors.length]} />
-                          })}
-                        </Pie>
-                        <Tooltip 
-                          formatter={(value: number, name: string, props: any) => [
-                            `${value} (${(props.payload.percent * 100).toFixed(0)}%)`,
-                            props.payload.name
-                          ]}
-                          contentStyle={{ fontSize: '11px', padding: '4px 8px' }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="space-y-1.5 mt-2">
-                      {chartData.categorias.map((item, idx) => {
-                        const colors = ['#156634', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#3b82f6']
-                        const total = chartData.categorias.reduce((s, i) => s + i.value, 0)
-                        const percent = total > 0 ? (item.value / total) * 100 : 0
-                        return (
-                          <div key={idx} className="space-y-0.5">
-                            <div className="flex items-center justify-between text-[10px]">
-                              <span className="text-gray-600 truncate max-w-[60px]" title={item.name}>{item.name}</span>
-                              <span className="font-medium text-gray-800">{percent.toFixed(0)}%</span>
-                            </div>
-                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full rounded-full transition-all" 
-                                style={{ width: `${percent}%`, backgroundColor: colors[idx % colors.length] }}
-                              />
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Pizza - Gênero */}
-                {chartData.sexos.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-700 mb-2 text-center">Gênero</p>
-                    <ResponsiveContainer width="100%" height={120}>
-                      <PieChart>
-                        <Pie
-                          data={chartData.sexos}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={45}
-                          innerRadius={20}
-                          dataKey="value"
-                          stroke="#fff"
-                          strokeWidth={2}
-                        >
-                          {chartData.sexos.map((entry, index) => {
-                            const colors = ['#3b82f6', '#ec4899', '#8b5cf6', '#06b6d4']
-                            return <Cell key={`cell-sex-${index}`} fill={colors[index % colors.length]} />
-                          })}
-                        </Pie>
-                        <Tooltip 
-                          formatter={(value: number, name: string, props: any) => [
-                            `${value} (${(props.payload.percent * 100).toFixed(0)}%)`,
-                            props.payload.name
-                          ]}
-                          contentStyle={{ fontSize: '11px', padding: '4px 8px' }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="space-y-1.5 mt-2">
-                      {chartData.sexos.map((item, idx) => {
-                        const colors = ['#3b82f6', '#ec4899', '#8b5cf6', '#06b6d4']
-                        const total = chartData.sexos.reduce((s, i) => s + i.value, 0)
-                        const percent = total > 0 ? (item.value / total) * 100 : 0
-                        return (
-                          <div key={idx} className="space-y-0.5">
-                            <div className="flex items-center justify-between text-[10px]">
-                              <span className="text-gray-600">{item.name}</span>
-                              <span className="font-medium text-gray-800">{percent.toFixed(0)}%</span>
-                            </div>
-                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full rounded-full transition-all" 
-                                style={{ width: `${percent}%`, backgroundColor: colors[idx % colors.length] }}
-                              />
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Pizza - Idade */}
-                {chartData.idades.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-700 mb-2 text-center">Faixa Etária</p>
-                    <ResponsiveContainer width="100%" height={120}>
-                      <PieChart>
-                        <Pie
-                          data={chartData.idades}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={45}
-                          innerRadius={20}
-                          dataKey="value"
-                          stroke="#fff"
-                          strokeWidth={2}
-                        >
-                          {chartData.idades.map((entry, index) => {
-                            const colors = ['#f59e0b', '#ef4444', '#10b981', '#6366f1', '#ec4899', '#14b8a6', '#f97316']
-                            return <Cell key={`cell-age-${index}`} fill={colors[index % colors.length]} />
-                          })}
-                        </Pie>
-                        <Tooltip 
-                          formatter={(value: number, name: string, props: any) => [
-                            `${value} (${(props.payload.percent * 100).toFixed(0)}%)`,
-                            props.payload.name
-                          ]}
-                          contentStyle={{ fontSize: '11px', padding: '4px 8px' }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="space-y-1.5 mt-2">
-                      {chartData.idades.map((item, idx) => {
-                        const colors = ['#f59e0b', '#ef4444', '#10b981', '#6366f1', '#ec4899', '#14b8a6', '#f97316']
-                        const total = chartData.idades.reduce((s, i) => s + i.value, 0)
-                        const percent = total > 0 ? (item.value / total) * 100 : 0
-                        return (
-                          <div key={idx} className="space-y-0.5">
-                            <div className="flex items-center justify-between text-[10px]">
-                              <span className="text-gray-600">{item.name}</span>
-                              <span className="font-medium text-gray-800">{percent.toFixed(0)}%</span>
-                            </div>
-                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full rounded-full transition-all" 
-                                style={{ width: `${percent}%`, backgroundColor: colors[idx % colors.length] }}
-                              />
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <DistributionChartsCard
+                categoryData={chartData.categorias}
+                genderData={chartData.sexos}
+                ageData={chartData.idades}
+                showShirtSize={false}
+              />
             </CardContent>
           </Card>
         )}

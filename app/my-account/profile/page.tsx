@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { logger } from "@/lib/utils/logger"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -43,7 +44,7 @@ export default function MyProfilePage() {
           return
         }
 
-        console.log("🔍 [Profile] Buscando dados do usuário:", user.id)
+        logger.log("🔍 [Profile] Buscando dados do usuário:", user.id)
 
         // Buscar dados do usuário - buscar explicitamente todos os campos
         const { data: userData, error } = await supabase
@@ -70,16 +71,16 @@ export default function MyProfilePage() {
           .eq("id", user.id)
           .single()
 
-        console.log("📊 [Profile] Dados retornados do banco:", userData)
-        console.log("📊 [Profile] Erro (se houver):", error)
+        logger.log("📊 [Profile] Dados retornados do banco:", userData)
+        logger.log("📊 [Profile] Erro (se houver):", error)
 
         if (error && error.code !== "PGRST116") {
-          console.error("❌ [Profile] Erro ao buscar dados:", error)
+          logger.error("❌ [Profile] Erro ao buscar dados:", error)
           // Mesmo com erro, tentar usar dados dos metadados
         }
 
         if (userData) {
-          console.log("✅ [Profile] Dados encontrados na tabela users")
+          logger.log("✅ [Profile] Dados encontrados na tabela users")
           // Garantir que todos os campos sejam exibidos, mesmo que null/vazios
           setUserData({
             full_name: userData.full_name || "",
@@ -100,7 +101,7 @@ export default function MyProfilePage() {
             emergency_contact_phone: userData.emergency_contact_phone || "",
           })
         } else {
-          console.log("ℹ️ [Profile] Usuário não encontrado na tabela users, usando metadados")
+          logger.log("ℹ️ [Profile] Usuário não encontrado na tabela users, usando metadados")
           // Tentar buscar dos metadados do auth - apenas se não houver dados na tabela
           const metadata = user.user_metadata || {}
           setUserData({
@@ -123,7 +124,7 @@ export default function MyProfilePage() {
           })
         }
       } catch (error) {
-        console.error("Erro ao buscar dados:", error)
+        logger.error("Erro ao buscar dados:", error)
         toast.error("Erro ao carregar dados do perfil")
       } finally {
         setLoading(false)
@@ -146,7 +147,7 @@ export default function MyProfilePage() {
         return
       }
 
-      console.log("💾 [Profile] Salvando dados:", {
+      logger.log("💾 [Profile] Salvando dados:", {
         id: user.id,
         full_name: userData.full_name,
         phone: userData.phone,
@@ -185,17 +186,17 @@ export default function MyProfilePage() {
           onConflict: 'id'
         })
 
-      console.log("💾 [Profile] Resultado do upsert:", error ? { error } : "sucesso")
+      logger.log("💾 [Profile] Resultado do upsert:", error ? { error } : "sucesso")
 
       if (error) {
-        console.error("Erro ao salvar:", error)
+        logger.error("Erro ao salvar:", error)
         toast.error("Erro ao salvar dados")
         return
       }
 
       toast.success("Perfil atualizado com sucesso!")
     } catch (error) {
-      console.error("Erro ao salvar:", error)
+      logger.error("Erro ao salvar:", error)
       toast.error("Erro ao salvar dados")
     } finally {
       setSaving(false)

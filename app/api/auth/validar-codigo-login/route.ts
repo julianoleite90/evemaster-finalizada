@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { authLogger as logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (userDataError) {
-      console.error('❌ [VALIDAR-CODIGO] Erro ao buscar usuário (cliente normal):', {
+      logger.error('Erro ao buscar usuário (cliente normal):', {
         error: userDataError.message,
         code: userDataError.code,
         email: email.toLowerCase(),
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!user) {
-      console.error('❌ [VALIDAR-CODIGO] Usuário não encontrado:', {
+      logger.error('Usuário não encontrado:', {
         email: email.toLowerCase(),
         cpf: cleanCPF,
         codeValid: !!loginCode,
@@ -107,7 +108,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('✅ [VALIDAR-CODIGO] Usuário encontrado:', {
+    logger.log('Usuário encontrado:', {
       id: user.id,
       email: user.email,
       name: user.full_name
@@ -126,17 +127,17 @@ export async function POST(request: NextRequest) {
       const { data: usersList, error: listError } = await supabaseAdmin.auth.admin.listUsers()
       
       if (listError) {
-        console.error('❌ [VALIDAR-CODIGO] Erro ao listar usuários do auth:', listError)
+        logger.error('Erro ao listar usuários do auth:', listError)
         // Não falhar aqui, podemos retornar os dados do usuário mesmo sem auth
       } else {
         authUser = usersList?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
-        console.log('✅ [VALIDAR-CODIGO] Auth user encontrado:', {
+        logger.log('Auth user encontrado:', {
           hasAuthUser: !!authUser,
           userId: authUser?.id
         })
       }
     } catch (authError) {
-      console.error('❌ [VALIDAR-CODIGO] Erro ao buscar auth user:', authError)
+      logger.error('Erro ao buscar auth user:', authError)
       // Continuar mesmo se não encontrar no auth
     }
 
@@ -150,16 +151,16 @@ export async function POST(request: NextRequest) {
         })
 
         if (linkError) {
-          console.error('⚠️ [VALIDAR-CODIGO] Erro ao gerar magic link:', linkError)
+          logger.warn('Erro ao gerar magic link:', linkError)
         } else {
           magicLink = linkData?.properties?.action_link || null
-          console.log('✅ [VALIDAR-CODIGO] Magic link gerado:', !!magicLink)
+          logger.log('Magic link gerado:', !!magicLink)
         }
       } catch (linkError) {
-        console.error('⚠️ [VALIDAR-CODIGO] Erro ao gerar magic link:', linkError)
+        logger.warn('Erro ao gerar magic link:', linkError)
       }
     } else {
-      console.warn('⚠️ [VALIDAR-CODIGO] Usuário não encontrado no auth.users, mas existe em public.users')
+      logger.warn('Usuário não encontrado no auth.users, mas existe em public.users')
     }
 
     // Retornar dados do usuário (mesmo se não tiver magic link, o frontend pode fazer login de outra forma)
@@ -183,7 +184,7 @@ export async function POST(request: NextRequest) {
       hasAuthAccount: !!authUser, // Informar se tem conta no auth
     })
   } catch (error: any) {
-    console.error('Erro ao validar código de login:', error)
+    logger.error('Erro ao validar código de login:', error)
     return NextResponse.json(
       { error: 'Erro ao validar código de login' },
       { status: 500 }

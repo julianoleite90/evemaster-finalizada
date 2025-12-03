@@ -1,3 +1,4 @@
+import { apiLogger as logger } from "@/lib/utils/logger"
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -70,7 +71,7 @@ export async function PUT(
       .eq('id', inviteId)
 
     if (updateInviteError) {
-      console.error('Erro ao atualizar convite:', updateInviteError)
+      logger.error('Erro ao atualizar convite:', updateInviteError)
       return NextResponse.json(
         { error: 'Erro ao atualizar convite', details: updateInviteError.message },
         { status: 500 }
@@ -89,7 +90,7 @@ export async function PUT(
         .eq('affiliate_id', invite.affiliate_id)
 
       if (updateCommissionError) {
-        console.error('Erro ao atualizar comissão:', updateCommissionError)
+        logger.error('Erro ao atualizar comissão:', updateCommissionError)
         // Não falhar a requisição se apenas a atualização da comissão falhar
       }
     }
@@ -100,7 +101,7 @@ export async function PUT(
     })
 
   } catch (error: any) {
-    console.error('Erro ao atualizar afiliado:', error)
+    logger.error('Erro ao atualizar afiliado:', error)
     return NextResponse.json(
       { error: 'Erro ao processar atualização', details: error.message },
       { status: 500 }

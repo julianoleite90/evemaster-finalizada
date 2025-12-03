@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { Resend } from 'resend'
+import { authLogger as logger } from '@/lib/utils/logger'
 
 export const runtime = 'nodejs'
 
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
     )
 
     if (updateError) {
-      console.error('❌ [API] Erro ao atualizar senha:', updateError)
+      logger.error('Erro ao atualizar senha:', updateError)
       return NextResponse.json(
         { error: 'Erro ao gerar senha temporária', details: updateError.message },
         { status: 500 }
@@ -220,14 +221,14 @@ export async function POST(request: NextRequest) {
     })
 
     if (emailError) {
-      console.error('❌ [API] Erro ao enviar email:', emailError)
+      logger.error('Erro ao enviar email:', emailError)
       return NextResponse.json(
         { error: 'Erro ao enviar email', details: emailError.message },
         { status: 500 }
       )
     }
 
-    console.log('✅ [API] Senha temporária enviada para:', email)
+    logger.log('Senha temporária enviada para:', email)
 
     return NextResponse.json({
       success: true,
@@ -235,7 +236,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [API] Erro ao enviar senha temporária:', error)
+    logger.error('Erro ao enviar senha temporária:', error)
     return NextResponse.json(
       { error: 'Erro ao processar requisição', details: error.message },
       { status: 500 }

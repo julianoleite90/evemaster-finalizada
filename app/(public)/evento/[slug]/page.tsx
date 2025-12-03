@@ -4,10 +4,16 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { getEventBySlug } from "@/lib/supabase/events"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2, Calendar, MapPin, Clock, Users, Share2, Heart, Minus, Plus, Trophy, Package, Building2, Mail, Phone, Globe, Route, Mountain, Activity, Facebook, Twitter, Linkedin, MessageCircle, Gauge, Award, Footprints, Map, Star } from "lucide-react"
+import { Calendar, MapPin, Clock, Users, Share2, Heart, Minus, Plus, Trophy, Package, Building2, Mail, Phone, Globe, Route, Mountain, Activity, Facebook, Twitter, Linkedin, MessageCircle, Gauge, Award, Footprints, Map, Star } from "lucide-react"
 import dynamic from "next/dynamic"
+import { MapLoader } from "@/components/ui/dynamic-loader"
+import { EventSkeleton } from "@/components/event/EventSkeleton"
+import { LazyGoogleMap } from "@/components/event/LazyGoogleMap"
 
-const GPXMapViewer = dynamic(() => import("@/components/event/GPXMapViewer"), { ssr: false })
+const GPXMapViewer = dynamic(() => import("@/components/event/GPXMapViewer"), { 
+  ssr: false,
+  loading: () => <MapLoader />
+})
 import EventPixels from "@/components/analytics/EventPixels"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -18,6 +24,8 @@ import Image from "next/image"
 import Link from "next/link"
 import { RatingDisplay } from "@/components/reviews/StarRating"
 import { EventErrorBoundary } from "@/components/error/EventErrorBoundary"
+import { sanitizeHTML } from "@/lib/security/sanitize"
+import { EventSEO } from "@/components/seo"
 
 // Componente interno da página do evento
 function EventoLandingPageContent() {
@@ -245,7 +253,7 @@ function EventoLandingPageContent() {
         }
         
         // Selecionar primeiro lote ativo por padrão
-        if (event.ticket_batches && event.ticket_batches.length > 0) {
+        if (event.ticket_batches && Array.isArray(event.ticket_batches) && event.ticket_batches.length > 0) {
           setSelectedBatch(event.ticket_batches[0])
         }
         
@@ -375,18 +383,9 @@ function EventoLandingPageContent() {
     )
   }
 
-  // Se não tem dados ainda, mostrar página vazia (será preenchida quando carregar)
+  // Se não tem dados ainda, mostrar skeleton (carrega visualmente mais rápido)
   if (!eventData) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-16">
-        <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-[#156634] mx-auto mb-4" />
-            <p className="text-muted-foreground">Carregando evento...</p>
-          </div>
-        </div>
-      </div>
-    )
+    return <EventSkeleton />
   }
 
   // Extrair dados dos pixels do event_settings
@@ -399,6 +398,9 @@ function EventoLandingPageContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* SEO - JSON-LD Schemas */}
+      <EventSEO event={eventData} />
+      
       {/* Pixels de Rastreamento */}
       <EventPixels
         googleAnalyticsId={googleAnalyticsId}
@@ -525,7 +527,7 @@ function EventoLandingPageContent() {
                   {eventData.description ? (
                     <div 
                       className="prose prose-gray max-w-none prose-headings:text-gray-900 prose-headings:font-bold prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-strong:text-gray-900 prose-strong:font-semibold prose-ul:text-gray-700 prose-ul:mb-4 prose-ol:text-gray-700 prose-ol:mb-4 prose-li:mb-2 prose-a:text-[#156634] prose-a:font-semibold prose-a:no-underline hover:prose-a:underline prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg"
-                      dangerouslySetInnerHTML={{ __html: eventData.description }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHTML(eventData.description) }}
                     />
                   ) : (
                     <p className="text-gray-600 text-base leading-relaxed">
@@ -646,21 +648,14 @@ function EventoLandingPageContent() {
                     </div>
                   </div>
 
-                  {/* Mapa do Google Maps (sempre, sem GPX) */}
-                  <div className="w-full h-[250px] md:h-[400px] rounded-lg overflow-hidden border">
-                    <iframe
-                      src={`https://maps.google.com/maps?q=${encodeURIComponent(
-                        `${eventData.location || ''}${eventData.address ? ', ' + eventData.address : ''}${eventData.address_number ? ', ' + eventData.address_number : ''}${eventData.city && eventData.state ? ', ' + eventData.city + ' - ' + eventData.state : ''}`
-                      )}&output=embed`}
-                      width="100%"
-                      height="100%"
-                      style={{ border: 0 }}
-                      allowFullScreen
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                      className="w-full h-full"
-                    />
-                  </div>
+                  {/* Mapa do Google Maps com lazy loading otimizado */}
+                  <LazyGoogleMap
+                    location={eventData.location}
+                    address={eventData.address}
+                    addressNumber={eventData.address_number}
+                    city={eventData.city}
+                    state={eventData.state}
+                  />
                 </div>
               </CardContent>
             </Card>

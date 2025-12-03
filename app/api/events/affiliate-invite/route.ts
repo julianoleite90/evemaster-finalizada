@@ -1,3 +1,4 @@
+import { apiLogger as logger } from "@/lib/utils/logger"
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { enviarEmailConviteAfiliado } from '@/lib/email/resend'
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (inviteError) {
-      console.error('Erro ao criar convite:', inviteError)
+      logger.error('Erro ao criar convite:', inviteError)
       return NextResponse.json(
         { error: 'Erro ao criar convite', details: inviteError.message },
         { status: 500 }
@@ -139,7 +140,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!emailResult.success) {
-      console.error('Erro ao enviar email:', emailResult.error)
+      logger.error('Erro ao enviar email:', emailResult.error)
       // Não falhar a requisição se o email falhar, apenas logar
     }
 
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Erro ao enviar convite:', error)
+    logger.error('Erro ao enviar convite:', error)
     return NextResponse.json(
       { error: 'Erro ao processar convite', details: error.message },
       { status: 500 }

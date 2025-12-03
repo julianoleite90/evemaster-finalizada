@@ -32,7 +32,7 @@ export function useEventSettingsImages(eventId: string) {
       const supabase = createClient()
 
       for (const image of newImages) {
-        const imageUrl = await uploadEventImage(eventId, image)
+        const imageUrl = await uploadEventImage(image, eventId)
         
         await supabase
           .from("event_images")

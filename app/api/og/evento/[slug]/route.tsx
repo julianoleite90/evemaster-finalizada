@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og'
 import { createClient } from '@supabase/supabase-js'
+import { apiLogger as logger } from '@/lib/utils/logger'
 
 export const runtime = 'edge'
 
@@ -59,7 +60,7 @@ export async function GET(
         return new Response('Event not found', { status: 404 })
       }
       // Para outros erros, logar e retornar erro genérico
-      console.error('[OG Image] Erro ao buscar evento:', error)
+      logger.error('[OG Image] Erro ao buscar evento:', error)
       return new Response('Failed to generate image', { status: 500 })
     }
     
@@ -192,7 +193,7 @@ export async function GET(
       }
     )
   } catch (error) {
-    console.error('Error generating OG image:', error)
+    logger.error('Error generating OG image:', error)
     return new Response('Failed to generate image', { status: 500 })
   }
 }

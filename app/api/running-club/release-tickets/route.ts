@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { apiLogger as logger } from '@/lib/utils/logger'
 
 // Esta função libera ingressos não usados após o prazo final
 // Pode ser chamada por um cron job ou webhook
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
       .is('released_at', null) // Ainda não foi liberado
 
     if (fetchError) {
-      console.error('Erro ao buscar clubes para liberar:', fetchError)
+      logger.error('Erro ao buscar clubes para liberar:', fetchError)
       return NextResponse.json(
         { error: 'Erro ao buscar clubes' },
         { status: 500 }
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
           .eq('id', club.id)
 
         if (updateError) {
-          console.error(`Erro ao liberar ingressos do clube ${club.id}:`, updateError)
+          logger.error(`Erro ao liberar ingressos do clube ${club.id}:`, updateError)
           continue
         }
 
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
           .eq('id', club.id)
 
         if (updateError) {
-          console.error(`Erro ao atualizar clube ${club.id}:`, updateError)
+          logger.error(`Erro ao atualizar clube ${club.id}:`, updateError)
           continue
         }
 
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
       total: clubsToRelease.length,
     })
   } catch (error: any) {
-    console.error('Erro ao liberar ingressos:', error)
+    logger.error('Erro ao liberar ingressos:', error)
     return NextResponse.json(
       { error: 'Erro ao processar liberação', details: error.message },
       { status: 500 }

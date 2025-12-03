@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
+import { authLogger as logger } from "@/lib/utils/logger"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase/client"
@@ -9,12 +10,15 @@ import { toast } from "sonner"
 import { Loader2, Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import { ReCaptchaComponent, ReCaptchaRef } from "@/components/auth/ReCaptcha"
 
 export default function OrganizerLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null)
+  const recaptchaRef = useRef<ReCaptchaRef>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,27 +31,53 @@ export default function OrganizerLoginPage() {
       return
     }
 
+    // Verificar reCAPTCHA (se configurado)
+    const captchaToken = recaptchaToken || recaptchaRef.current?.getToken()
+    if (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && !captchaToken) {
+      toast.error("Complete o reCAPTCHA para continuar")
+      return
+    }
+
     try {
       setLoading(true)
+
+      // Verificar reCAPTCHA no servidor (se configurado)
+      if (captchaToken) {
+        const recaptchaResponse = await fetch("/api/auth/verify-recaptcha", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: captchaToken }),
+        })
+        
+        const recaptchaResult = await recaptchaResponse.json()
+        if (!recaptchaResult.success) {
+          toast.error("Verificação reCAPTCHA falhou. Tente novamente.")
+          recaptchaRef.current?.reset()
+          setRecaptchaToken(null)
+          setLoading(false)
+          return
+        }
+      }
+
       const supabase = createClient()
 
-      console.log("🔐 [LOGIN ORGANIZADOR] ========== INÍCIO LOGIN ==========")
-      console.log("🔐 [LOGIN ORGANIZADOR] Email original:", email)
-      console.log("🔐 [LOGIN ORGANIZADOR] Email limpo:", cleanEmail)
-      console.log("🔐 [LOGIN ORGANIZADOR] Senha length:", password.length)
-      console.log("🔐 [LOGIN ORGANIZADOR] Timestamp:", new Date().toISOString())
+      logger.log("🔐 [LOGIN ORGANIZADOR] ========== INÍCIO LOGIN ==========")
+      logger.log("🔐 [LOGIN ORGANIZADOR] Email original:", email)
+      logger.log("🔐 [LOGIN ORGANIZADOR] Email limpo:", cleanEmail)
+      logger.log("🔐 [LOGIN ORGANIZADOR] Senha length:", password.length)
+      logger.log("🔐 [LOGIN ORGANIZADOR] Timestamp:", new Date().toISOString())
       
       // Verificar se há sessão ativa antes
       const { data: { session: existingSession } } = await supabase.auth.getSession()
       if (existingSession) {
-        console.log("⚠️ [LOGIN ORGANIZADOR] Já existe sessão ativa:", {
+        logger.log("⚠️ [LOGIN ORGANIZADOR] Já existe sessão ativa:", {
           userId: existingSession.user.id,
           email: existingSession.user.email,
           expiresAt: new Date(existingSession.expires_at! * 1000).toISOString()
         })
         // Fazer logout da sessão anterior
         await supabase.auth.signOut()
-        console.log("🔐 [LOGIN ORGANIZADOR] Sessão anterior removida")
+        logger.log("🔐 [LOGIN ORGANIZADOR] Sessão anterior removida")
       }
       
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -55,7 +85,7 @@ export default function OrganizerLoginPage() {
         password,
       })
 
-      console.log("🔐 [LOGIN ORGANIZADOR] Resposta signIn:", { 
+      logger.log("🔐 [LOGIN ORGANIZADOR] Resposta signIn:", { 
         hasUser: !!data?.user, 
         userId: data?.user?.id,
         userEmail: data?.user?.email,
@@ -67,7 +97,7 @@ export default function OrganizerLoginPage() {
       
       // Log detalhado do erro se houver
       if (error) {
-        console.error("🔐 [LOGIN ORGANIZADOR] DETALHES COMPLETOS DO ERRO:", {
+        logger.error("🔐 [LOGIN ORGANIZADOR] DETALHES COMPLETOS DO ERRO:", {
           message: error.message,
           status: error.status,
           name: error.name,
@@ -77,7 +107,7 @@ export default function OrganizerLoginPage() {
       }
 
       if (error) {
-        console.error("❌ [LOGIN ORGANIZADOR] ERRO NO LOGIN:", {
+        logger.error("❌ [LOGIN ORGANIZADOR] ERRO NO LOGIN:", {
           message: error.message,
           status: error.status,
           name: error.name,
@@ -88,24 +118,24 @@ export default function OrganizerLoginPage() {
         if (error.message.includes("Invalid login credentials") || 
             error.message.includes("Invalid") ||
             error.status === 400) {
-          console.error("❌ [LOGIN ORGANIZADOR] Credenciais inválidas. Verifique:")
-          console.error("  - Email usado:", cleanEmail)
-          console.error("  - Email está correto?")
-          console.error("  - Senha está correta?")
-          console.error("  - Email está confirmado no Supabase?")
-          console.error("  - Usuário existe no Supabase Auth?")
+          logger.error("❌ [LOGIN ORGANIZADOR] Credenciais inválidas. Verifique:")
+          logger.error("  - Email usado:", cleanEmail)
+          logger.error("  - Email está correto?")
+          logger.error("  - Senha está correta?")
+          logger.error("  - Email está confirmado no Supabase?")
+          logger.error("  - Usuário existe no Supabase Auth?")
           
           toast.error("Email ou senha incorretos. Verifique suas credenciais ou redefina a senha.")
         } else if (error.message.includes("Email not confirmed") || error.message.includes("not confirmed")) {
-          console.error("❌ [LOGIN ORGANIZADOR] Email não confirmado")
+          logger.error("❌ [LOGIN ORGANIZADOR] Email não confirmado")
           toast.error("Email não confirmado. Verifique sua caixa de entrada e confirme o email.")
         } else if (error.message.includes("Failed to fetch") || 
                    error.message.includes("NetworkError") ||
                    error.message.includes("network")) {
-          console.error("❌ [LOGIN ORGANIZADOR] Erro de conexão")
+          logger.error("❌ [LOGIN ORGANIZADOR] Erro de conexão")
           toast.error("Erro de conexão. Verifique sua internet e tente novamente.")
         } else {
-          console.error("❌ [LOGIN ORGANIZADOR] Erro desconhecido:", error)
+          logger.error("❌ [LOGIN ORGANIZADOR] Erro desconhecido:", error)
           toast.error(error.message || "Erro ao fazer login. Tente novamente.")
         }
         setLoading(false)
@@ -113,7 +143,7 @@ export default function OrganizerLoginPage() {
       }
 
       if (data.user) {
-        console.log("✅ [LOGIN ORGANIZADOR] Usuário autenticado:", {
+        logger.log("✅ [LOGIN ORGANIZADOR] Usuário autenticado:", {
           id: data.user.id,
           email: data.user.email,
           role: data.user.user_metadata?.role
@@ -122,10 +152,10 @@ export default function OrganizerLoginPage() {
         // Aguardar para garantir que o middleware criou o registro em users
         await new Promise(resolve => setTimeout(resolve, 1500))
 
-        console.log("🔍 [LOGIN ORGANIZADOR] Verificando acesso de organizador...")
-        console.log("🔍 [LOGIN ORGANIZADOR] User ID:", data.user.id)
-        console.log("🔍 [LOGIN ORGANIZADOR] User Email:", data.user.email)
-        console.log("🔍 [LOGIN ORGANIZADOR] Email Confirmado:", data.user.email_confirmed_at ? 'SIM' : 'NÃO')
+        logger.log("🔍 [LOGIN ORGANIZADOR] Verificando acesso de organizador...")
+        logger.log("🔍 [LOGIN ORGANIZADOR] User ID:", data.user.id)
+        logger.log("🔍 [LOGIN ORGANIZADOR] User Email:", data.user.email)
+        logger.log("🔍 [LOGIN ORGANIZADOR] Email Confirmado:", data.user.email_confirmed_at ? 'SIM' : 'NÃO')
         
         // Buscar dados do usuário primeiro para verificar role
         const { data: userData, error: userDataError } = await supabase
@@ -134,7 +164,7 @@ export default function OrganizerLoginPage() {
           .eq("id", data.user.id)
           .maybeSingle()
 
-        console.log("🔍 [LOGIN ORGANIZADOR] Dados do usuário na tabela users:", { 
+        logger.log("🔍 [LOGIN ORGANIZADOR] Dados do usuário na tabela users:", { 
           userData,
           role: userData?.role,
           fullName: userData?.full_name,
@@ -145,9 +175,9 @@ export default function OrganizerLoginPage() {
         
         // Se não encontrou na tabela users, pode ser problema
         if (!userData && !userDataError) {
-          console.error("❌ [LOGIN ORGANIZADOR] Usuário não encontrado na tabela users!")
-          console.error("  - Isso pode indicar que o registro não foi criado pelo middleware")
-          console.error("  - User ID:", data.user.id)
+          logger.error("❌ [LOGIN ORGANIZADOR] Usuário não encontrado na tabela users!")
+          logger.error("  - Isso pode indicar que o registro não foi criado pelo middleware")
+          logger.error("  - User ID:", data.user.id)
         }
 
         // Verificar se é organizador principal (tem perfil próprio)
@@ -157,7 +187,7 @@ export default function OrganizerLoginPage() {
           .eq("user_id", data.user.id)
           .maybeSingle()
 
-        console.log("🔍 [LOGIN ORGANIZADOR] Resultado busca organizador:", { 
+        logger.log("🔍 [LOGIN ORGANIZADOR] Resultado busca organizador:", { 
           organizerId: organizer?.id,
           companyName: organizer?.company_name,
           error: organizerError?.message,
@@ -166,15 +196,15 @@ export default function OrganizerLoginPage() {
 
         // Se encontrou organizador, permitir login imediatamente (independente do role)
         if (organizer) {
-          console.log("✅ [LOGIN ORGANIZADOR] Usuário tem perfil de organizador. Permitindo login.")
+          logger.log("✅ [LOGIN ORGANIZADOR] Usuário tem perfil de organizador. Permitindo login.")
           toast.success("Login realizado com sucesso!")
           window.location.href = "/dashboard/organizer"
           return
         }
 
         // Se não encontrou, verificar se é membro de uma organização
-        console.log("🔍 [LOGIN ORGANIZADOR] Não é organizador principal. Verificando membership...")
-        console.log("🔍 [LOGIN ORGANIZADOR] Buscando membership para user_id:", data.user.id)
+        logger.log("🔍 [LOGIN ORGANIZADOR] Não é organizador principal. Verificando membership...")
+        logger.log("🔍 [LOGIN ORGANIZADOR] Buscando membership para user_id:", data.user.id)
         
         // Tentar buscar TODOS os memberships primeiro (para debug) - sem filtro is_active
         const { data: allMemberships, error: allMembershipsError } = await supabase
@@ -182,7 +212,7 @@ export default function OrganizerLoginPage() {
           .select("organizer_id, is_active, user_id, id, can_view, can_edit, can_create, can_delete")
           .eq("user_id", data.user.id)
         
-        console.log("🔍 [LOGIN ORGANIZADOR] TODOS os memberships (sem filtro is_active):", { 
+        logger.log("🔍 [LOGIN ORGANIZADOR] TODOS os memberships (sem filtro is_active):", { 
           count: allMemberships?.length || 0,
           memberships: allMemberships,
           error: allMembershipsError?.message,
@@ -192,11 +222,11 @@ export default function OrganizerLoginPage() {
         
         // Se RLS está bloqueando, isso é um problema crítico
         if (allMembershipsError && (allMembershipsError.code === 'PGRST301' || allMembershipsError.message?.includes('permission') || allMembershipsError.message?.includes('policy') || allMembershipsError.message?.includes('RLS'))) {
-          console.error("❌ [LOGIN ORGANIZADOR] RLS ESTÁ BLOQUEANDO! Erro:", allMembershipsError)
-          console.error("  - Isso indica que as políticas RLS não permitem que este usuário veja seus próprios dados")
-          console.error("  - A política 'Organization users can view own data' deveria permitir quando user_id = auth.uid()")
-          console.error("  - Verificar se auth.uid() está retornando o ID correto")
-          console.error("  - User ID autenticado:", data.user.id)
+          logger.error("❌ [LOGIN ORGANIZADOR] RLS ESTÁ BLOQUEANDO! Erro:", allMembershipsError)
+          logger.error("  - Isso indica que as políticas RLS não permitem que este usuário veja seus próprios dados")
+          logger.error("  - A política 'Organization users can view own data' deveria permitir quando user_id = auth.uid()")
+          logger.error("  - Verificar se auth.uid() está retornando o ID correto")
+          logger.error("  - User ID autenticado:", data.user.id)
         }
         
         // Buscar apenas os ativos (se RLS permitir)
@@ -207,7 +237,7 @@ export default function OrganizerLoginPage() {
           .eq("is_active", true)
           .maybeSingle()
 
-        console.log("🔍 [LOGIN ORGANIZADOR] Resultado busca membership ATIVO:", { 
+        logger.log("🔍 [LOGIN ORGANIZADOR] Resultado busca membership ATIVO:", { 
           membership: orgMembership,
           organizerId: orgMembership?.organizer_id,
           isActive: orgMembership?.is_active,
@@ -220,11 +250,11 @@ export default function OrganizerLoginPage() {
         
         // Se encontrou membership ativo, permitir login
         if (orgMembership) {
-          console.log("✅ [LOGIN ORGANIZADOR] Usuário é membro de organização. Permitindo login.")
-          console.log("  - Membership ID:", orgMembership.id)
-          console.log("  - Organizer ID:", orgMembership.organizer_id)
-          console.log("  - Is Active:", orgMembership.is_active)
-          console.log("  - Permissions:", {
+          logger.log("✅ [LOGIN ORGANIZADOR] Usuário é membro de organização. Permitindo login.")
+          logger.log("  - Membership ID:", orgMembership.id)
+          logger.log("  - Organizer ID:", orgMembership.organizer_id)
+          logger.log("  - Is Active:", orgMembership.is_active)
+          logger.log("  - Permissions:", {
             can_view: orgMembership.can_view,
             can_edit: orgMembership.can_edit,
             can_create: orgMembership.can_create,
@@ -237,7 +267,7 @@ export default function OrganizerLoginPage() {
         
         // Se RLS bloqueou ou não encontrou, tentar via API (bypass RLS)
         if ((orgError && (orgError.code === 'PGRST301' || orgError?.message?.includes('permission') || orgError?.message?.includes('policy') || orgError?.message?.includes('RLS'))) || (!orgMembership && !allMembershipsError && allMemberships && allMemberships.length === 0)) {
-          console.warn("⚠️ [LOGIN ORGANIZADOR] Tentando verificar via API (bypass RLS)...")
+          logger.warn("⚠️ [LOGIN ORGANIZADOR] Tentando verificar via API (bypass RLS)...")
           
           try {
             const debugResponse = await fetch('/api/debug/user-info', {
@@ -248,7 +278,7 @@ export default function OrganizerLoginPage() {
             
             if (debugResponse.ok) {
               const debugData = await debugResponse.json()
-              console.log("🔍 [LOGIN ORGANIZADOR] Dados do debug API:", debugData)
+              logger.log("🔍 [LOGIN ORGANIZADOR] Dados do debug API:", debugData)
               
               // Se encontrou membership via API, usar esses dados
               if (debugData.organizationMemberships?.found && debugData.organizationMemberships.memberships?.length > 0) {
@@ -256,21 +286,21 @@ export default function OrganizerLoginPage() {
                 const anyMembershipFromAPI = debugData.organizationMemberships.memberships[0]
                 
                 if (activeMembershipFromAPI) {
-                  console.log("✅ [LOGIN ORGANIZADOR] Membership ATIVO encontrado via API (bypass RLS):", activeMembershipFromAPI)
+                  logger.log("✅ [LOGIN ORGANIZADOR] Membership ATIVO encontrado via API (bypass RLS):", activeMembershipFromAPI)
                   toast.success("Login realizado com sucesso!")
                   window.location.href = "/dashboard/organizer"
                   return
                 } else if (anyMembershipFromAPI) {
-                  console.warn("⚠️ [LOGIN ORGANIZADOR] Membership encontrado mas está INATIVO via API:", anyMembershipFromAPI)
-                  console.warn("  - Isso pode ser a causa do problema!")
-                  console.warn("  - Membership ID:", anyMembershipFromAPI.id)
-                  console.warn("  - Organizer ID:", anyMembershipFromAPI.organizer_id)
-                  console.warn("  - Is Active:", anyMembershipFromAPI.is_active)
+                  logger.warn("⚠️ [LOGIN ORGANIZADOR] Membership encontrado mas está INATIVO via API:", anyMembershipFromAPI)
+                  logger.warn("  - Isso pode ser a causa do problema!")
+                  logger.warn("  - Membership ID:", anyMembershipFromAPI.id)
+                  logger.warn("  - Organizer ID:", anyMembershipFromAPI.organizer_id)
+                  logger.warn("  - Is Active:", anyMembershipFromAPI.is_active)
                   
                   // Mesmo inativo, se o usuário tem role de ADMIN ou ORGANIZADOR, permitir login
                   const userRole = debugData.usersTable?.users?.[0]?.role
                   if (userRole === 'ADMIN' || userRole === 'ORGANIZADOR' || userRole === 'ORGANIZER') {
-                    console.log("✅ [LOGIN ORGANIZADOR] Usuário tem role adequado. Permitindo login mesmo com membership inativo.")
+                    logger.log("✅ [LOGIN ORGANIZADOR] Usuário tem role adequado. Permitindo login mesmo com membership inativo.")
                     toast.success("Login realizado com sucesso!")
                     window.location.href = "/dashboard/organizer"
                     return
@@ -279,7 +309,7 @@ export default function OrganizerLoginPage() {
               }
             }
           } catch (apiError) {
-            console.error("❌ [LOGIN ORGANIZADOR] Erro ao chamar API de debug:", apiError)
+            logger.error("❌ [LOGIN ORGANIZADOR] Erro ao chamar API de debug:", apiError)
           }
         }
         
@@ -287,20 +317,20 @@ export default function OrganizerLoginPage() {
         if (!orgMembership && allMemberships && allMemberships.length > 0) {
           const inactiveMemberships = allMemberships.filter(m => !m.is_active)
           if (inactiveMemberships.length > 0) {
-            console.error("❌ [LOGIN ORGANIZADOR] Usuário tem membership mas está INATIVO!")
-            console.error("  - Membership IDs inativos:", inactiveMemberships.map(m => m.id))
-            console.error("  - Organizer IDs:", inactiveMemberships.map(m => m.organizer_id))
-            console.error("  - Isso pode ser a causa do problema!")
-            console.error("  - O usuário precisa ter is_active = true na tabela organization_users")
+            logger.error("❌ [LOGIN ORGANIZADOR] Usuário tem membership mas está INATIVO!")
+            logger.error("  - Membership IDs inativos:", inactiveMemberships.map(m => m.id))
+            logger.error("  - Organizer IDs:", inactiveMemberships.map(m => m.organizer_id))
+            logger.error("  - Isso pode ser a causa do problema!")
+            logger.error("  - O usuário precisa ter is_active = true na tabela organization_users")
             toast.error("Seu acesso à organização está inativo. Entre em contato com o administrador.")
             return
           }
         }
 
         // Se não é membro nem tem perfil, verificar role e tentar criar perfil
-        console.log("🔍 [LOGIN ORGANIZADOR] Não é membro. Verificando role do usuário...")
+        logger.log("🔍 [LOGIN ORGANIZADOR] Não é membro. Verificando role do usuário...")
         const userRole = userData?.role || data.user.user_metadata?.role
-        console.log("🔍 [LOGIN ORGANIZADOR] Role final:", userRole)
+        logger.log("🔍 [LOGIN ORGANIZADOR] Role final:", userRole)
         
         // Permitir criar perfil se role for ORGANIZADOR, ORGANIZER, ou ADMIN (admin pode ser organizador também)
         if (userRole && (
@@ -309,7 +339,7 @@ export default function OrganizerLoginPage() {
           userRole.toUpperCase() === "ADMIN"
         )) {
           const companyName = userData?.full_name || data.user.user_metadata?.full_name || "Organizador"
-          console.log("🔍 [LOGIN ORGANIZADOR] Tentando criar perfil de organizador...")
+          logger.log("🔍 [LOGIN ORGANIZADOR] Tentando criar perfil de organizador...")
           const { data: newOrganizer, error: createError } = await supabase
             .from("organizers")
             .insert({
@@ -322,7 +352,7 @@ export default function OrganizerLoginPage() {
             .select("id, user_id, company_name")
             .single()
 
-          console.log("🔍 [LOGIN ORGANIZADOR] Resultado criação organizador:", { 
+          logger.log("🔍 [LOGIN ORGANIZADOR] Resultado criação organizador:", { 
             newOrganizerId: newOrganizer?.id,
             error: createError?.message,
             errorCode: createError?.code,
@@ -336,31 +366,31 @@ export default function OrganizerLoginPage() {
             window.location.href = "/dashboard/organizer"
             return
           } else {
-            console.error("❌ [LOGIN ORGANIZADOR] Erro ao criar perfil:", createError)
+            logger.error("❌ [LOGIN ORGANIZADOR] Erro ao criar perfil:", createError)
           }
         } else {
-          console.log("⚠️ [LOGIN ORGANIZADOR] Role não permite criar perfil:", userRole)
+          logger.log("⚠️ [LOGIN ORGANIZADOR] Role não permite criar perfil:", userRole)
         }
 
         // Se chegou aqui, não tem acesso
-        console.error("❌ [LOGIN ORGANIZADOR] FALHA TOTAL - Usuário não tem acesso:")
-        console.error("  - User ID:", data.user.id)
-        console.error("  - User Email:", data.user.email)
-        console.error("  - Não é organizador principal")
-        console.error("  - Não é membro de organização")
-        console.error("  - Role:", userRole)
+        logger.error("❌ [LOGIN ORGANIZADOR] FALHA TOTAL - Usuário não tem acesso:")
+        logger.error("  - User ID:", data.user.id)
+        logger.error("  - User Email:", data.user.email)
+        logger.error("  - Não é organizador principal")
+        logger.error("  - Não é membro de organização")
+        logger.error("  - Role:", userRole)
         toast.error("Esta conta não possui perfil de organizador ou não é membro de nenhuma organização. Entre em contato com o suporte.")
         await supabase.auth.signOut()
         return
 
-        console.log("✅ [LOGIN ORGANIZADOR] Login autorizado. Redirecionando...")
+        logger.log("✅ [LOGIN ORGANIZADOR] Login autorizado. Redirecionando...")
         toast.success("Login realizado com sucesso!")
         window.location.href = "/dashboard/organizer"
       } else {
-        console.error("❌ [LOGIN ORGANIZADOR] data.user é null/undefined")
+        logger.error("❌ [LOGIN ORGANIZADOR] data.user é null/undefined")
       }
     } catch (error: any) {
-      console.error("❌ [LOGIN ORGANIZADOR] Erro capturado:", {
+      logger.error("❌ [LOGIN ORGANIZADOR] Erro capturado:", {
         message: error?.message,
         name: error?.name,
         stack: error?.stack
@@ -467,10 +497,20 @@ export default function OrganizerLoginPage() {
                   </div>
                 </div>
 
+                {/* reCAPTCHA */}
+                <div className="flex justify-center">
+                  <ReCaptchaComponent
+                    ref={recaptchaRef}
+                    onChange={setRecaptchaToken}
+                    onExpired={() => setRecaptchaToken(null)}
+                    theme="light"
+                  />
+                </div>
+
                 <div>
                   <Button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || (!!process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && !recaptchaToken)}
                     className="w-full h-12 text-base font-semibold bg-[#156634] hover:bg-[#125529] shadow-sm"
                   >
                     {loading ? (

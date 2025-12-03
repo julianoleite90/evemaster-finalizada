@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { enviarEmailConviteClube } from '@/lib/email/resend'
 import crypto from 'crypto'
+import { apiLogger as logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,13 +40,13 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (clubsError) {
-      console.error('Erro ao buscar clubes:', clubsError)
+      logger.error('Erro ao buscar clubes:', clubsError)
       return NextResponse.json({ error: 'Erro ao buscar clubes' }, { status: 500 })
     }
 
     return NextResponse.json({ clubs: clubs || [] })
   } catch (error: any) {
-    console.error('Erro ao buscar clubes:', error)
+    logger.error('Erro ao buscar clubes:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
@@ -155,7 +156,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (clubError) {
-      console.error('Erro ao criar clube:', clubError)
+      logger.error('Erro ao criar clube:', clubError)
       return NextResponse.json(
         { error: 'Erro ao criar clube', details: clubError.message },
         { status: 500 }
@@ -187,7 +188,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!emailResult.success) {
-      console.error('Erro ao enviar email:', emailResult.error)
+      logger.error('Erro ao enviar email:', emailResult.error)
       // Não falhar a requisição se o email falhar
     }
 
@@ -198,7 +199,7 @@ export async function POST(request: NextRequest) {
       email_sent: emailResult.success,
     })
   } catch (error: any) {
-    console.error('Erro ao criar clube:', error)
+    logger.error('Erro ao criar clube:', error)
     return NextResponse.json(
       { error: 'Erro ao processar clube', details: error.message },
       { status: 500 }

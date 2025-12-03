@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { Resend } from "resend"
+import { apiLogger as logger } from "@/lib/utils/logger"
 
 export const runtime = 'nodejs'
 
@@ -8,7 +9,7 @@ const resendApiKey = process.env.RESEND_API_KEY
 const resendFromEmail = process.env.RESEND_FROM_EMAIL || "Evemaster <inscricoes@evemaster.app>"
 
 // Log de configuração (mesmo padrão dos outros emails)
-console.log('🔧 [Export Email] Configuração:', {
+logger.log('🔧 [Export Email] Configuração:', {
   hasApiKey: !!resendApiKey,
   apiKeyPrefix: resendApiKey?.substring(0, 3) || 'N/A',
   fromEmail: resendFromEmail,
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!resendApiKey) {
-      console.error('❌ [Export Email] RESEND_API_KEY não configurada')
+      logger.error('❌ [Export Email] RESEND_API_KEY não configurada')
       return NextResponse.json(
         { error: "RESEND_API_KEY não configurada" },
         { status: 500 }
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
         return emailRegex.test(email)
       })
 
-    console.log('📧 [Export Email] Iniciando envio para:', validEmails)
+    logger.log('📧 [Export Email] Iniciando envio para:', validEmails)
 
     if (validEmails.length === 0) {
       return NextResponse.json(
@@ -196,14 +197,14 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
-      console.error('❌ [Export Email] Erro ao enviar email:', error)
+      logger.error('❌ [Export Email] Erro ao enviar email:', error)
       return NextResponse.json(
         { error: 'Erro ao enviar email', details: error.message },
         { status: 500 }
       )
     }
 
-    console.log('✅ [Export Email] Email enviado com sucesso!', {
+    logger.log('✅ [Export Email] Email enviado com sucesso!', {
       emailIds: data?.id,
       recipients: validEmails.length,
     })
@@ -215,7 +216,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [Export Email] Erro inesperado:', error)
+    logger.error('❌ [Export Email] Erro inesperado:', error)
     return NextResponse.json(
       { error: 'Erro ao processar requisição', details: error.message },
       { status: 500 }

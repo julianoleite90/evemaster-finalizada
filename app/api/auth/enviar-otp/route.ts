@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { enviarEmailOTP } from '@/lib/email/resend'
+import { rateLimitMiddleware } from '@/lib/security/rate-limit'
+import { enviarOTPSchema, validateRequest, formatZodErrors } from '@/lib/schemas/api-validation'
+import { authLogger as logger } from '@/lib/utils/logger'
 
 export const runtime = 'nodejs'
 
@@ -10,28 +13,23 @@ function generateOTPCode(): string {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limiting estrito para autenticação (5 tentativas em 15 minutos)
+  const rateLimitResponse = await rateLimitMiddleware(request, 'auth')
+  if (rateLimitResponse) return rateLimitResponse
+
   try {
     const body = await request.json()
-    const { cpf } = body as { cpf: string }
-
-    console.log('📧 [API enviar-otp] Recebido CPF:', cpf)
-
-    if (!cpf) {
-      return NextResponse.json(
-        { error: 'CPF é obrigatório' },
-        { status: 400 }
-      )
-    }
-
-    // Limpar CPF
-    const cleanCPF = cpf.replace(/\D/g, '')
     
-    if (cleanCPF.length !== 11) {
+    // Validação com Zod
+    const validation = validateRequest(enviarOTPSchema, body)
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'CPF inválido' },
+        { error: 'Dados inválidos', details: formatZodErrors(validation.error) },
         { status: 400 }
       )
     }
+
+    const cleanCPF = validation.data.cpf
 
     const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -47,22 +45,58 @@ export async function POST(request: NextRequest) {
       auth: { autoRefreshToken: false, persistSession: false }
     })
 
-    // Buscar email do usuário pelo CPF
-    const { data: userData, error: userError } = await supabaseAdmin
+    // 1. Buscar email do usuário pelo CPF na tabela users
+    let { data: userData, error: userError } = await supabaseAdmin
       .from('users')
       .select('id, email, full_name')
       .eq('cpf', cleanCPF)
       .maybeSingle()
 
+    // 2. Se não encontrou em users, buscar na tabela athletes
+    if (!userData && !userError) {
+      logger.log('Não encontrado em users, buscando em athletes...')
+      
+      const { data: athleteData } = await supabaseAdmin
+        .from('athletes')
+        .select('id, email, full_name, cpf, registration_id')
+        .eq('cpf', cleanCPF)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      
+      if (athleteData && athleteData.registration_id) {
+        // Buscar o user_id através da registration
+        const { data: regData } = await supabaseAdmin
+          .from('registrations')
+          .select('user_id')
+          .eq('id', athleteData.registration_id)
+          .maybeSingle()
+
+        if (regData?.user_id) {
+          // Buscar dados do usuário pelo user_id
+          const { data: userFromReg } = await supabaseAdmin
+            .from('users')
+            .select('id, email, full_name')
+            .eq('id', regData.user_id)
+            .maybeSingle()
+          
+          if (userFromReg) {
+            userData = userFromReg
+            logger.log('✅ Usuário encontrado via athletes->registrations->users:', userFromReg.email)
+          }
+        }
+      }
+    }
+
     if (userError || !userData?.email) {
-      console.error('❌ [API enviar-otp] Usuário não encontrado:', userError)
+      logger.warn('Usuário não encontrado:', userError)
       return NextResponse.json(
         { error: 'CPF não encontrado' },
         { status: 404 }
       )
     }
 
-    console.log('✅ [API enviar-otp] Usuário encontrado:', userData.email)
+    logger.log('Usuário encontrado:', userData.email)
 
     // Gerar código OTP
     const otpCode = generateOTPCode()
@@ -85,7 +119,7 @@ export async function POST(request: NextRequest) {
       })
 
     if (saveError) {
-      console.error('❌ [API enviar-otp] Erro ao salvar código:', saveError)
+      logger.error('Erro ao salvar código:', saveError)
       return NextResponse.json(
         { error: 'Erro ao gerar código de verificação' },
         { status: 500 }
@@ -100,7 +134,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!emailResult.success) {
-      console.error('❌ [API enviar-otp] Erro ao enviar email:', emailResult.error)
+      logger.error('Erro ao enviar email:', emailResult.error)
       return NextResponse.json(
         { error: 'Erro ao enviar código por email' },
         { status: 500 }
@@ -110,7 +144,7 @@ export async function POST(request: NextRequest) {
     // Mascarar email para exibição
     const maskedEmail = userData.email.replace(/(.{2})(.*)(@.*)/, '$1***$3')
 
-    console.log('✅ [API enviar-otp] Código enviado com sucesso para:', maskedEmail)
+    logger.log('Código enviado com sucesso para:', maskedEmail)
 
     return NextResponse.json({
       success: true,
@@ -120,7 +154,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [API enviar-otp] Erro:', error)
+    logger.error('Erro:', error)
     return NextResponse.json(
       { error: error.message || 'Erro interno' },
       { status: 500 }

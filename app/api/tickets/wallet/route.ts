@@ -1,3 +1,4 @@
+import { apiLogger as logger } from "@/lib/utils/logger"
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
@@ -190,7 +191,7 @@ export async function POST(request: NextRequest) {
           },
         })
       } catch (passError: any) {
-        console.error('Erro ao gerar pass:', passError)
+        logger.error('Erro ao gerar pass:', passError)
         const qrCodeDataURL = await QRCode.toDataURL(qrCodeData, {
           width: 200,
           margin: 1,
@@ -253,7 +254,7 @@ export async function POST(request: NextRequest) {
     )
 
   } catch (error: any) {
-    console.error('Erro ao gerar ingresso para carteira:', error)
+    logger.error('Erro ao gerar ingresso para carteira:', error)
     return NextResponse.json(
       { error: 'Erro ao gerar ingresso para carteira', details: error.message },
       { status: 500 }

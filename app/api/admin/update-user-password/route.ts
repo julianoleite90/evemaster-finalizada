@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
+import { apiLogger as logger } from "@/lib/utils/logger"
 
 export const runtime = 'nodejs'
 
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
     )
 
     if (updateError) {
-      console.error("Erro ao atualizar senha:", updateError)
+      logger.error("Erro ao atualizar senha:", updateError)
       return NextResponse.json(
         { error: "Erro ao atualizar senha", details: updateError.message },
         { status: 500 }
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
       }
     })
   } catch (error: any) {
-    console.error("Erro ao atualizar senha:", error)
+    logger.error("Erro ao atualizar senha:", error)
     return NextResponse.json(
       { error: "Erro interno do servidor", details: error.message },
       { status: 500 }

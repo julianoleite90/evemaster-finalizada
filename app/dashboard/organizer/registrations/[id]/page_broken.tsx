@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -207,7 +209,7 @@ export default function RegistrationDetailsPage() {
 
         setRegistration(formattedReg)
       } catch (error: any) {
-        console.error("Erro ao buscar inscrição:", error)
+        logger.error("Erro ao buscar inscrição:", error)
         toast.error("Erro ao carregar dados da inscrição")
       } finally {
         setLoading(false)
@@ -338,7 +340,7 @@ export default function RegistrationDetailsPage() {
         toast.error("Usuário não encontrado. Verifique email e CPF.")
       }
     } catch (error: any) {
-      console.error("Erro ao verificar usuário:", error)
+      logger.error("Erro ao verificar usuário:", error)
       toast.error("Erro ao verificar usuário")
       setUserNotFound(true)
     } finally {

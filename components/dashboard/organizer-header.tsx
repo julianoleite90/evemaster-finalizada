@@ -2,19 +2,8 @@
 
 import * as React from "react"
 import { useEffect, useState } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { Bell, User, HelpCircle, LogOut, Gift, TrendingUp, Award, Sparkles } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { Gift, Award } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { toast } from "sonner"
 
 interface CashbackTier {
   minAmount: number
@@ -58,7 +47,6 @@ function getNextTier(totalSales: number): CashbackTier | null {
 }
 
 export function OrganizerHeader() {
-  const router = useRouter()
   const [totalSales, setTotalSales] = useState<number>(0)
   const [loadingCashback, setLoadingCashback] = useState(true)
   const [showCashbackInfo, setShowCashbackInfo] = useState(false)
@@ -121,24 +109,6 @@ export function OrganizerHeader() {
     fetchTotalSales()
   }, [])
 
-  const handleLogout = async () => {
-    try {
-      const supabase = createClient()
-      const { error } = await supabase.auth.signOut()
-      
-      if (error) {
-        toast.error("Erro ao fazer logout")
-        return
-      }
-
-      toast.success("Logout realizado com sucesso")
-      router.push("/login/organizer")
-    } catch (error) {
-      console.error("Erro ao fazer logout:", error)
-      toast.error("Erro ao fazer logout")
-    }
-  }
-
   const currentTier = getCurrentTier(totalSales)
   const nextTier = getNextTier(totalSales)
   
@@ -173,13 +143,17 @@ export function OrganizerHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-gray-200 bg-white shadow-sm">
-      <div className="flex h-14 items-center justify-between px-4 md:px-6">
-        {/* Lado Esquerdo - Barra de Cashback */}
+    <header className="border-b border-gray-200 bg-white">
+      <div className="flex h-[63px] items-center justify-between px-6">
+        <div className="flex-1 max-w-7xl mx-auto flex items-center justify-between">
+        {/* Lado Esquerdo - Vazio */}
+        <div />
+
+        {/* Lado Direito - Cashback */}
         <div className="flex items-center gap-3 relative">
           {!loadingCashback && (
             <>
-              {/* Ícone do Tier */}
+              {/* Ícone do Tier (primeiro) */}
               <div 
                 className={`p-1.5 rounded-lg bg-gradient-to-br ${getTierColor(currentTier)} shadow-sm cursor-pointer transition-transform hover:scale-105`}
                 onMouseEnter={() => setShowCashbackInfo(true)}
@@ -192,48 +166,46 @@ export function OrganizerHeader() {
                 )}
               </div>
 
-              {/* Info Tier + Barra */}
-              <div className="flex items-center gap-3">
-                <div className="flex flex-col">
+              {/* Info Tier */}
+              {currentTier.percentage > 0 && (
+                <div className="flex flex-col items-start">
                   <div className="flex items-center gap-1.5">
                     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${getTierBgLight(currentTier)}`}>
                       {currentTier.label}
                     </span>
-                    {currentTier.percentage > 0 && (
-                      <span className="text-[10px] text-[#156634] font-bold hidden sm:inline">
-                        {currentTier.percentage}%
-                      </span>
-                    )}
+                    <span className="text-[10px] text-[#156634] font-bold hidden sm:inline">
+                      {currentTier.percentage}%
+                    </span>
                   </div>
                   <span className="text-[9px] text-gray-400 hidden sm:inline">
                     {formatCurrency(totalSales)} vendido
                   </span>
                 </div>
+              )}
 
-                {/* Barra de Progresso Compacta */}
-                <div className="hidden md:flex items-center gap-2">
-                  <div className="w-28 lg:w-36 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full bg-gradient-to-r ${nextTier ? getTierColor(nextTier) : getTierColor(currentTier)} transition-all duration-500 rounded-full`}
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                  {nextTier && (
-                    <span className="text-[9px] text-gray-400 whitespace-nowrap">
-                      {formatCurrency(nextTier.minAmount - totalSales)}
-                    </span>
-                  )}
-                  {!nextTier && (
-                    <span className="text-[9px] text-yellow-600 whitespace-nowrap">
-                      MAX
-                    </span>
-                  )}
+              {/* Barra de Progresso Compacta */}
+              <div className="hidden md:flex items-center gap-2">
+                <div className="w-28 lg:w-36 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full bg-gradient-to-r ${nextTier ? getTierColor(nextTier) : getTierColor(currentTier)} transition-all duration-500 rounded-full`}
+                    style={{ width: `${progress}%` }}
+                  />
                 </div>
+                {nextTier && (
+                  <span className="text-[9px] text-gray-400 whitespace-nowrap">
+                    {formatCurrency(nextTier.minAmount - totalSales)}
+                  </span>
+                )}
+                {!nextTier && (
+                  <span className="text-[9px] text-yellow-600 whitespace-nowrap">
+                    MAX
+                  </span>
+                )}
               </div>
 
               {/* Popup de Info */}
               {showCashbackInfo && (
-                <div className="absolute top-full left-0 mt-2 z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-3 min-w-[220px]">
+                <div className="absolute top-full right-0 mt-2 z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-3 min-w-[220px]">
                   <div className="flex items-center gap-2 mb-2">
                     <Gift className="w-4 h-4 text-[#156634]" />
                     <p className="font-semibold text-sm text-gray-800">Programa de Cashback</p>
@@ -271,41 +243,8 @@ export function OrganizerHeader() {
             </>
           )}
         </div>
-
-        {/* Lado Direito - Ações */}
-        <div className="flex items-center gap-1 md:gap-2">
-          <Button variant="ghost" size="icon" type="button" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 h-8 w-8">
-            <HelpCircle className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" type="button" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 relative h-8 w-8">
-            <Bell className="h-4 w-4" />
-            <span className="absolute top-1 right-1 h-1.5 w-1.5 bg-red-500 rounded-full" />
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" type="button" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 h-8 w-8">
-                <div className="h-7 w-7 bg-gray-200 rounded-full flex items-center justify-center">
-                  <User className="h-3.5 w-3.5 text-gray-600" />
-                </div>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/organizer/profile" className="flex items-center gap-2 cursor-pointer">
-                  <User className="h-4 w-4" />
-                  Meu Perfil
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-600">
-                <LogOut className="h-4 w-4" />
-                Sair
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
     </header>
   )
 }
-

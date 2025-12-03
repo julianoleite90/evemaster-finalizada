@@ -9,6 +9,7 @@ import { Building2, MapPin, FileText, Mail, Phone, User, CreditCard, Percent, Al
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
+import { logger } from "@/lib/utils/logger"
 
 export default function OrganizerProfilePage() {
   const [isEditingBank, setIsEditingBank] = useState(false)
@@ -48,25 +49,25 @@ export default function OrganizerProfilePage() {
         const user = session?.user
 
         if (!user) {
-          console.error("Usuário não autenticado")
+          logger.error("Usuário não autenticado")
           window.location.href = "/login"
           return
         }
 
-        console.log("=== DEBUG AUTENTICAÇÃO ===")
-        console.log("User ID (logado):", user.id)
-        console.log("User email:", user.email)
-        console.log("Session:", session)
-        console.log("⚠️ IMPORTANTE: Verifique se este User ID bate com o user_id na tabela organizers!")
+        logger.log("=== DEBUG AUTENTICAÇÃO ===")
+        logger.log("User ID (logado):", user.id)
+        logger.log("User email:", user.email)
+        logger.log("Session:", session)
+        logger.log("⚠️ IMPORTANTE: Verifique se este User ID bate com o user_id na tabela organizers!")
 
         // Verificar se o token está sendo enviado corretamente
         const { data: { user: verifyUser }, error: verifyError } = await supabase.auth.getUser()
-        console.log("Verify user:", verifyUser?.id, "Error:", verifyError)
+        logger.log("Verify user:", verifyUser?.id, "Error:", verifyError)
         
         // Verificar token na sessão
         const accessToken = session?.access_token
-        console.log("Access token presente:", accessToken ? "SIM" : "NÃO")
-        console.log("Token expira em:", session?.expires_at ? new Date(session.expires_at * 1000).toLocaleString() : "N/A")
+        logger.log("Access token presente:", accessToken ? "SIM" : "NÃO")
+        logger.log("Token expira em:", session?.expires_at ? new Date(session.expires_at * 1000).toLocaleString() : "N/A")
 
         // Buscar dados do usuário
         const { data: userData, error: userDataError } = await supabase
@@ -75,17 +76,17 @@ export default function OrganizerProfilePage() {
           .eq("id", user.id)
           .maybeSingle()
 
-        console.log("User data:", userData)
-        console.log("User data error:", userDataError)
+        logger.log("User data:", userData)
+        logger.log("User data error:", userDataError)
         
         if (!accessToken) {
-          console.error("❌ Access token não encontrado na sessão!")
+          logger.error("❌ Access token não encontrado na sessão!")
           toast.error("Sessão expirada. Faça login novamente.")
           window.location.href = "/login"
           return
         }
 
-        console.log("✅ Access token encontrado:", accessToken.substring(0, 20) + "...")
+        logger.log("✅ Access token encontrado:", accessToken.substring(0, 20) + "...")
 
         // Buscar perfil de organizador
         // ESTRATÉGIA: Tentar múltiplas formas de buscar
@@ -93,27 +94,27 @@ export default function OrganizerProfilePage() {
         let organizerError = null
 
         // 1. Tentar buscar por user_id (forma padrão)
-        console.log("🔍 Tentativa 1: Buscar por user_id =", user.id)
-        console.log("🔍 User email =", user.email)
+        logger.log("🔍 Tentativa 1: Buscar por user_id =", user.id)
+        logger.log("🔍 User email =", user.email)
         let { data: organizerByUserId, error: errorByUserId } = await supabase
           .from("organizers")
           .select("*")
           .eq("user_id", user.id)
           .maybeSingle()
 
-        console.log("📊 Resultado da busca por user_id:")
-        console.log("  - organizerByUserId:", organizerByUserId ? "ENCONTRADO ✅" : "NÃO ENCONTRADO ❌")
-        console.log("  - Dados completos:", JSON.stringify(organizerByUserId, null, 2))
-        console.log("  - Erro:", errorByUserId)
+        logger.log("📊 Resultado da busca por user_id:")
+        logger.log("  - organizerByUserId:", organizerByUserId ? "ENCONTRADO ✅" : "NÃO ENCONTRADO ❌")
+        logger.log("  - Dados completos:", JSON.stringify(organizerByUserId, null, 2))
+        logger.log("  - Erro:", errorByUserId)
 
         if (organizerByUserId && !errorByUserId) {
-          console.log("✅✅✅ ENCONTRADO POR USER_ID! ✅✅✅")
+          logger.log("✅✅✅ ENCONTRADO POR USER_ID! ✅✅✅")
           organizer = organizerByUserId
         } else {
-          console.log("❌ Não encontrado por user_id:", errorByUserId)
+          logger.log("❌ Não encontrado por user_id:", errorByUserId)
           
           // 2. Tentar buscar TODOS os organizadores e filtrar por email do usuário
-          console.log("🔍 Tentativa 2: Buscar todos e filtrar por email =", user.email)
+          logger.log("🔍 Tentativa 2: Buscar todos e filtrar por email =", user.email)
           const { data: allOrganizers, error: errorAll } = await supabase
             .from("organizers")
             .select(`
@@ -125,7 +126,7 @@ export default function OrganizerProfilePage() {
             .limit(100)
 
           if (allOrganizers && !errorAll) {
-            console.log("📋 Total de organizadores encontrados:", allOrganizers.length)
+            logger.log("📋 Total de organizadores encontrados:", allOrganizers.length)
             // Buscar o organizador que tem o mesmo email do usuário logado
             const organizerByEmail = allOrganizers.find((org: any) => {
               // Se tiver relação com users, verificar email
@@ -135,11 +136,11 @@ export default function OrganizerProfilePage() {
             })
             
             if (organizerByEmail) {
-              console.log("✅ Encontrado por email!")
+              logger.log("✅ Encontrado por email!")
               organizer = organizerByEmail
             } else {
               // 3. Última tentativa: buscar o organizador pelo ID conhecido (se soubermos qual é)
-              console.log("🔍 Tentativa 3: Buscar organizador específico conhecido")
+              logger.log("🔍 Tentativa 3: Buscar organizador específico conhecido")
               const { data: organizerById, error: errorById } = await supabase
                 .from("organizers")
                 .select("*")
@@ -147,39 +148,39 @@ export default function OrganizerProfilePage() {
                 .maybeSingle()
               
               if (organizerById && !errorById) {
-                console.log("✅ Encontrado por ID conhecido!")
+                logger.log("✅ Encontrado por ID conhecido!")
                 organizer = organizerById
                 // IMPORTANTE: Corrigir o user_id enquanto estamos aqui
-                console.log("🔧 Corrigindo user_id do organizador...")
+                logger.log("🔧 Corrigindo user_id do organizador...")
                 const { error: updateError } = await supabase
                   .from("organizers")
                   .update({ user_id: user.id, updated_at: new Date().toISOString() })
                   .eq("id", organizer.id)
                 
                 if (updateError) {
-                  console.error("❌ Erro ao corrigir user_id:", updateError)
+                  logger.error("❌ Erro ao corrigir user_id:", updateError)
                 } else {
-                  console.log("✅ user_id corrigido com sucesso!")
+                  logger.log("✅ user_id corrigido com sucesso!")
                 }
               } else {
-                console.log("❌ Não encontrado por ID conhecido:", errorById)
+                logger.log("❌ Não encontrado por ID conhecido:", errorById)
                 organizerError = errorById || errorAll || errorByUserId
               }
             }
           } else {
-            console.log("❌ Erro ao buscar todos:", errorAll)
+            logger.log("❌ Erro ao buscar todos:", errorAll)
             organizerError = errorAll || errorByUserId
           }
         }
 
-        console.log("=== RESULTADO DA QUERY ORGANIZER ===")
-        console.log("Organizer encontrado:", organizer ? "SIM" : "NÃO")
-        console.log("Organizer completo:", JSON.stringify(organizer, null, 2))
-        console.log("Organizer error:", organizerError)
+        logger.log("=== RESULTADO DA QUERY ORGANIZER ===")
+        logger.log("Organizer encontrado:", organizer ? "SIM" : "NÃO")
+        logger.log("Organizer completo:", JSON.stringify(organizer, null, 2))
+        logger.log("Organizer error:", organizerError)
 
         // Se ainda não encontrou, tentar via função RPC por email
         if (!organizer) {
-          console.log("⚠️ Tentando buscar via RPC por email...")
+          logger.log("⚠️ Tentando buscar via RPC por email...")
           
           // Tentar RPC por user_id primeiro
           const { data: organizerRPC, error: rpcError } = await supabase.rpc('get_organizer_by_user_id', {
@@ -187,57 +188,57 @@ export default function OrganizerProfilePage() {
           })
 
           if (organizerRPC && !rpcError) {
-            console.log("✅ Dados obtidos via RPC (user_id)")
+            logger.log("✅ Dados obtidos via RPC (user_id)")
             organizer = Array.isArray(organizerRPC) ? organizerRPC[0] : organizerRPC
             organizerError = null
           } else {
-            console.log("❌ RPC por user_id falhou, tentando por email...")
+            logger.log("❌ RPC por user_id falhou, tentando por email...")
             // Tentar RPC por email
             const { data: organizerByEmailRPC, error: rpcEmailError } = await supabase.rpc('get_organizer_by_email', {
               p_email: user.email
             })
 
             if (organizerByEmailRPC && !rpcEmailError) {
-              console.log("✅ Dados obtidos via RPC (email)")
+              logger.log("✅ Dados obtidos via RPC (email)")
               organizer = Array.isArray(organizerByEmailRPC) ? organizerByEmailRPC[0] : organizerByEmailRPC
               organizerError = null
               
               // Se encontrou mas user_id está errado, corrigir
               if (organizer.user_id !== user.id) {
-                console.log("🔧 Corrigindo user_id via RPC...")
+                logger.log("🔧 Corrigindo user_id via RPC...")
                 const { error: fixError } = await supabase.rpc('fix_organizer_user_id', {
                   p_organizer_id: organizer.id,
                   p_user_email: user.email
                 })
                 
                 if (fixError) {
-                  console.error("❌ Erro ao corrigir user_id:", fixError)
+                  logger.error("❌ Erro ao corrigir user_id:", fixError)
                 } else {
-                  console.log("✅ user_id corrigido via RPC!")
+                  logger.log("✅ user_id corrigido via RPC!")
                 }
               }
             } else {
-              console.error("❌ RPC por email também falhou:", rpcEmailError)
+              logger.error("❌ RPC por email também falhou:", rpcEmailError)
               organizerError = rpcEmailError || rpcError
             }
           }
         }
 
-        console.log("=== RESULTADO DA QUERY ===")
-        console.log("Organizer encontrado:", organizer ? "SIM" : "NÃO")
-        console.log("Organizer data:", organizer)
-        console.log("Organizer error:", organizerError)
-        console.log("Organizer error code:", organizerError?.code)
-        console.log("Organizer error message:", organizerError?.message)
-        console.log("Organizer error details:", organizerError?.details)
-        console.log("Organizer error hint:", organizerError?.hint)
+        logger.log("=== RESULTADO DA QUERY ===")
+        logger.log("Organizer encontrado:", organizer ? "SIM" : "NÃO")
+        logger.log("Organizer data:", organizer)
+        logger.log("Organizer error:", organizerError)
+        logger.log("Organizer error code:", organizerError?.code)
+        logger.log("Organizer error message:", organizerError?.message)
+        logger.log("Organizer error details:", organizerError?.details)
+        logger.log("Organizer error hint:", organizerError?.hint)
 
         // Se houver erro, verificar se é RLS
         if (organizerError) {
-          console.error("ERRO AO BUSCAR ORGANIZADOR:", organizerError)
+          logger.error("ERRO AO BUSCAR ORGANIZADOR:", organizerError)
           if (organizerError.code === "42501" || organizerError.message?.includes("permission denied") || organizerError.message?.includes("row-level security")) {
-            console.error("❌ ERRO DE RLS - Política de segurança bloqueando acesso")
-            console.error("Verifique se auth.uid() está retornando:", user.id)
+            logger.error("❌ ERRO DE RLS - Política de segurança bloqueando acesso")
+            logger.error("Verifique se auth.uid() está retornando:", user.id)
             toast.error("Erro de permissão. Verifique o console para mais detalhes.")
           }
         }
@@ -314,13 +315,13 @@ export default function OrganizerProfilePage() {
         }
 
         // Se encontrou o perfil, carregar dados
-        console.log("=== CARREGANDO DADOS DO ORGANIZER ===")
-        console.log("Organizer completo recebido:", JSON.stringify(organizer, null, 2))
-        console.log("CNPJ:", organizer.company_cnpj)
-        console.log("Endereço:", organizer.company_address)
-        console.log("Banco:", organizer.bank_name)
-        console.log("Agência:", organizer.agency)
-        console.log("Conta:", organizer.account_number)
+        logger.log("=== CARREGANDO DADOS DO ORGANIZER ===")
+        logger.log("Organizer completo recebido:", JSON.stringify(organizer, null, 2))
+        logger.log("CNPJ:", organizer.company_cnpj)
+        logger.log("Endereço:", organizer.company_address)
+        logger.log("Banco:", organizer.bank_name)
+        logger.log("Agência:", organizer.agency)
+        logger.log("Conta:", organizer.account_number)
 
         const enderecoParts = []
         if (organizer.company_address) enderecoParts.push(organizer.company_address)
@@ -353,9 +354,9 @@ export default function OrganizerProfilePage() {
           pix: ""
         }
 
-        console.log("=== DADOS QUE SERÃO EXIBIDOS ===")
-        console.log("Empresa data:", JSON.stringify(empresaDataToSet, null, 2))
-        console.log("Bank data:", JSON.stringify(bankDataToSet, null, 2))
+        logger.log("=== DADOS QUE SERÃO EXIBIDOS ===")
+        logger.log("Empresa data:", JSON.stringify(empresaDataToSet, null, 2))
+        logger.log("Bank data:", JSON.stringify(bankDataToSet, null, 2))
 
         // SETAR OS DADOS
         setEmpresaData(empresaDataToSet)
@@ -363,12 +364,12 @@ export default function OrganizerProfilePage() {
         
         // VERIFICAR SE FORAM SETADOS (com um pequeno delay para o React processar)
         setTimeout(() => {
-          console.log("=== VERIFICAÇÃO PÓS-SET ===")
-          console.log("Estado empresaData após set:", empresaDataToSet)
-          console.log("Estado bankData após set:", bankDataToSet)
+          logger.log("=== VERIFICAÇÃO PÓS-SET ===")
+          logger.log("Estado empresaData após set:", empresaDataToSet)
+          logger.log("Estado bankData após set:", bankDataToSet)
         }, 100)
       } catch (error: any) {
-        console.error("Erro ao buscar perfil:", error)
+        logger.error("Erro ao buscar perfil:", error)
         toast.error("Erro ao carregar dados do perfil")
       } finally {
         setLoading(false)
@@ -420,17 +421,17 @@ export default function OrganizerProfilePage() {
       toast.success("Dados bancários salvos com sucesso!")
       setIsEditingBank(false)
     } catch (error: any) {
-      console.error("Erro ao salvar dados bancários:", error)
+      logger.error("Erro ao salvar dados bancários:", error)
       toast.error("Erro ao salvar dados bancários")
     }
   }
 
   // DEBUG: Log dos estados atuais
   useEffect(() => {
-    console.log("=== ESTADO ATUAL DO COMPONENTE ===")
-    console.log("loading:", loading)
-    console.log("empresaData:", JSON.stringify(empresaData, null, 2))
-    console.log("bankData:", JSON.stringify(bankData, null, 2))
+    logger.log("=== ESTADO ATUAL DO COMPONENTE ===")
+    logger.log("loading:", loading)
+    logger.log("empresaData:", JSON.stringify(empresaData, null, 2))
+    logger.log("bankData:", JSON.stringify(bankData, null, 2))
   }, [loading, empresaData, bankData])
 
   if (loading) {

@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { useParams, useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -147,7 +149,7 @@ export default function ObrigadoPage() {
       URL.revokeObjectURL(url)
       
     } catch (error) {
-      console.error('Erro ao gerar comprovante:', error)
+      logger.error('Erro ao gerar comprovante:', error)
     } finally {
       setDownloading(false)
     }
@@ -161,7 +163,7 @@ export default function ObrigadoPage() {
           setLanguage(event.language)
         }
       } catch (error) {
-        console.error("Erro ao buscar idioma do evento:", error)
+        logger.error("Erro ao buscar idioma do evento:", error)
       }
     }
 
@@ -175,7 +177,7 @@ export default function ObrigadoPage() {
         const parsed = JSON.parse(decodeURIComponent(resumoParam))
         setResumo(parsed)
       } catch (error) {
-        console.error("Erro ao parsear resumo:", error)
+        logger.error("Erro ao parsear resumo:", error)
       }
     }
     

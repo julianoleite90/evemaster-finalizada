@@ -1,3 +1,4 @@
+import { apiLogger as logger } from "@/lib/utils/logger"
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -122,7 +123,7 @@ export async function PUT(
       .single()
 
     if (updateError) {
-      console.error('Erro ao atualizar cupom:', updateError)
+      logger.error('Erro ao atualizar cupom:', updateError)
       return NextResponse.json(
         { error: 'Erro ao atualizar cupom', details: updateError.message },
         { status: 500 }
@@ -136,7 +137,7 @@ export async function PUT(
     })
 
   } catch (error: any) {
-    console.error('Erro ao atualizar cupom:', error)
+    logger.error('Erro ao atualizar cupom:', error)
     return NextResponse.json(
       { error: 'Erro ao processar cupom', details: error.message },
       { status: 500 }

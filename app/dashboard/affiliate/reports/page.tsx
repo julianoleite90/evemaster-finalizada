@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -55,7 +57,7 @@ export default function AffiliateReportsPage() {
         setEvents(data.events || [])
       }
     } catch (error) {
-      console.error('Erro ao buscar eventos:', error)
+      logger.error('Erro ao buscar eventos:', error)
     }
   }
 
@@ -76,7 +78,7 @@ export default function AffiliateReportsPage() {
         setStats(data)
       }
     } catch (error) {
-      console.error('Erro ao buscar estatísticas:', error)
+      logger.error('Erro ao buscar estatísticas:', error)
     } finally {
       setLoading(false)
     }

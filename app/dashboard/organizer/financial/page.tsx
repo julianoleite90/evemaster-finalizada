@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -52,7 +54,7 @@ export default function OrganizerFinancialPage() {
       const access = await getOrganizerAccess(supabase, user.id)
       
       if (!access) {
-        console.error("❌ [FINANCIAL] Usuário não tem acesso ao dashboard do organizador")
+        logger.error("❌ [FINANCIAL] Usuário não tem acesso ao dashboard do organizador")
         toast.error("Você não tem permissão para acessar este dashboard")
         setLoading(false)
         return
@@ -117,7 +119,7 @@ export default function OrganizerFinancialPage() {
       setWithdrawals(withdrawalsData || [])
 
     } catch (error: any) {
-      console.error("Erro ao buscar dados:", error)
+      logger.error("Erro ao buscar dados:", error)
       toast.error("Erro ao carregar dados financeiros")
     } finally {
       setLoading(false)
@@ -172,7 +174,7 @@ export default function OrganizerFinancialPage() {
       setWithdrawalAmount("")
       fetchData()
     } catch (error: any) {
-      console.error("Erro ao solicitar saque:", error)
+      logger.error("Erro ao solicitar saque:", error)
       toast.error("Erro ao solicitar saque: " + (error.message || "Erro desconhecido"))
     } finally {
       setRequestingWithdrawal(false)

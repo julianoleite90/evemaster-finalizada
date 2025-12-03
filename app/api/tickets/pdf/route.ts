@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { logError } from '@/lib/logger'
+import { apiLogger as logger } from '@/lib/utils/logger'
 // @ts-ignore
 import jsPDF from 'jspdf'
 import QRCode from 'qrcode'
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
             registration = adminRegData
             regError = null
           } else {
-            console.log('Acesso negado:', {
+            logger.log('Acesso negado:', {
               registrationId,
               userId: user.id,
               userEmail,
@@ -155,7 +156,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (regError || !registration) {
-      console.error('Erro ao buscar inscrição:', regError)
+      logger.error('Erro ao buscar inscrição:', regError)
       return NextResponse.json(
         { error: 'Inscrição não encontrada', details: regError?.message },
         { status: 404 }
@@ -231,7 +232,7 @@ export async function POST(request: NextRequest) {
           bannerLoaded = true
         }
       } catch (imgError) {
-        console.error('Erro ao carregar imagem:', imgError)
+        logger.error('Erro ao carregar imagem:', imgError)
       }
     }
     
@@ -367,7 +368,7 @@ export async function POST(request: NextRequest) {
       })
       doc.addImage(qrCodeDataURL, 'PNG', qrX + 17, yPos + 5, 35, 35)
     } catch (qrError) {
-      console.error('Erro ao gerar QR Code:', qrError)
+      logger.error('Erro ao gerar QR Code:', qrError)
     }
     
     doc.setTextColor(gray.r, gray.g, gray.b)

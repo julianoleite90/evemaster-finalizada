@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
+import { logger } from "@/lib/utils/logger"
 import { Button } from "@/components/ui/button"
 import { Loader2, Ticket } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -33,7 +34,7 @@ export default function MyAccountPage() {
         // Salvar userId para uso no componente
         setUserId(user.id)
         
-        console.log("🔍 [MyAccount] Buscando inscrições para usuário:", {
+        logger.log("🔍 [MyAccount] Buscando inscrições para usuário:", {
           userId: user.id,
           email: user.email,
         })
@@ -83,8 +84,8 @@ export default function MyAccountPage() {
           
           if (!error && data) {
             directRegistrations = data || []
-            console.log("✅ [MyAccount] Inscrições encontradas por athlete_id/buyer_id:", directRegistrations.length)
-            console.log("📋 [MyAccount] Dados das inscrições:", directRegistrations.map(r => ({
+            logger.log("✅ [MyAccount] Inscrições encontradas por athlete_id/buyer_id:", directRegistrations.length)
+            logger.log("📋 [MyAccount] Dados das inscrições:", directRegistrations.map(r => ({
               id: r.id,
               athlete_id: r.athlete_id,
               buyer_id: r.buyer_id,
@@ -93,11 +94,11 @@ export default function MyAccountPage() {
               ticket: r.ticket?.category
             })))
           } else if (error) {
-            console.error("❌ [MyAccount] Erro ao buscar inscrições:", error)
-            console.error("❌ [MyAccount] Detalhes do erro:", JSON.stringify(error, null, 2))
+            logger.error("❌ [MyAccount] Erro ao buscar inscrições:", error)
+            logger.error("❌ [MyAccount] Detalhes do erro:", JSON.stringify(error, null, 2))
           }
         } catch (err: any) {
-          console.error("❌ [MyAccount] Erro ao buscar inscrições:", err.message)
+          logger.error("❌ [MyAccount] Erro ao buscar inscrições:", err.message)
         }
 
         // 2. Buscar através dos atletas com o mesmo email (case-insensitive)
@@ -111,10 +112,10 @@ export default function MyAccountPage() {
               .ilike("email", user.email) // Case-insensitive
 
             if (athletesError) {
-              console.error("❌ [MyAccount] Erro ao buscar atletas:", athletesError)
+              logger.error("❌ [MyAccount] Erro ao buscar atletas:", athletesError)
               // Não bloquear o fluxo, apenas logar o erro
             } else {
-              console.log("✅ [MyAccount] Atletas encontrados:", athletes?.length || 0)
+              logger.log("✅ [MyAccount] Atletas encontrados:", athletes?.length || 0)
             }
 
             if (athletes && athletes.length > 0) {
@@ -122,7 +123,7 @@ export default function MyAccountPage() {
                 .map(a => a.registration_id)
                 .filter(id => id !== null) as string[]
 
-              console.log("🔍 [MyAccount] IDs de registrations dos atletas:", registrationIds.length)
+              logger.log("🔍 [MyAccount] IDs de registrations dos atletas:", registrationIds.length)
 
               if (registrationIds.length > 0) {
                 const { data: regs, error: regError } = await supabase
@@ -160,14 +161,14 @@ export default function MyAccountPage() {
 
                 if (!regError && regs) {
                   athleteRegistrations = regs || []
-                  console.log("✅ [MyAccount] Inscrições encontradas por email do atleta:", athleteRegistrations.length)
+                  logger.log("✅ [MyAccount] Inscrições encontradas por email do atleta:", athleteRegistrations.length)
                 } else if (regError) {
-                  console.error("❌ [MyAccount] Erro ao buscar registrations dos atletas:", regError)
+                  logger.error("❌ [MyAccount] Erro ao buscar registrations dos atletas:", regError)
                 }
               }
             }
           } catch (athleteErr: any) {
-            console.error("❌ [MyAccount] Erro ao processar busca de atletas:", athleteErr)
+            logger.error("❌ [MyAccount] Erro ao processar busca de atletas:", athleteErr)
             // Continuar o fluxo mesmo com erro
           }
         }
@@ -184,12 +185,12 @@ export default function MyAccountPage() {
             index === self.findIndex((r) => r.id === reg.id)
         )
 
-        console.log("📊 [MyAccount] Total de inscrições únicas encontradas:", uniqueRegistrations.length)
-        console.log("📋 [MyAccount] IDs das inscrições:", uniqueRegistrations.map(r => r.id))
+        logger.log("📊 [MyAccount] Total de inscrições únicas encontradas:", uniqueRegistrations.length)
+        logger.log("📋 [MyAccount] IDs das inscrições:", uniqueRegistrations.map(r => r.id))
 
         setInscricoes(uniqueRegistrations)
       } catch (error) {
-        console.error("❌ [MyAccount] Erro ao buscar inscrições:", error)
+        logger.error("❌ [MyAccount] Erro ao buscar inscrições:", error)
         toast.error("Erro ao carregar inscrições")
       } finally {
         setLoading(false)
@@ -232,7 +233,7 @@ export default function MyAccountPage() {
       
       toast.success('Ingresso baixado com sucesso!', { id: 'pdf-loading' })
     } catch (error: any) {
-      console.error('Erro ao gerar ingresso:', error)
+      logger.error('Erro ao gerar ingresso:', error)
       toast.error(error.message || 'Erro ao gerar ingresso', { id: 'pdf-loading' })
     }
   }

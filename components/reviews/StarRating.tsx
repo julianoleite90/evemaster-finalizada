@@ -93,11 +93,11 @@ export function RatingDisplay({
   className,
 }: RatingDisplayProps) {
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn("flex flex-col gap-0.5", className)}>
       <StarRating rating={rating} size={size} />
       {showDetails && (
-        <div className="flex items-center gap-1 text-sm text-gray-600">
-          <span className="font-semibold text-gray-800">{rating.toFixed(1)}</span>
+        <div className="flex items-center gap-1 text-[11px] text-gray-500">
+          <span className="font-medium text-gray-600">{rating.toFixed(1)}</span>
           <span>•</span>
           <span>
             {totalReviews} {totalReviews === 1 ? "avaliação" : "avaliações"}

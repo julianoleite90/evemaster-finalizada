@@ -1,6 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { logger } from "@/lib/utils/logger"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,6 +17,7 @@ import { createClient } from "@/lib/supabase/client"
 import { getOrganizerAccess } from "@/lib/supabase/organizer-access"
 import { getUserPermissions } from "@/lib/supabase/user-permissions"
 import { usePermissions } from "@/hooks/use-permissions"
+import { DeleteUserDialog } from "./components"
 
 export default function OrganizerSettingsPage() {
   const { canView, canEdit, canCreate, canDelete, isPrimary } = usePermissions()
@@ -101,6 +103,7 @@ export default function OrganizerSettingsPage() {
     can_export_reports: false,
   })
   const [addingUser, setAddingUser] = useState(false)
+  const [deletingUser, setDeletingUser] = useState<any | null>(null)
 
   useEffect(() => {
     fetchProfile()
@@ -123,7 +126,7 @@ export default function OrganizerSettingsPage() {
       const access = await getOrganizerAccess(supabase, user.id)
       
       if (!access) {
-        console.error("❌ [SETTINGS] Usuário não tem acesso ao dashboard do organizador")
+        logger.error("❌ [SETTINGS] Usuário não tem acesso ao dashboard do organizador")
         toast.error("Você não tem permissão para acessar este dashboard")
         setLoading(false)
         return
@@ -180,7 +183,7 @@ export default function OrganizerSettingsPage() {
         .order("created_at", { ascending: false })
 
       if (orgUsersError) {
-        console.error("Erro ao buscar usuários da organização:", orgUsersError)
+        logger.error("Erro ao buscar usuários da organização:", orgUsersError)
         toast.error("Erro ao carregar usuários: " + orgUsersError.message)
         setOrganizationUsers([])
         return
@@ -195,22 +198,22 @@ export default function OrganizerSettingsPage() {
           .in("id", userIds)
 
         if (usersError) {
-          console.error("Erro ao buscar dados dos usuários:", usersError)
+          logger.error("Erro ao buscar dados dos usuários:", usersError)
         } else {
           // Combinar dados
           const orgUsersWithUserData = orgUsers.map(orgUser => ({
             ...orgUser,
             user: usersData?.find(u => u.id === orgUser.user_id) || null
           }))
-          console.log("Usuários encontrados:", orgUsersWithUserData.length, orgUsersWithUserData)
+          logger.log("Usuários encontrados:", orgUsersWithUserData.length, orgUsersWithUserData)
           setOrganizationUsers(orgUsersWithUserData)
         }
       } else {
-        console.log("Nenhum usuário encontrado na organização")
+        logger.log("Nenhum usuário encontrado na organização")
         setOrganizationUsers([])
       }
     } catch (error: any) {
-      console.error("Erro ao buscar perfil:", error)
+      logger.error("Erro ao buscar perfil:", error)
       toast.error("Erro ao carregar dados")
     } finally {
       setLoading(false)
@@ -240,7 +243,7 @@ export default function OrganizerSettingsPage() {
       toast.success("Dados bancários salvos com sucesso!")
       setIsEditingBank(false)
     } catch (error: any) {
-      console.error("Erro ao salvar:", error)
+      logger.error("Erro ao salvar:", error)
       toast.error("Erro ao salvar dados bancários")
     }
   }
@@ -262,7 +265,7 @@ export default function OrganizerSettingsPage() {
 
       setUserExists(!!user)
     } catch (error) {
-      console.error("Erro ao verificar usuário:", error)
+      logger.error("Erro ao verificar usuário:", error)
       setUserExists(null)
     } finally {
       setCheckingUser(false)
@@ -328,7 +331,7 @@ export default function OrganizerSettingsPage() {
 
         if (!response.ok) {
           const errorMessage = data.details || data.error || "Erro ao criar usuário"
-          console.error("Erro da API:", errorMessage, data)
+          logger.error("Erro da API:", errorMessage, data)
           throw new Error(errorMessage)
         }
 
@@ -351,7 +354,7 @@ export default function OrganizerSettingsPage() {
             toast.success("Usuário criado com sucesso! (Email não foi enviado)")
           }
         } catch (emailError) {
-          console.error("Erro ao enviar email:", emailError)
+          logger.error("Erro ao enviar email:", emailError)
           toast.success("Usuário criado com sucesso! (Email não foi enviado)")
         }
       } else {
@@ -452,7 +455,7 @@ export default function OrganizerSettingsPage() {
         fetchProfile()
       }, 500)
     } catch (error: any) {
-      console.error("Erro ao adicionar usuário:", error)
+      logger.error("Erro ao adicionar usuário:", error)
       const errorMessage = error.message || "Erro desconhecido"
       
       // Mensagens mais específicas baseadas no erro
@@ -1227,7 +1230,7 @@ export default function OrganizerSettingsPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                console.log("🔧 [EDIT USER] Clicou em editar:", orgUser)
+                                logger.log("🔧 [EDIT USER] Clicou em editar:", orgUser)
                                 setEditingUser(orgUser)
                                 setEditUserPermissions({
                                   can_view: orgUser.can_view || false,
@@ -1253,7 +1256,7 @@ export default function OrganizerSettingsPage() {
                                   can_view_reports: orgUser.can_view_reports || false,
                                   can_export_reports: orgUser.can_export_reports || false,
                                 })
-                                console.log("🔧 [EDIT USER] Estado atualizado:", {
+                                logger.log("🔧 [EDIT USER] Estado atualizado:", {
                                   editingUser: orgUser,
                                   permissions: {
                                     can_view: orgUser.can_view || false,
@@ -1299,35 +1302,14 @@ export default function OrganizerSettingsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={async () => {
-                                // Verificar permissão de deletar
-                                const supabase = createClient()
-                                const { data: { user: currentUser } } = await supabase.auth.getUser()
-                                if (currentUser) {
-                                  const permissions = await getUserPermissions(supabase, currentUser.id)
-                                  if (!permissions?.can_delete && !permissions?.is_primary) {
-                                    toast.error("Você não tem permissão para remover usuários")
-                                    return
-                                  }
-                                }
-
-                                if (confirm("Tem certeza que deseja remover este usuário da organização? Esta ação não pode ser desfeita.")) {
-                                  const { error } = await supabase
-                                    .from("organization_users")
-                                    .delete()
-                                    .eq("id", orgUser.id)
-                                  if (error) {
-                                    toast.error("Erro ao remover usuário")
-                                  } else {
-                                    toast.success("Usuário removido com sucesso")
-                                    fetchProfile()
-                                  }
-                                }
+                              onClick={() => {
+                                logger.log("🗑️ [DELETE USER] Abrindo dialog para:", orgUser)
+                                setDeletingUser(orgUser)
                               }}
                               title="Remover usuário"
                             >
-                                  <Trash2 className="h-4 w-4 text-red-600" />
-                                </Button>
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
                               )}
                           </div>
                         </TableCell>
@@ -1343,7 +1325,7 @@ export default function OrganizerSettingsPage() {
 
       {/* Dialog de Editar Usuário */}
       <Dialog open={!!editingUser} onOpenChange={(open) => {
-        console.log("🔧 [EDIT USER DIALOG] onOpenChange:", open, "editingUser:", editingUser)
+        logger.log("🔧 [EDIT USER DIALOG] onOpenChange:", open, "editingUser:", editingUser)
         if (!open) setEditingUser(null)
       }}>
         <DialogContent className="sm:max-w-[500px]">
@@ -1674,7 +1656,7 @@ export default function OrganizerSettingsPage() {
                     .eq("id", editingUser.id)
 
                   if (error) {
-                    console.error("Erro ao atualizar permissões:", error)
+                    logger.error("Erro ao atualizar permissões:", error)
                     toast.error("Erro ao atualizar permissões")
                   } else {
                     toast.success("Permissões atualizadas com sucesso!")
@@ -1682,7 +1664,7 @@ export default function OrganizerSettingsPage() {
                     fetchProfile()
                   }
                 } catch (error: any) {
-                  console.error("Erro ao atualizar permissões:", error)
+                  logger.error("Erro ao atualizar permissões:", error)
                   toast.error("Erro ao atualizar permissões")
                 }
               }}
@@ -1692,6 +1674,14 @@ export default function OrganizerSettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de Confirmar Deleção de Usuário */}
+      <DeleteUserDialog
+        user={deletingUser}
+        open={!!deletingUser}
+        onOpenChange={(open) => !open && setDeletingUser(null)}
+        onSuccess={fetchProfile}
+      />
     </div>
   )
 }

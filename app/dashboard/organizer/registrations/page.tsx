@@ -2,17 +2,11 @@
 
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { logger } from "@/lib/utils/logger"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -23,7 +17,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Download, Filter, X, Calendar, CheckCircle, Clock, XCircle, Loader2, User, Mail, MapPin, DollarSign, Copy, Check, ChevronRight, Send } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Search, Download, Filter, Loader2, ChevronRight, Send, CheckCircle, Clock, XCircle } from "lucide-react"
 import { useState, useEffect } from "react"
 import { format } from "date-fns"
 import { createClient } from "@/lib/supabase/client"
@@ -31,6 +32,7 @@ import { toast } from "sonner"
 import { parallelQueries, safeQuery } from "@/lib/supabase/query-safe"
 import { DashboardErrorBoundary } from "@/components/error/DashboardErrorBoundary"
 import { getOrganizerAccess } from "@/lib/supabase/organizer-access"
+import { StatsCards, RegistrationRow, FiltersCard } from "./components"
 
 interface Registration {
   id: string
@@ -60,17 +62,23 @@ interface Registration {
   cupomDesconto?: number
   clubeId?: string
   clubeNome?: string
+  afiliadoId?: string
+  afiliadoNome?: string
 }
 
 function RegistrationsPageContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedEvent, setSelectedEvent] = useState<string>("all")
-  const [selectedStatus, setSelectedStatus] = useState<string>("all")
+  const [selectedStatus, setSelectedStatus] = useState<string>("paid")
   const [selectedClub, setSelectedClub] = useState<string>("all")
+  const [selectedCoupon, setSelectedCoupon] = useState<string>("all")
+  const [selectedAffiliate, setSelectedAffiliate] = useState<string>("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
   const [clubesList, setClubesList] = useState<Array<{ id: string; name: string }>>([])
-  const [showFilters, setShowFilters] = useState(false)
+  const [couponsList, setCouponsList] = useState<Array<{ code: string }>>([])
+  const [affiliatesList, setAffiliatesList] = useState<Array<{ id: string; name: string }>>([])
+  const [showFilters, setShowFilters] = useState(true)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [loading, setLoading] = useState(true)
   const [registrations, setRegistrations] = useState<Registration[]>([])
@@ -130,7 +138,7 @@ function RegistrationsPageContent() {
         const access = await getOrganizerAccess(supabase, user.id)
         
         if (!access) {
-          console.error("❌ [REGISTRATIONS] Usuário não tem acesso ao dashboard do organizador")
+          logger.error("❌ [REGISTRATIONS] Usuário não tem acesso ao dashboard do organizador")
           toast.error("Você não tem permissão para acessar este dashboard")
           setRegistrations([])
           setLoading(false)
@@ -150,11 +158,12 @@ function RegistrationsPageContent() {
           setOrganizerName(organizer.company_name || "Organizador")
         }
 
-        // Buscar eventos do organizador
+        // Buscar eventos do organizador (excluir cancelados dos filtros)
         const { data: events } = await supabase
           .from("events")
           .select("id, name")
           .eq("organizer_id", organizerId)
+          .neq("status", "cancelled")
 
         const eventIds = events?.map(e => e.id) || []
         const eventNames = events?.map(e => e.name) || []
@@ -190,7 +199,7 @@ function RegistrationsPageContent() {
         )
 
         if (registrationsResult.error) {
-          console.error("Erro ao buscar inscrições:", registrationsResult.error)
+          logger.error("Erro ao buscar inscrições:", registrationsResult.error)
           toast.error("Erro ao carregar inscrições")
           return
         }
@@ -201,8 +210,8 @@ function RegistrationsPageContent() {
         const allRegistrations = extractArray(registrationsResult.data)
 
         // Buscar dados relacionados com parallelQueries (não falha tudo se uma query falhar)
-        const registrationIds = allRegistrations?.map(r => r.id) || []
-        const ticketIds = allRegistrations?.map(r => r.ticket_id).filter(Boolean) || []
+        const registrationIds = allRegistrations?.map((r: any) => r.id) || []
+        const ticketIds = allRegistrations?.map((r: any) => r.ticket_id).filter(Boolean) || []
         
         const { data: relatedData, errors } = await parallelQueries({
           athletes: async () => await supabase
@@ -229,7 +238,7 @@ function RegistrationsPageContent() {
 
         // Log erros mas não bloqueia (queries independentes)
         if (Object.keys(errors).length > 0) {
-          console.warn("⚠️ Algumas queries falharam (não crítico):", errors)
+          logger.warn("⚠️ Algumas queries falharam (não crítico):", errors)
         }
 
         // Usar extractArray para desembrulhar os dados do parallelQueries
@@ -272,7 +281,7 @@ function RegistrationsPageContent() {
           const ticket = reg.ticket_id ? ticketsMap.get(reg.ticket_id) : null
           // NOTA: running_club_id não existe em payments
           // TODO: Buscar clube via running_club_participants usando registration_id
-          const clube = null // payment?.running_club_id ? clubesMap.get(payment.running_club_id) : null
+          const clube: any = null // payment?.running_club_id ? clubesMap.get(payment.running_club_id) : null
           
           return {
             id: reg.id,
@@ -287,7 +296,7 @@ function RegistrationsPageContent() {
             evento: reg.events?.name || "N/A",
             categoria: ticket?.category || "N/A",
             dataInscricao: reg.created_at,
-            statusPagamento: reg.status === "confirmed" ? "paid" : (payment?.payment_status as any) || "pending",
+            statusPagamento: reg.status === "cancelled" ? "cancelled" : reg.status === "confirmed" ? "paid" : (payment?.payment_status as any) || "pending",
             valor: Number(payment?.total_amount || ticket?.price || 0),
             metodoPagamento: payment?.payment_method === "pix" ? "PIX" : 
                             payment?.payment_method === "credit_card" ? "Cartão de Crédito" :
@@ -309,7 +318,7 @@ function RegistrationsPageContent() {
 
         setRegistrations(formattedRegistrations)
       } catch (error: any) {
-        console.error("Erro ao buscar inscrições:", error)
+        logger.error("Erro ao buscar inscrições:", error)
         toast.error("Erro ao carregar dados")
       } finally {
         setLoading(false)
@@ -395,72 +404,54 @@ function RegistrationsPageContent() {
     }
   }
 
-  // Filtrar registrations
-  const filteredRegistrations = registrations.filter((reg) => {
+  // Filtrar registrations pelo evento (para os cards de estatísticas)
+  const eventFilteredRegistrations = registrations.filter((reg) => {
     if (searchTerm) {
       const search = searchTerm.toLowerCase()
       const nome = (reg.nome || "").toLowerCase()
       const email = (reg.email || "").toLowerCase()
       const numeroInscricao = (reg.numeroInscricao || "").toLowerCase()
-      if (
-        !nome.includes(search) &&
-        !email.includes(search) &&
-        !numeroInscricao.includes(search)
-      ) {
+      if (!nome.includes(search) && !email.includes(search) && !numeroInscricao.includes(search)) {
         return false
       }
     }
-
-    if (selectedEvent !== "all" && reg.evento !== selectedEvent) {
-      return false
-    }
-
-    if (selectedStatus !== "all" && reg.statusPagamento !== selectedStatus) {
-      return false
-    }
-
+    if (selectedEvent !== "all" && reg.evento !== selectedEvent) return false
     if (selectedClub !== "all") {
-      if (selectedClub === "with_club") {
-        // Filtrar apenas inscrições com clube
-        if (!reg.clubeId) {
-          return false
-        }
-      } else if (selectedClub === "without_club") {
-        // Filtrar apenas inscrições sem clube
-        if (reg.clubeId) {
-          return false
-        }
-      } else {
-        // Filtrar por clube específico
-        if (reg.clubeId !== selectedClub) {
-          return false
-        }
-      }
+      if (selectedClub === "with_club" && !reg.clubeId) return false
+      if (selectedClub === "without_club" && reg.clubeId) return false
+      if (selectedClub !== "with_club" && selectedClub !== "without_club" && reg.clubeId !== selectedClub) return false
     }
-
+    if (selectedCoupon !== "all") {
+      if (selectedCoupon === "with_coupon" && !reg.cupomCodigo) return false
+      if (selectedCoupon === "without_coupon" && reg.cupomCodigo) return false
+      if (selectedCoupon !== "with_coupon" && selectedCoupon !== "without_coupon" && reg.cupomCodigo !== selectedCoupon) return false
+    }
+    if (selectedAffiliate !== "all") {
+      if (selectedAffiliate === "with_affiliate" && !reg.afiliadoId) return false
+      if (selectedAffiliate === "without_affiliate" && reg.afiliadoId) return false
+      if (selectedAffiliate !== "with_affiliate" && selectedAffiliate !== "without_affiliate" && reg.afiliadoId !== selectedAffiliate) return false
+    }
     if (dateFrom) {
       try {
         const regDate = new Date(reg.dataInscricao)
         const fromDate = new Date(dateFrom)
-        if (isNaN(regDate.getTime()) || isNaN(fromDate.getTime())) return true
-        if (regDate < fromDate) return false
-      } catch (error) {
-        console.error("Erro ao filtrar por data inicial:", error)
-      }
+        if (!isNaN(regDate.getTime()) && !isNaN(fromDate.getTime()) && regDate < fromDate) return false
+      } catch {}
     }
-
     if (dateTo) {
       try {
         const regDate = new Date(reg.dataInscricao)
         const toDate = new Date(dateTo)
-        if (isNaN(regDate.getTime()) || isNaN(toDate.getTime())) return true
         toDate.setHours(23, 59, 59, 999)
-        if (regDate > toDate) return false
-      } catch (error) {
-        console.error("Erro ao filtrar por data final:", error)
-      }
+        if (!isNaN(regDate.getTime()) && !isNaN(toDate.getTime()) && regDate > toDate) return false
+      } catch {}
     }
+    return true
+  })
 
+  // Filtrar registrations (inclui filtro de status)
+  const filteredRegistrations = eventFilteredRegistrations.filter((reg) => {
+    if (selectedStatus !== "all" && reg.statusPagamento !== selectedStatus) return false
     return true
   })
 
@@ -473,21 +464,25 @@ function RegistrationsPageContent() {
   // Resetar página quando filtros mudarem
   useEffect(() => {
     setCurrentPage(1)
-  }, [selectedEvent, selectedStatus, selectedClub, dateFrom, dateTo, searchTerm])
+  }, [selectedEvent, selectedStatus, selectedClub, selectedCoupon, selectedAffiliate, dateFrom, dateTo, searchTerm])
 
   const clearFilters = () => {
     setSearchTerm("")
     setSelectedEvent("all")
-    setSelectedStatus("all")
+    setSelectedStatus("paid") // Padrão é "paid"
     setSelectedClub("all")
+    setSelectedCoupon("all")
+    setSelectedAffiliate("all")
     setDateFrom("")
     setDateTo("")
   }
 
   const hasActiveFilters =
     selectedEvent !== "all" ||
-    selectedStatus !== "all" ||
+    selectedStatus !== "paid" || // Padrão é "paid"
     selectedClub !== "all" ||
+    selectedCoupon !== "all" ||
+    selectedAffiliate !== "all" ||
     dateFrom !== "" ||
     dateTo !== ""
 
@@ -643,7 +638,7 @@ function RegistrationsPageContent() {
 
       toast.success(`Exportação XLS realizada com sucesso! ${filteredRegistrations.length} inscrição(ões) exportada(s)`)
     } catch (error) {
-      console.error("Erro ao exportar XLS:", error)
+      logger.error("Erro ao exportar XLS:", error)
       toast.error("Erro ao exportar arquivo XLS")
     }
   }
@@ -784,7 +779,7 @@ function RegistrationsPageContent() {
       setEmailRecipients("")
       setShowExportDialog(false)
     } catch (error: any) {
-      console.error("Erro ao enviar por email:", error)
+      logger.error("Erro ao enviar por email:", error)
       toast.error(error.message || "Erro ao enviar email")
     } finally {
       setSendingEmail(false)
@@ -993,152 +988,37 @@ function RegistrationsPageContent() {
 
       {/* Filtros avançados */}
       {showFilters && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-medium">Filtros</CardTitle>
-              {hasActiveFilters && (
-                <Button variant="ghost" size="sm" onClick={clearFilters}>
-                  <X className="mr-2 h-3.5 w-3.5" />
-                  Limpar
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Evento</Label>
-                <Select value={selectedEvent} onValueChange={setSelectedEvent}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Todos os eventos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os eventos</SelectItem>
-                    {eventos.map((evento) => (
-                      <SelectItem key={evento} value={evento}>
-                        {evento}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">Status</Label>
-                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Todos os status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os status</SelectItem>
-                    <SelectItem value="paid">Pago</SelectItem>
-                    <SelectItem value="pending">Pendente</SelectItem>
-                    <SelectItem value="cancelled">Cancelado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">Clube de Corrida</Label>
-                <Select value={selectedClub} onValueChange={setSelectedClub}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Todos os clubes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="with_club">Com Clube</SelectItem>
-                    <SelectItem value="without_club">Sem Clube</SelectItem>
-                    {clubesList.map((clube) => (
-                      <SelectItem key={clube.id} value={clube.id}>
-                        {clube.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">Data Inicial</Label>
-                <Input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="h-9 text-sm"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">Data Final</Label>
-                <Input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="h-9 text-sm"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <FiltersCard
+          selectedEvent={selectedEvent}
+          setSelectedEvent={setSelectedEvent}
+          selectedStatus={selectedStatus}
+          setSelectedStatus={setSelectedStatus}
+          selectedClub={selectedClub}
+          setSelectedClub={setSelectedClub}
+          selectedCoupon={selectedCoupon}
+          setSelectedCoupon={setSelectedCoupon}
+          selectedAffiliate={selectedAffiliate}
+          setSelectedAffiliate={setSelectedAffiliate}
+          dateFrom={dateFrom}
+          setDateFrom={setDateFrom}
+          dateTo={dateTo}
+          setDateTo={setDateTo}
+          eventos={eventos}
+          clubesList={clubesList}
+          couponsList={couponsList}
+          affiliatesList={affiliatesList}
+          clearFilters={clearFilters}
+          hasActiveFilters={hasActiveFilters}
+        />
       )}
 
-      {/* Estatísticas rápidas */}
-      <div className="grid gap-3 md:grid-cols-4">
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Total</p>
-                <p className="text-xl font-semibold mt-1">{filteredRegistrations.length}</p>
-              </div>
-              <User className="h-8 w-8 text-muted-foreground/50" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Pagas</p>
-                <p className="text-xl font-semibold mt-1 text-green-600">
-                  {filteredRegistrations.filter((r) => r.statusPagamento === "paid").length}
-                </p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-green-500/50" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Pendentes</p>
-                <p className="text-xl font-semibold mt-1 text-yellow-600">
-                  {filteredRegistrations.filter((r) => r.statusPagamento === "pending").length}
-                </p>
-              </div>
-              <Clock className="h-8 w-8 text-yellow-500/50" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Receita</p>
-                <p className="text-xl font-semibold mt-1">
-                  {formatCurrency(
-                    filteredRegistrations
-                      .filter((r) => r.statusPagamento === "paid")
-                      .reduce((sum, r) => sum + (Number(r.valor) || 0), 0)
-                  )}
-                </p>
-              </div>
-              <DollarSign className="h-8 w-8 text-muted-foreground/50" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Estatísticas rápidas - Clicáveis para filtrar (baseado no evento filtrado) */}
+      <StatsCards
+        registrations={eventFilteredRegistrations}
+        selectedStatus={selectedStatus}
+        onStatusChange={setSelectedStatus}
+        formatCurrency={formatCurrency}
+      />
 
       {/* Lista de inscritos - Layout moderno */}
       <Card>
@@ -1147,7 +1027,7 @@ function RegistrationsPageContent() {
             <div>
               <CardTitle className="text-base font-semibold">Lista de Inscritos</CardTitle>
               <CardDescription className="text-xs mt-1">
-                {filteredRegistrations.length} inscrito(s) encontrado(s)
+                Filtro: {selectedEvent === "all" ? "Todos eventos" : selectedEvent} • {filteredRegistrations.length} inscrito(s)
               </CardDescription>
             </div>
           </div>
@@ -1156,10 +1036,9 @@ function RegistrationsPageContent() {
           {filteredRegistrations.length > 0 ? (
             <>
               {/* Cabeçalho da tabela */}
-              <div className="hidden md:grid md:grid-cols-[minmax(0,200px)_minmax(0,180px)_1fr_1fr_1fr_1fr_1fr] gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                <div>Nome</div>
+              <div className="hidden md:grid md:grid-cols-[minmax(0,240px)_minmax(0,350px)_minmax(0,140px)_minmax(0,100px)_minmax(0,100px)_minmax(0,120px)] gap-6 px-4 py-3 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                <div>Nome / Email / ID</div>
                 <div>Evento</div>
-                <div>ID</div>
                 <div>Data/Hora</div>
                 <div>Categoria</div>
                 <div>Valor</div>
@@ -1167,228 +1046,15 @@ function RegistrationsPageContent() {
               </div>
 
               {/* Lista de inscrições */}
-            <div className="divide-y">
+            <div className="divide-y" key={`list-${selectedStatus}-${selectedEvent}-${currentPage}`}>
                 {paginatedRegistrations.map((registration) => (
-                <div
-                  key={registration.id}
-                  className="block hover:bg-gray-50/50 transition-colors"
-                >
-                    <div className="px-4 py-3">
-                      {/* Desktop: Layout em grid */}
-                      <div className="hidden md:grid md:grid-cols-[minmax(0,200px)_minmax(0,180px)_1fr_1fr_1fr_1fr_1fr] gap-3 items-center">
-                        {/* Nome e Email */}
-                        <div className="min-w-0 overflow-hidden">
-                          <p 
-                            className="text-sm font-medium text-gray-900 truncate cursor-pointer hover:text-green-600 transition-colors" 
-                            title={registration.nome}
-                            onClick={(e) => handleCopy(e, registration.nome, `nome-${registration.id}`)}
-                          >
-                            {registration.nome}
-                            {copiedId === `nome-${registration.id}` ? (
-                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
-                            ) : null}
-                          </p>
-                          <p 
-                            className="text-xs text-gray-600 truncate mt-0.5 cursor-pointer hover:text-green-600 transition-colors" 
-                            title={registration.email}
-                            onClick={(e) => handleCopy(e, registration.email, `email-${registration.id}`)}
-                          >
-                            {registration.email}
-                            {copiedId === `email-${registration.id}` ? (
-                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
-                            ) : null}
-                          </p>
-                        </div>
-
-                        {/* Evento */}
-                        <div className="min-w-0 overflow-hidden">
-                          <p 
-                            className="text-xs text-gray-600 truncate cursor-pointer hover:text-green-600 transition-colors" 
-                            title={registration.evento}
-                            onClick={(e) => handleCopy(e, registration.evento, `evento-${registration.id}`)}
-                          >
-                            {registration.evento}
-                            {copiedId === `evento-${registration.id}` ? (
-                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
-                            ) : null}
-                          </p>
-                        </div>
-
-                        {/* ID */}
-                        <div>
-                          <p 
-                            className="font-mono text-[10px] text-gray-500 cursor-pointer hover:text-green-600 transition-colors" 
-                            title={registration.numeroInscricao}
-                            onClick={(e) => handleCopy(e, registration.numeroInscricao, `id-${registration.id}`)}
-                          >
-                          {registration.numeroInscricao}
-                            {copiedId === `id-${registration.id}` ? (
-                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
-                            ) : null}
-                        </p>
-                      </div>
-
-                        {/* Data/Hora */}
-                        <div>
-                          <p 
-                            className="text-xs text-gray-600 cursor-pointer hover:text-green-600 transition-colors" 
-                            title={formatDate(registration.dataInscricao, true)}
-                            onClick={(e) => handleCopy(e, formatDate(registration.dataInscricao, true), `data-${registration.id}`)}
-                          >
-                            {formatDate(registration.dataInscricao, true)}
-                            {copiedId === `data-${registration.id}` ? (
-                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
-                            ) : null}
-                          </p>
-                        </div>
-
-                        {/* Categoria */}
-                        <div>
-                          <Badge 
-                            variant="outline" 
-                            className="text-[10px] cursor-pointer hover:border-green-600 transition-colors"
-                            onClick={(e) => handleCopy(e, registration.categoria, `categoria-${registration.id}`)}
-                          >
-                          {registration.categoria}
-                            {copiedId === `categoria-${registration.id}` ? (
-                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
-                            ) : null}
-                        </Badge>
-                        </div>
-
-                        {/* Valor */}
-                        <div>
-                          <p 
-                            className="text-xs font-medium text-gray-900 cursor-pointer hover:text-green-600 transition-colors"
-                            onClick={(e) => handleCopy(e, formatCurrency(Number(registration.valor) || 0), `valor-${registration.id}`)}
-                          >
-                          {formatCurrency(Number(registration.valor) || 0)}
-                            {copiedId === `valor-${registration.id}` ? (
-                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
-                            ) : null}
-                        </p>
-                      </div>
-
-                        {/* Status e Info (Cupom/Clube) */}
-                        <div className="flex items-center justify-between w-full gap-2">
-                          <div className="flex flex-col gap-1 flex-1">
-                          <div
-                            onClick={(e) => {
-                              const statusText = registration.statusPagamento === 'paid' ? 'Pago' : registration.statusPagamento === 'pending' ? 'Pendente' : 'Cancelado'
-                              handleCopy(e, statusText, `status-${registration.id}`)
-                            }}
-                            className="cursor-pointer"
-                          >
-                            {getStatusBadge(registration.statusPagamento)}
-                            {copiedId === `status-${registration.id}` ? (
-                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
-                            ) : null}
-                            </div>
-                            <div className="flex flex-wrap gap-1">
-                              {registration.cupomCodigo && (
-                                <Badge variant="outline" className="text-[9px] px-1.5 py-0.5 bg-blue-50 text-blue-700 border-blue-200">
-                                  🎟️ {registration.cupomCodigo}
-                                  {registration.cupomDesconto && (
-                                    <span className="ml-1">(-{registration.cupomDesconto.toFixed(2)})</span>
-                                  )}
-                                </Badge>
-                              )}
-                              {registration.clubeNome && (
-                                <Badge variant="outline" className="text-[9px] px-1.5 py-0.5 bg-purple-50 text-purple-700 border-purple-200">
-                                  🏃 {registration.clubeNome.length > 15 ? `${registration.clubeNome.substring(0, 15)}...` : registration.clubeNome}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <Link
-                            href={`/dashboard/organizer/registrations/${registration.id}`}
-                            className="text-gray-400 hover:text-green-600 transition-colors"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </Link>
-                      </div>
-                    </div>
-
-                      {/* Mobile: Layout compacto */}
-                      <div className="md:hidden flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p 
-                              className="text-sm font-medium text-gray-900 truncate cursor-pointer hover:text-green-600 transition-colors" 
-                              title={registration.nome}
-                              onClick={(e) => handleCopy(e, registration.nome, `nome-mobile-${registration.id}`)}
-                            >
-                              {registration.nome}
-                              {copiedId === `nome-mobile-${registration.id}` ? (
-                                <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
-                              ) : null}
-                            </p>
-                            <div
-                              onClick={(e) => {
-                                const statusText = registration.statusPagamento === 'paid' ? 'Pago' : registration.statusPagamento === 'pending' ? 'Pendente' : 'Cancelado'
-                                handleCopy(e, statusText, `status-mobile-${registration.id}`)
-                              }}
-                            >
-                              {getStatusBadge(registration.statusPagamento)}
-                            </div>
-                          </div>
-                          <p 
-                            className="text-xs text-gray-600 truncate mb-1 cursor-pointer hover:text-green-600 transition-colors" 
-                            title={registration.email}
-                            onClick={(e) => handleCopy(e, registration.email, `email-mobile-${registration.id}`)}
-                          >
-                            {registration.email}
-                            {copiedId === `email-mobile-${registration.id}` ? (
-                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
-                            ) : null}
-                          </p>
-                          <p 
-                            className="text-xs text-gray-500 truncate cursor-pointer hover:text-green-600 transition-colors" 
-                            title={registration.evento}
-                            onClick={(e) => handleCopy(e, registration.evento, `evento-mobile-${registration.id}`)}
-                          >
-                            {registration.evento.length > 40 ? `${registration.evento.substring(0, 40)}...` : registration.evento}
-                            {copiedId === `evento-mobile-${registration.id}` ? (
-                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
-                            ) : null}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p 
-                            className="font-mono text-[10px] text-gray-500 mb-0.5 cursor-pointer hover:text-green-600 transition-colors"
-                            onClick={(e) => handleCopy(e, registration.numeroInscricao, `id-mobile-${registration.id}`)}
-                          >
-                        {registration.numeroInscricao}
-                            {copiedId === `id-mobile-${registration.id}` ? (
-                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
-                            ) : null}
-                      </p>
-                          <p className="text-[10px] text-gray-500 mb-1">{formatDate(registration.dataInscricao, true)}</p>
-                          <p 
-                            className="text-xs font-medium text-gray-900 cursor-pointer hover:text-green-600 transition-colors"
-                            onClick={(e) => handleCopy(e, formatCurrency(Number(registration.valor) || 0), `valor-mobile-${registration.id}`)}
-                          >
-                        {formatCurrency(Number(registration.valor) || 0)}
-                            {copiedId === `valor-mobile-${registration.id}` ? (
-                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
-                            ) : null}
-                      </p>
-                          <Badge 
-                            variant="outline" 
-                            className="text-[10px] mt-1 cursor-pointer hover:border-green-600 transition-colors"
-                            onClick={(e) => handleCopy(e, registration.categoria, `categoria-mobile-${registration.id}`)}
-                          >
-                        {registration.categoria}
-                            {copiedId === `categoria-mobile-${registration.id}` ? (
-                              <Check className="inline-block ml-1 h-3 w-3 text-green-600" />
-                            ) : null}
-                      </Badge>
-                        </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  <RegistrationRow
+                    key={registration.id}
+                    registration={registration}
+                    formatDate={formatDate}
+                    formatCurrency={formatCurrency}
+                  />
+                ))}
             </div>
 
               {/* Controles de Paginação */}

@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -44,7 +46,7 @@ export default function EventsPage() {
       if (error) throw error
       setEvents(data || [])
     } catch (error: any) {
-      console.error("Erro ao buscar dados:", error)
+      logger.error("Erro ao buscar dados:", error)
       toast.error("Erro ao carregar dados")
     } finally {
       setLoading(false)

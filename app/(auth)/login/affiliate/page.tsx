@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { logger } from "@/lib/utils/logger"
+
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -9,12 +11,15 @@ import { toast } from "sonner"
 import { Loader2, Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import { ReCaptchaComponent, ReCaptchaRef } from "@/components/auth/ReCaptcha"
 
 export default function AffiliateLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null)
+  const recaptchaRef = useRef<ReCaptchaRef>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -24,8 +29,34 @@ export default function AffiliateLoginPage() {
       return
     }
 
+    // Verificar reCAPTCHA (se configurado)
+    const captchaToken = recaptchaToken || recaptchaRef.current?.getToken()
+    if (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && !captchaToken) {
+      toast.error("Complete o reCAPTCHA para continuar")
+      return
+    }
+
     try {
       setLoading(true)
+
+      // Verificar reCAPTCHA no servidor (se configurado)
+      if (captchaToken) {
+        const recaptchaResponse = await fetch("/api/auth/verify-recaptcha", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: captchaToken }),
+        })
+        
+        const recaptchaResult = await recaptchaResponse.json()
+        if (!recaptchaResult.success) {
+          toast.error("Verificação reCAPTCHA falhou. Tente novamente.")
+          recaptchaRef.current?.reset()
+          setRecaptchaToken(null)
+          setLoading(false)
+          return
+        }
+      }
+
       const supabase = createClient()
 
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -63,7 +94,7 @@ export default function AffiliateLoginPage() {
         window.location.href = "/dashboard/affiliate"
       }
     } catch (error: any) {
-      console.error("❌ [LOGIN AFILIADO] Erro capturado:", {
+      logger.error("❌ [LOGIN AFILIADO] Erro capturado:", {
         message: error?.message,
         name: error?.name
       })
@@ -169,10 +200,20 @@ export default function AffiliateLoginPage() {
                   </div>
                 </div>
 
+                {/* reCAPTCHA */}
+                <div className="flex justify-center">
+                  <ReCaptchaComponent
+                    ref={recaptchaRef}
+                    onChange={setRecaptchaToken}
+                    onExpired={() => setRecaptchaToken(null)}
+                    theme="light"
+                  />
+                </div>
+
                 <div>
                   <Button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || (!!process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && !recaptchaToken)}
                     className="w-full h-12 text-base font-semibold bg-[#156634] hover:bg-[#125529] shadow-sm"
                   >
                     {loading ? (

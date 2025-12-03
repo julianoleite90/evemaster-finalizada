@@ -1,3 +1,4 @@
+import { apiLogger as logger } from "@/lib/utils/logger"
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
       .eq('affiliate_id', affiliate.id)
 
     if (commissionsError) {
-      console.error('Erro ao buscar eventos:', commissionsError)
+      logger.error('Erro ao buscar eventos:', commissionsError)
       return NextResponse.json({ error: 'Erro ao buscar eventos' }, { status: 500 })
     }
 
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ events })
   } catch (error: any) {
-    console.error('Erro ao buscar eventos:', error)
+    logger.error('Erro ao buscar eventos:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

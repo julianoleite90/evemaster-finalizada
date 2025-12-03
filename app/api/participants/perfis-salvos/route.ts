@@ -1,3 +1,4 @@
+import { apiLogger as logger } from "@/lib/utils/logger"
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Erro ao buscar perfis:', error)
+      logger.error('Erro ao buscar perfis:', error)
       return NextResponse.json(
         { error: 'Erro ao buscar perfis salvos' },
         { status: 500 }
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
       profiles: profiles || [],
     })
   } catch (error: any) {
-    console.error('Erro ao buscar perfis salvos:', error)
+    logger.error('Erro ao buscar perfis salvos:', error)
     return NextResponse.json(
       { error: 'Erro ao buscar perfis salvos' },
       { status: 500 }

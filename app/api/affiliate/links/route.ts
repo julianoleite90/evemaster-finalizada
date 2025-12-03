@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import crypto from 'crypto'
+import { apiLogger as logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,13 +40,13 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (linksError) {
-      console.error('Erro ao buscar links:', linksError)
+      logger.error('Erro ao buscar links:', linksError)
       return NextResponse.json({ error: 'Erro ao buscar links' }, { status: 500 })
     }
 
     return NextResponse.json({ links: links || [] })
   } catch (error: any) {
-    console.error('Erro ao buscar links:', error)
+    logger.error('Erro ao buscar links:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
@@ -172,7 +173,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (linkError) {
-      console.error('Erro ao criar link:', linkError)
+      logger.error('Erro ao criar link:', linkError)
       return NextResponse.json({ error: 'Erro ao criar link' }, { status: 500 })
     }
 
@@ -184,7 +185,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error: any) {
-    console.error('Erro ao criar link:', error)
+    logger.error('Erro ao criar link:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

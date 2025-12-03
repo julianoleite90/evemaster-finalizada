@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { enviarEmailConfirmacao, EmailInscricao } from '@/lib/email/resend'
+import { apiLogger as logger } from '@/lib/utils/logger'
 
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('📧 [API] Recebida requisição de envio de emails')
+    logger.log('📧 [API] Recebida requisição de envio de emails')
     
     const body = await request.json()
-    console.log('📧 [API] Body recebido:', {
+    logger.log('📧 [API] Body recebido:', {
       quantidadeInscricoes: body.inscricoes?.length,
       nomeEvento: body.evento?.nome,
     })
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     // Enviar email para cada participante
     for (const inscricao of inscricoes) {
-      console.log(`📧 [API] Processando email para: ${inscricao.email}`)
+      logger.log(`📧 [API] Processando email para: ${inscricao.email}`)
       
       const dadosEmail: EmailInscricao = {
         para: inscricao.email,
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
       }
 
       const resultado = await enviarEmailConfirmacao(dadosEmail)
-      console.log(`📧 [API] Resultado para ${inscricao.email}:`, resultado)
+      logger.log(`📧 [API] Resultado para ${inscricao.email}:`, resultado)
       
       resultados.push({
         email: inscricao.email,
@@ -77,14 +78,14 @@ export async function POST(request: NextRequest) {
     const sucessos = resultados.filter(r => r.success).length
     const falhas = resultados.filter(r => !r.success).length
 
-    console.log('📧 [API] Resumo do envio:', {
+    logger.log('📧 [API] Resumo do envio:', {
       total: resultados.length,
       sucessos,
       falhas,
     })
 
     if (falhas > 0) {
-      console.error('❌ [API] Alguns emails falharam:', resultados.filter(r => !r.success))
+      logger.error('❌ [API] Alguns emails falharam:', resultados.filter(r => !r.success))
     }
 
     return NextResponse.json({
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Erro ao processar emails:', error)
+    logger.error('Erro ao processar emails:', error)
     return NextResponse.json(
       { error: 'Erro ao processar emails', details: error.message },
       { status: 500 }

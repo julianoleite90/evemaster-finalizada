@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -68,7 +70,7 @@ export default function VitrinePage() {
 
         setEvents(data || [])
       } catch (error) {
-        console.error("Erro ao buscar eventos:", error)
+        logger.error("Erro ao buscar eventos:", error)
       } finally {
         setLoading(false)
       }

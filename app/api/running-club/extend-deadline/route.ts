@@ -1,3 +1,4 @@
+import { apiLogger as logger } from "@/lib/utils/logger"
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
       .is('extended_at', null) // Ainda não foi prorrogado
 
     if (fetchError) {
-      console.error('Erro ao buscar clubes para prorrogar:', fetchError)
+      logger.error('Erro ao buscar clubes para prorrogar:', fetchError)
       return NextResponse.json(
         { error: 'Erro ao buscar clubes' },
         { status: 500 }
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
         .eq('id', club.id)
 
       if (updateError) {
-        console.error(`Erro ao prorrogar clube ${club.id}:`, updateError)
+        logger.error(`Erro ao prorrogar clube ${club.id}:`, updateError)
         continue
       }
 
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
       total: clubsToExtend.length,
     })
   } catch (error: any) {
-    console.error('Erro ao prorrogar prazos:', error)
+    logger.error('Erro ao prorrogar prazos:', error)
     return NextResponse.json(
       { error: 'Erro ao processar prorrogação', details: error.message },
       { status: 500 }

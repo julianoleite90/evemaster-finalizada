@@ -1,3 +1,4 @@
+import { apiLogger as logger } from "@/lib/utils/logger"
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { enviarEmailCredenciaisUsuario } from "@/lib/email/resend"
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
       message: "Email enviado com sucesso",
     })
   } catch (error: any) {
-    console.error("Erro ao enviar credenciais:", error)
+    logger.error("Erro ao enviar credenciais:", error)
     return NextResponse.json(
       { error: "Erro interno do servidor", details: error.message },
       { status: 500 }

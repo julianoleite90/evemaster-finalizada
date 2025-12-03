@@ -2,10 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { logError } from '@/lib/logger'
+import { rateLimitMiddleware } from '@/lib/security/rate-limit'
+import { authLogger as logger } from '@/lib/utils/logger'
 
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
+  // Rate limiting para evitar criação em massa de contas
+  const rateLimitResponse = await rateLimitMiddleware(request, 'create')
+  if (rateLimitResponse) return rateLimitResponse
+
   let body: any = {}
   try {
     body = await request.json()
@@ -29,7 +35,7 @@ export async function POST(request: NextRequest) {
       emergency_contact_phone?: string
     }
 
-    console.log('📝 [API] Recebido criar-conta-automatica:', {
+    logger.log('Recebido criar-conta-automatica:', {
       email,
       nome,
       cpf: cpf || 'NÃO FORNECIDO',
@@ -90,22 +96,22 @@ export async function POST(request: NextRequest) {
         const existingAuthUser = authUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
         if (existingAuthUser) {
           authUserId = existingAuthUser.id
-          console.log('📧 [API] Email encontrado no auth:', email, 'userId:', authUserId)
+          logger.log('Email encontrado no auth:', email, 'userId:', authUserId)
         }
       } catch (authCheckError) {
-        console.warn('⚠️ [API] Erro ao verificar auth (não crítico):', authCheckError)
+        logger.warn('Erro ao verificar auth (não crítico):', authCheckError)
       }
     }
     
     if (userData) {
       // Usuário já existe, atualizar dados se necessário
-      console.log('📧 [API] Usuário já existe:', email, 'userId:', userData.id)
+      logger.log('Usuário já existe:', email, 'userId:', userData.id)
       
       // Limpar CPF antes de salvar
       const cleanCPF = cpf?.replace(/\D/g, '') || null
       const cleanCPFValid = cleanCPF && cleanCPF.length === 11 ? cleanCPF : null
       
-      console.log('💾 [API] Salvando CPF:', {
+      logger.log('Salvando CPF:', {
         cpfOriginal: cpf,
         cleanCPF,
         cleanCPFValid,
@@ -136,7 +142,7 @@ export async function POST(request: NextRequest) {
         })
 
       if (updateError) {
-        console.error('❌ [API] Erro ao atualizar dados do usuário:', {
+        logger.error('Erro ao atualizar dados do usuário:', {
           message: updateError.message,
           code: updateError.code,
           details: updateError.details,
@@ -147,12 +153,12 @@ export async function POST(request: NextRequest) {
         
         // Se o erro for de CPF duplicado, não bloquear - apenas logar
         if (updateError.code === '23505' || updateError.message?.includes('duplicate') || updateError.message?.includes('unique')) {
-          console.warn('⚠️ [API] CPF duplicado detectado, mas continuando (não crítico)')
+          logger.warn('CPF duplicado detectado, mas continuando (não crítico)')
         } else {
-          console.warn('⚠️ [API] Erro ao atualizar dados do usuário (não crítico):', updateError.message)
+          logger.warn('Erro ao atualizar dados do usuário (não crítico):', updateError.message)
         }
       } else {
-        console.log('✅ [API] Dados atualizados com sucesso, CPF salvo:', cleanCPFValid || 'NÃO SALVO (inválido ou vazio)')
+        logger.log('Dados atualizados com sucesso, CPF salvo:', cleanCPFValid || 'NÃO SALVO (inválido ou vazio)')
       }
 
       // Se tiver admin, atualizar metadados também
@@ -182,11 +188,11 @@ export async function POST(request: NextRequest) {
             }
           )
         } catch (metaError) {
-          console.warn('⚠️ [API] Erro ao atualizar metadados (não crítico):', metaError)
+          logger.warn('Erro ao atualizar metadados (não crítico):', metaError)
         }
       }
 
-      console.log('✅ [API] Retornando userId para usuário existente:', userData.id)
+      logger.log('Retornando userId para usuário existente:', userData.id)
       return NextResponse.json({
         success: true,
         message: 'Conta já existia, dados atualizados',
@@ -196,7 +202,7 @@ export async function POST(request: NextRequest) {
 
     // Se o email existe no auth mas não na tabela users, usar o userId do auth
     if (authUserId && !userData) {
-      console.log('📧 [API] Email existe no auth mas não na tabela users, criando registro na tabela users')
+      logger.log('Email existe no auth mas não na tabela users, criando registro na tabela users')
       
       // Criar registro na tabela users com o userId do auth
       const { error: userError } = await supabase
@@ -222,10 +228,10 @@ export async function POST(request: NextRequest) {
         })
 
       if (userError) {
-        console.error('❌ [API] Erro ao criar registro em users:', userError)
+        logger.error('Erro ao criar registro em users:', userError)
         // Não retornar erro, pois o usuário já existe no auth
       } else {
-        console.log('✅ [API] Registro criado na tabela users para:', email)
+        logger.log('Registro criado na tabela users para:', email)
       }
 
       // Atualizar metadados no auth
@@ -255,7 +261,7 @@ export async function POST(request: NextRequest) {
             }
           )
         } catch (metaError) {
-          console.warn('⚠️ [API] Erro ao atualizar metadados (não crítico):', metaError)
+          logger.warn('Erro ao atualizar metadados (não crítico):', metaError)
         }
       }
 
@@ -298,7 +304,7 @@ export async function POST(request: NextRequest) {
       if (createError) {
         // Se o erro for de email já existente, tentar buscar o usuário
         if (createError.code === 'email_exists' || createError.message?.includes('already been registered')) {
-          console.log('⚠️ [API] Email já existe no auth, tentando buscar usuário...')
+          logger.log('Email já existe no auth, tentando buscar usuário...')
           
           try {
             const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers()
@@ -329,7 +335,7 @@ export async function POST(request: NextRequest) {
                 })
 
               if (userError) {
-                console.error('❌ [API] Erro ao criar registro em users:', userError)
+                logger.error('Erro ao criar registro em users:', userError)
               }
 
               return NextResponse.json({
@@ -339,11 +345,11 @@ export async function POST(request: NextRequest) {
               })
             }
           } catch (lookupError) {
-            console.error('❌ [API] Erro ao buscar usuário no auth:', lookupError)
+            logger.error('Erro ao buscar usuário no auth:', lookupError)
           }
         }
         
-        console.error('❌ [API] Erro ao criar usuário:', createError)
+        logger.error('Erro ao criar usuário:', createError)
         return NextResponse.json(
           { error: 'Erro ao criar conta', details: createError.message },
           { status: 500 }
@@ -385,7 +391,7 @@ export async function POST(request: NextRequest) {
       if (signUpError) {
         // Se o erro for de email já existente, tentar buscar na tabela users
         if (signUpError.code === 'email_exists' || signUpError.message?.includes('already been registered')) {
-          console.log('⚠️ [API] Email já existe no auth, tentando buscar na tabela users...')
+          logger.log('Email já existe no auth, tentando buscar na tabela users...')
           
           const { data: existingUser } = await supabase
             .from('users')
@@ -402,7 +408,7 @@ export async function POST(request: NextRequest) {
           }
         }
         
-        console.error('❌ [API] Erro ao criar usuário:', signUpError)
+        logger.error('Erro ao criar usuário:', signUpError)
         return NextResponse.json(
           { error: 'Erro ao criar conta', details: signUpError.message },
           { status: 500 }
@@ -423,7 +429,7 @@ export async function POST(request: NextRequest) {
     const cleanCPF = cpf?.replace(/\D/g, '') || null
     const cleanCPFValid = cleanCPF && cleanCPF.length === 11 ? cleanCPF : null
     
-    console.log('💾 [API] Salvando CPF (novo usuário):', {
+    logger.log('Salvando CPF (novo usuário):', {
       cpfOriginal: cpf,
       cleanCPF,
       cleanCPFValid,
@@ -454,14 +460,14 @@ export async function POST(request: NextRequest) {
       })
 
     if (userError) {
-      console.error('❌ [API] Erro ao criar/atualizar registro em users:', userError)
+      logger.error('Erro ao criar/atualizar registro em users:', userError)
       // Não retornar erro aqui, pois o usuário já foi criado no auth
       // Os dados podem ser salvos depois no perfil
     } else {
-      console.log('✅ [API] Dados salvos na tabela users para:', email, 'CPF:', cleanCPFValid || 'NÃO SALVO (inválido ou vazio)')
+      logger.log('Dados salvos na tabela users para:', email, 'CPF:', cleanCPFValid || 'NÃO SALVO (inválido ou vazio)')
     }
 
-    console.log('✅ [API] Conta criada automaticamente para:', email)
+    logger.log('Conta criada automaticamente para:', email)
 
     return NextResponse.json({
       success: true,

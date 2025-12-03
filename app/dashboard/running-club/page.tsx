@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -81,7 +83,7 @@ export default function RunningClubDashboardPage() {
         setParticipants(participantsData)
       }
     } catch (error) {
-      console.error("Erro ao carregar dados:", error)
+      logger.error("Erro ao carregar dados:", error)
       toast.error("Erro ao carregar dados do clube")
     } finally {
       setLoading(false)
@@ -139,7 +141,7 @@ export default function RunningClubDashboardPage() {
         toast.error(error.error || "Erro ao adicionar participante")
       }
     } catch (error) {
-      console.error("Erro ao adicionar participante:", error)
+      logger.error("Erro ao adicionar participante:", error)
       toast.error("Erro ao processar participante")
     } finally {
       setSaving(false)

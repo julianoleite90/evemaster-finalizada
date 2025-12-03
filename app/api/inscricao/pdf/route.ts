@@ -1,3 +1,4 @@
+import { apiLogger as logger } from "@/lib/utils/logger"
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Erro ao gerar PDF:', error)
+    logger.error('Erro ao gerar PDF:', error)
     return NextResponse.json(
       { error: 'Erro ao gerar comprovante' },
       { status: 500 }

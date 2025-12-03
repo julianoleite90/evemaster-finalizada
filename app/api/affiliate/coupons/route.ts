@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { apiLogger as logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,13 +39,13 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (couponsError) {
-      console.error('Erro ao buscar cupons:', couponsError)
+      logger.error('Erro ao buscar cupons:', couponsError)
       return NextResponse.json({ error: 'Erro ao buscar cupons' }, { status: 500 })
     }
 
     return NextResponse.json({ coupons: coupons || [] })
   } catch (error: any) {
-    console.error('Erro ao buscar cupons:', error)
+    logger.error('Erro ao buscar cupons:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (couponError) {
-      console.error('Erro ao criar cupom:', couponError)
+      logger.error('Erro ao criar cupom:', couponError)
       return NextResponse.json(
         { error: 'Erro ao criar cupom', details: couponError.message },
         { status: 500 }
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
       coupon,
     })
   } catch (error: any) {
-    console.error('Erro ao criar cupom:', error)
+    logger.error('Erro ao criar cupom:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/client"
@@ -46,7 +48,7 @@ export default function FinancialPage() {
         totalTransactions: payments?.length || 0,
       })
     } catch (error: any) {
-      console.error("Erro ao buscar dados:", error)
+      logger.error("Erro ao buscar dados:", error)
       toast.error("Erro ao carregar dados")
     } finally {
       setLoading(false)

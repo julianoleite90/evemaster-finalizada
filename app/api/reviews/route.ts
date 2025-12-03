@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { apiLogger as logger } from '@/lib/utils/logger'
 
 export const runtime = 'nodejs'
 
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     const { data: reviews, error } = await query
     
     if (error) {
-      console.error('Erro ao buscar avaliações:', error)
+      logger.error('Erro ao buscar avaliações:', error)
       return NextResponse.json(
         { error: 'Erro ao buscar avaliações' },
         { status: 500 }
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
       stats,
     })
   } catch (error: any) {
-    console.error('Erro na API de avaliações:', error)
+    logger.error('Erro na API de avaliações:', error)
     return NextResponse.json(
       { error: error.message || 'Erro interno' },
       { status: 500 }
@@ -189,7 +190,7 @@ export async function POST(request: NextRequest) {
       .single()
     
     if (error) {
-      console.error('Erro ao criar avaliação:', error)
+      logger.error('Erro ao criar avaliação:', error)
       
       if (error.code === '23505') {
         return NextResponse.json(
@@ -224,10 +225,10 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', organizerId)
         
-        console.log(`✅ Organizador ${organizerId} atualizado: ${avgRating.toFixed(2)} (${totalReviews} avaliações)`)
+        logger.log(`✅ Organizador ${organizerId} atualizado: ${avgRating.toFixed(2)} (${totalReviews} avaliações)`)
       }
     } catch (updateError) {
-      console.error('Erro ao atualizar média do organizador:', updateError)
+      logger.error('Erro ao atualizar média do organizador:', updateError)
       // Não falha a requisição se não conseguir atualizar
     }
     
@@ -236,7 +237,7 @@ export async function POST(request: NextRequest) {
       review,
     })
   } catch (error: any) {
-    console.error('Erro na API de avaliações:', error)
+    logger.error('Erro na API de avaliações:', error)
     return NextResponse.json(
       { error: error.message || 'Erro interno' },
       { status: 500 }
@@ -309,7 +310,7 @@ export async function PUT(request: NextRequest) {
       .single()
     
     if (error) {
-      console.error('Erro ao atualizar avaliação:', error)
+      logger.error('Erro ao atualizar avaliação:', error)
       return NextResponse.json(
         { error: 'Erro ao atualizar avaliação' },
         { status: 500 }
@@ -321,7 +322,7 @@ export async function PUT(request: NextRequest) {
       review,
     })
   } catch (error: any) {
-    console.error('Erro na API de avaliações:', error)
+    logger.error('Erro na API de avaliações:', error)
     return NextResponse.json(
       { error: error.message || 'Erro interno' },
       { status: 500 }
@@ -361,7 +362,7 @@ export async function DELETE(request: NextRequest) {
       .eq('user_id', user.id)
     
     if (error) {
-      console.error('Erro ao deletar avaliação:', error)
+      logger.error('Erro ao deletar avaliação:', error)
       return NextResponse.json(
         { error: 'Erro ao deletar avaliação' },
         { status: 500 }
@@ -372,7 +373,7 @@ export async function DELETE(request: NextRequest) {
       success: true,
     })
   } catch (error: any) {
-    console.error('Erro na API de avaliações:', error)
+    logger.error('Erro na API de avaliações:', error)
     return NextResponse.json(
       { error: error.message || 'Erro interno' },
       { status: 500 }

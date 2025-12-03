@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { apiLogger as logger } from '@/lib/utils/logger'
 
 export async function DELETE(
   request: NextRequest,
@@ -47,13 +48,13 @@ export async function DELETE(
       .eq('id', linkId)
 
     if (deleteError) {
-      console.error('Erro ao deletar link:', deleteError)
+      logger.error('Erro ao deletar link:', deleteError)
       return NextResponse.json({ error: 'Erro ao deletar link' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('Erro ao deletar link:', error)
+    logger.error('Erro ao deletar link:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
@@ -111,13 +112,13 @@ export async function PUT(
       .eq('id', linkId)
 
     if (updateError) {
-      console.error('Erro ao atualizar link:', updateError)
+      logger.error('Erro ao atualizar link:', updateError)
       return NextResponse.json({ error: 'Erro ao atualizar link' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('Erro ao atualizar link:', error)
+    logger.error('Erro ao atualizar link:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

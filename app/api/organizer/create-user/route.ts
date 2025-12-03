@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/server"
+import { logger } from "@/lib/utils/logger"
 
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🔧 [CREATE USER API] Iniciando criação de usuário...")
+    logger.log("🔧 [CREATE USER API] Iniciando criação de usuário...")
     const body = await request.json()
     const { email, password, full_name, phone } = body as {
       email: string
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
       phone?: string
     }
 
-    console.log("🔧 [CREATE USER API] Dados recebidos:", { 
+    logger.log("🔧 [CREATE USER API] Dados recebidos:", { 
       email, 
       hasPassword: !!password, 
       passwordLength: password?.length,
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!email || !password || !full_name) {
-      console.error("❌ [CREATE USER API] Campos obrigatórios faltando")
+      logger.error("❌ [CREATE USER API] Campos obrigatórios faltando")
       return NextResponse.json(
         { error: "Email, senha e nome são obrigatórios", details: "Preencha todos os campos obrigatórios" },
         { status: 400 }
@@ -52,14 +53,14 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-    console.log("🔧 [CREATE USER API] Verificando autenticação:", {
+    logger.log("🔧 [CREATE USER API] Verificando autenticação:", {
       hasUser: !!user,
       userId: user?.id,
       error: authError?.message
     })
 
     if (authError || !user) {
-      console.error("❌ [CREATE USER API] Não autorizado")
+      logger.error("❌ [CREATE USER API] Não autorizado")
       return NextResponse.json(
         { error: "Não autorizado" },
         { status: 401 }
@@ -73,13 +74,13 @@ export async function POST(request: NextRequest) {
       .eq("user_id", user.id)
       .single()
 
-    console.log("🔧 [CREATE USER API] Verificando se é organizador:", {
+    logger.log("🔧 [CREATE USER API] Verificando se é organizador:", {
       organizerId: organizer?.id,
       error: organizerError?.message
     })
 
     if (!organizer) {
-      console.error("❌ [CREATE USER API] Usuário não é organizador")
+      logger.error("❌ [CREATE USER API] Usuário não é organizador")
       return NextResponse.json(
         { error: "Apenas organizadores podem criar usuários" },
         { status: 403 }
@@ -125,25 +126,25 @@ export async function POST(request: NextRequest) {
       const existingAuthUser = authUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
       
       if (existingAuthUser) {
-        console.log("Usuário encontrado no auth mas não na tabela users. Deletando do auth para permitir recriação...")
+        logger.log("Usuário encontrado no auth mas não na tabela users. Deletando do auth para permitir recriação...")
         // Deletar do auth para permitir criar novamente
         const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(existingAuthUser.id)
         if (deleteError) {
-          console.error("Erro ao deletar usuário do auth:", deleteError)
+          logger.error("Erro ao deletar usuário do auth:", deleteError)
           return NextResponse.json(
             { error: "Email já cadastrado no sistema de autenticação", details: "Este email já possui uma conta. Entre em contato com o suporte para reativar." },
             { status: 400 }
           )
         }
-        console.log("Usuário deletado do auth com sucesso. Prosseguindo com criação...")
+        logger.log("Usuário deletado do auth com sucesso. Prosseguindo com criação...")
       }
     } catch (authCheckError) {
-      console.error("Erro ao verificar/deletar usuário no auth:", authCheckError)
+      logger.error("Erro ao verificar/deletar usuário no auth:", authCheckError)
       // Continuar mesmo se houver erro na verificação do auth
     }
 
     // Criar usuário no Auth
-    console.log("🔧 [CREATE USER API] Criando usuário no Auth...")
+    logger.log("🔧 [CREATE USER API] Criando usuário no Auth...")
     const { data: authUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -155,7 +156,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    console.log("🔧 [CREATE USER API] Resultado criação Auth:", {
+    logger.log("🔧 [CREATE USER API] Resultado criação Auth:", {
       hasUser: !!authUser?.user,
       userId: authUser?.user?.id,
       error: createError?.message,
@@ -164,7 +165,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (createError || !authUser.user) {
-      console.error("❌ [CREATE USER API] ERRO AO CRIAR NO AUTH:", createError)
+      logger.error("❌ [CREATE USER API] ERRO AO CRIAR NO AUTH:", createError)
       
       // Mensagens de erro mais específicas
       let errorMessage = "Erro ao criar usuário"
@@ -185,7 +186,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar registro na tabela users
-    console.log("🔧 [CREATE USER API] Criando registro na tabela users...")
+    logger.log("🔧 [CREATE USER API] Criando registro na tabela users...")
     const { error: userError } = await supabase
       .from("users")
       .insert({
@@ -197,19 +198,19 @@ export async function POST(request: NextRequest) {
         is_active: true,
       })
 
-    console.log("🔧 [CREATE USER API] Resultado inserção em users:", {
+    logger.log("🔧 [CREATE USER API] Resultado inserção em users:", {
       error: userError?.message,
       errorCode: userError?.code,
       errorDetails: userError
     })
 
     if (userError) {
-      console.error("❌ [CREATE USER API] ERRO AO CRIAR EM USERS:", userError)
+      logger.error("❌ [CREATE USER API] ERRO AO CRIAR EM USERS:", userError)
       // Tentar deletar o usuário do Auth se falhar
-      console.log("🔧 [CREATE USER API] Tentando deletar usuário do Auth...")
+      logger.log("🔧 [CREATE USER API] Tentando deletar usuário do Auth...")
       const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
       if (deleteError) {
-        console.error("❌ [CREATE USER API] Erro ao deletar do Auth:", deleteError)
+        logger.error("❌ [CREATE USER API] Erro ao deletar do Auth:", deleteError)
       }
       return NextResponse.json(
         { error: "Erro ao criar registro do usuário", details: userError.message },
@@ -217,7 +218,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log("✅ [CREATE USER API] Usuário criado com sucesso:", {
+    logger.log("✅ [CREATE USER API] Usuário criado com sucesso:", {
       id: authUser.user.id,
       email: authUser.user.email
     })
@@ -240,9 +241,9 @@ export async function POST(request: NextRequest) {
         senha: password, // Enviar senha em texto plano apenas no email
         organizadorNome,
       })
-      console.log("✅ [CREATE USER API] Email de credenciais enviado")
+      logger.log("✅ [CREATE USER API] Email de credenciais enviado")
     } catch (emailError) {
-      console.error("⚠️ [CREATE USER API] Erro ao enviar email (não crítico):", emailError)
+      logger.error("⚠️ [CREATE USER API] Erro ao enviar email (não crítico):", emailError)
       // Não falha a criação se o email não for enviado
     }
 
@@ -256,7 +257,7 @@ export async function POST(request: NextRequest) {
       message: "Usuário criado com sucesso. Email com credenciais foi enviado."
     })
   } catch (error: any) {
-    console.error("Erro ao criar usuário:", error)
+    logger.error("Erro ao criar usuário:", error)
     return NextResponse.json(
       { error: "Erro interno do servidor", details: error.message },
       { status: 500 }

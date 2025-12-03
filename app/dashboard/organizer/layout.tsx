@@ -1,5 +1,5 @@
-import { SidebarPipedrive } from "@/components/dashboard/sidebar-pipedrive"
 import { OrganizerHeader } from "@/components/dashboard/organizer-header"
+import { PermissionProvider, SidebarWithPermissions } from "@/components/permissions"
 
 export default function OrganizerLayout({
   children,
@@ -7,16 +7,18 @@ export default function OrganizerLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <SidebarPipedrive role="organizer" />
-      <div className="md:pl-64 flex flex-col min-h-screen">
-        <OrganizerHeader />
-        <main className="flex-1 p-6">
-          <div className="max-w-7xl mx-auto">
-            {children}
-          </div>
-        </main>
+    <PermissionProvider>
+      <div className="min-h-screen bg-gray-50">
+        <SidebarWithPermissions />
+        <div className="md:pl-64 flex flex-col min-h-screen">
+          <OrganizerHeader />
+          <main className="flex-1 p-6">
+            <div className="max-w-7xl mx-auto">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </PermissionProvider>
   )
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { apiLogger as logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
     const { data: links, error: linksError } = await linksQuery
 
     if (linksError) {
-      console.error('Erro ao buscar links:', linksError)
+      logger.error('Erro ao buscar links:', linksError)
       return NextResponse.json({ error: 'Erro ao buscar links' }, { status: 500 })
     }
 
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
       if (!clicksError) {
         clicks = clicksData || []
       } else {
-        console.error('Erro ao buscar cliques:', clicksError)
+        logger.error('Erro ao buscar cliques:', clicksError)
       }
     }
 
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest) {
     const { data: conversions, error: conversionsError } = await conversionsQuery
 
     if (conversionsError) {
-      console.error('Erro ao buscar conversões:', conversionsError)
+      logger.error('Erro ao buscar conversões:', conversionsError)
     }
 
     // Processar dados
@@ -181,7 +182,7 @@ export async function GET(request: NextRequest) {
       conversions: conversionsData,
     })
   } catch (error: any) {
-    console.error('Erro ao buscar estatísticas:', error)
+    logger.error('Erro ao buscar estatísticas:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

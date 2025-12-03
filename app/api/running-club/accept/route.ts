@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { apiLogger as logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
       )
 
       if (updateError) {
-        console.error('Erro ao atualizar senha:', updateError)
+        logger.error('Erro ao atualizar senha:', updateError)
         return NextResponse.json(
           { error: 'Erro ao atualizar senha do usuário', details: updateError.message },
           { status: 500 }
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
       })
 
       if (createError || !newUser.user) {
-        console.error('Erro ao criar usuário:', createError)
+        logger.error('Erro ao criar usuário:', createError)
         return NextResponse.json(
           { error: 'Erro ao criar conta de usuário' },
           { status: 500 }
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
         })
 
       if (userError) {
-        console.error('Erro ao criar registro de usuário:', userError)
+        logger.error('Erro ao criar registro de usuário:', userError)
         // Não falhar, o usuário já foi criado no auth
       }
     }
@@ -142,7 +143,7 @@ export async function POST(request: NextRequest) {
       .eq('id', club.id)
 
     if (updateClubError) {
-      console.error('Erro ao atualizar clube:', updateClubError)
+      logger.error('Erro ao atualizar clube:', updateClubError)
       return NextResponse.json(
         { error: 'Erro ao aceitar convite' },
         { status: 500 }
@@ -155,7 +156,7 @@ export async function POST(request: NextRequest) {
       club_id: club.id,
     })
   } catch (error: any) {
-    console.error('Erro ao aceitar convite:', error)
+    logger.error('Erro ao aceitar convite:', error)
     return NextResponse.json(
       { error: 'Erro ao processar convite', details: error.message },
       { status: 500 }

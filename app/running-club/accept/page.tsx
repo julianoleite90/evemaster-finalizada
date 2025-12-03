@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -47,7 +49,7 @@ function AcceptRunningClubPageContent() {
         setError(error.error || "Convite inválido ou expirado")
       }
     } catch (error) {
-      console.error("Erro ao validar token:", error)
+      logger.error("Erro ao validar token:", error)
       setError("Erro ao validar convite")
     } finally {
       setLoading(false)
@@ -101,7 +103,7 @@ function AcceptRunningClubPageContent() {
         toast.error(error.error || "Erro ao aceitar convite")
       }
     } catch (error) {
-      console.error("Erro ao aceitar convite:", error)
+      logger.error("Erro ao aceitar convite:", error)
       toast.error("Erro ao processar convite")
     } finally {
       setAccepting(false)

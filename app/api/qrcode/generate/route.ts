@@ -1,3 +1,4 @@
+import { apiLogger as logger } from "@/lib/utils/logger"
 import { NextRequest, NextResponse } from "next/server"
 import QRCode from "qrcode"
 
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
       eventName: eventName,
     })
   } catch (error: any) {
-    console.error("Erro ao gerar QR code:", error)
+    logger.error("Erro ao gerar QR code:", error)
     return NextResponse.json(
       { error: "Erro ao gerar QR code", details: error.message },
       { status: 500 }

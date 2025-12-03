@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,7 +32,7 @@ export default function ConfirmEmailPage() {
       })
 
       if (error) {
-        console.error("Erro ao confirmar email:", error)
+        logger.error("Erro ao confirmar email:", error)
         toast.error(error.message || "Erro ao confirmar email")
         return
       }
@@ -38,7 +40,7 @@ export default function ConfirmEmailPage() {
       setConfirmed(true)
       toast.success("Email confirmado com sucesso!")
     } catch (error: any) {
-      console.error("Erro:", error)
+      logger.error("Erro:", error)
       toast.error(error.message || "Erro ao confirmar email")
     } finally {
       setLoading(false)

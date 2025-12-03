@@ -1,5 +1,7 @@
 "use client"
 
+import { logger } from "@/lib/utils/logger"
+
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -71,7 +73,7 @@ export default function ApprovalsPage() {
       setOrganizers(orgsData || [])
       setAffiliates(affsData || [])
     } catch (error) {
-      console.error("Erro ao buscar dados:", error)
+      logger.error("Erro ao buscar dados:", error)
       toast.error("Erro ao carregar dados")
     } finally {
       setLoading(false)
@@ -144,7 +146,7 @@ export default function ApprovalsPage() {
       })
       fetchData()
     } catch (error: any) {
-      console.error("Erro ao aprovar:", error)
+      logger.error("Erro ao aprovar:", error)
       toast.error(error.message || "Erro ao aprovar")
     }
   }
@@ -180,7 +182,7 @@ export default function ApprovalsPage() {
       setRejectionReason("")
       fetchData()
     } catch (error: any) {
-      console.error("Erro ao rejeitar:", error)
+      logger.error("Erro ao rejeitar:", error)
       toast.error(error.message || "Erro ao rejeitar")
     }
   }

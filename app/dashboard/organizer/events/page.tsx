@@ -1,6 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { eventLogger as logger } from "@/lib/utils/logger"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -66,7 +67,7 @@ export default function EventsPage() {
         const access = await getOrganizerAccess(supabase, user.id)
         
         if (!access) {
-          console.error("❌ [EVENTS] Usuário não tem acesso ao dashboard do organizador")
+          logger.error("❌ [EVENTS] Usuário não tem acesso ao dashboard do organizador")
           toast.error("Você não tem permissão para acessar este dashboard")
           setEventos([])
           setLoading(false)
@@ -74,14 +75,14 @@ export default function EventsPage() {
         }
 
         const organizerId = access.organizerId
-        console.log("✅ [EVENTS] Acesso autorizado. Organizer ID:", organizerId)
+        logger.log("✅ [EVENTS] Acesso autorizado. Organizer ID:", organizerId)
 
         // Buscar eventos
-        console.log("=== BUSCANDO EVENTOS ===")
-        console.log("Organizer ID:", organizerId)
+        logger.log("=== BUSCANDO EVENTOS ===")
+        logger.log("Organizer ID:", organizerId)
         const events = await getOrganizerEvents(organizerId)
-        console.log("Eventos encontrados:", events?.length || 0)
-        console.log("Eventos:", events)
+        logger.log("Eventos encontrados:", events?.length || 0)
+        logger.log("Eventos:", events)
 
         // Se não houver eventos, definir array vazio
         if (!events || events.length === 0) {
@@ -103,6 +104,7 @@ export default function EventsPage() {
           .from("registrations")
           .select("id, event_id")
           .in("event_id", eventIds)
+          .neq("status", "cancelled")
 
         const registrationIds = allRegistrations?.map((r: any) => r.id) || []
         
@@ -185,7 +187,7 @@ export default function EventsPage() {
 
         setEventos(eventosFormatados)
       } catch (error: any) {
-        console.error("Erro ao buscar eventos:", error)
+        logger.error("Erro ao buscar eventos:", error)
         toast.error("Erro ao carregar eventos")
       } finally {
         setLoading(false)
@@ -366,7 +368,7 @@ export default function EventsPage() {
 
         qrImg.src = qrDataUrl
       } catch (error: any) {
-        console.error("Erro ao gerar QR code:", error)
+        logger.error("Erro ao gerar QR code:", error)
         toast.error(`Erro ao gerar QR code: ${error?.message || "Erro desconhecido"}`)
       }
     }
