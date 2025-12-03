@@ -1,5 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Redirects permanentes
+  async redirects() {
+    return [
+      {
+        source: '/minha-conta',
+        destination: '/my-account',
+        permanent: true,
+      },
+      {
+        source: '/minha-conta/:path*',
+        destination: '/my-account/:path*',
+        permanent: true,
+      },
+    ]
+  },
   images: {
     remotePatterns: [
       {

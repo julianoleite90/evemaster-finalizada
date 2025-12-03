@@ -6,6 +6,32 @@ import { authLogger as logger } from '@/lib/utils/logger'
 
 export const runtime = 'nodejs'
 
+// Função de retry para operações que podem falhar por timeout
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  retries = 3,
+  delay = 1000
+): Promise<T> {
+  let lastError: any
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn()
+    } catch (error: any) {
+      lastError = error
+      // Só retry em erros de rede/timeout
+      if (error?.code === 'UND_ERR_SOCKET' || 
+          error?.message?.includes('fetch failed') ||
+          error?.name === 'AuthRetryableFetchError') {
+        logger.warn(`Retry ${i + 1}/${retries} após erro de rede...`)
+        await new Promise(r => setTimeout(r, delay * (i + 1)))
+        continue
+      }
+      throw error
+    }
+  }
+  throw lastError
+}
+
 // Gerar senha temporária segura
 function gerarSenhaTemporaria(): string {
   const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%&*'
@@ -86,15 +112,24 @@ export async function POST(request: NextRequest) {
     // Gerar senha temporária
     const senhaTemporaria = gerarSenhaTemporaria()
 
-    // Atualizar senha do usuário
+    // Atualizar senha do usuário com retry (evita erros de rede intermitentes)
     // IMPORTANTE: Não enviar email do Supabase - vamos enviar via Resend
-    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-      userId,
-      {
-        password: senhaTemporaria,
-        // Não disparar email do Supabase
-      }
-    )
+    let updateError: any = null
+    try {
+      const result = await withRetry(async () => {
+        return await supabaseAdmin.auth.admin.updateUserById(
+          userId,
+          { password: senhaTemporaria }
+        )
+      })
+      updateError = result.error
+    } catch (retryError: any) {
+      logger.error('Erro ao atualizar senha após retries:', retryError)
+      return NextResponse.json(
+        { error: 'Erro de conexão ao atualizar senha. Tente novamente.', details: retryError.message },
+        { status: 503 }
+      )
+    }
 
     if (updateError) {
       logger.error('Erro ao atualizar senha:', updateError)
