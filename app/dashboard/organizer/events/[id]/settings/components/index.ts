@@ -9,4 +9,3 @@ export { PaymentMethodsSection } from './PaymentMethodsSection'
 export { OtherSettingsSection } from './OtherSettingsSection'
 export { ModernNavigation } from './ModernNavigation'
 export { ModernSubMenu } from './ModernSubMenu'
-

@@ -35,8 +35,7 @@ export function useEventSettingsCoupons(eventId: string) {
           *,
           affiliate:affiliates(
             id,
-            name,
-            user:users(email)
+            user:users!affiliates_user_id_fkey(email)
           )
         `)
         .eq("event_id", eventId)

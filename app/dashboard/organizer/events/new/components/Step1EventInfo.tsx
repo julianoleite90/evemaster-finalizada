@@ -598,4 +598,3 @@ export function Step1EventInfo({ formData, setFormData, onFileUpload }: Step1Eve
     </div>
   )
 }
-

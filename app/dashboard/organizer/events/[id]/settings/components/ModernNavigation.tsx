@@ -63,4 +63,3 @@ export function ModernNavigation({ currentSection, onSectionClick }: ModernNavig
     </div>
   )
 }
-

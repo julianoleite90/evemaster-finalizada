@@ -145,4 +145,3 @@ export function RegistrationRow({ registration, formatDate, formatCurrency }: Re
     </Link>
   )
 }
-

@@ -181,3 +181,83 @@ export async function POST(request: NextRequest) {
   }
 }
 
+
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Convite criado e email enviado com sucesso',
+      invite_id: invite.id,
+      user_exists: false,
+      email_sent: emailResult.success,
+    })
+
+  } catch (error: any) {
+    logger.error('Erro ao enviar convite:', error)
+    return NextResponse.json(
+      { error: 'Erro ao processar convite', details: error.message },
+      { status: 500 }
+    )
+  }
+}
+
+
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Convite criado e email enviado com sucesso',
+      invite_id: invite.id,
+      user_exists: false,
+      email_sent: emailResult.success,
+    })
+
+  } catch (error: any) {
+    logger.error('Erro ao enviar convite:', error)
+    return NextResponse.json(
+      { error: 'Erro ao processar convite', details: error.message },
+      { status: 500 }
+    )
+  }
+}
+
+
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Convite criado e email enviado com sucesso',
+      invite_id: invite.id,
+      user_exists: false,
+      email_sent: emailResult.success,
+    })
+
+  } catch (error: any) {
+    logger.error('Erro ao enviar convite:', error)
+    return NextResponse.json(
+      { error: 'Erro ao processar convite', details: error.message },
+      { status: 500 }
+    )
+  }
+}
+
+
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Convite criado e email enviado com sucesso',
+      invite_id: invite.id,
+      user_exists: false,
+      email_sent: emailResult.success,
+    })
+
+  } catch (error: any) {
+    logger.error('Erro ao enviar convite:', error)
+    return NextResponse.json(
+      { error: 'Erro ao processar convite', details: error.message },
+      { status: 500 }
+    )
+  }
+}
+

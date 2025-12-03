@@ -509,7 +509,7 @@ export function useEventSettings(eventId: string) {
           *,
           affiliate:affiliates(
             id,
-            user:users(id, email, full_name)
+            user:users!affiliates_user_id_fkey(id, email, full_name)
           )
         `)
         .eq("event_id", eventId)
@@ -538,7 +538,7 @@ export function useEventSettings(eventId: string) {
           *,
           affiliate:affiliates(
             id,
-            user:users(id, email, full_name)
+            user:users!affiliates_user_id_fkey(id, email, full_name)
           )
         `)
         .eq("event_id", eventId)

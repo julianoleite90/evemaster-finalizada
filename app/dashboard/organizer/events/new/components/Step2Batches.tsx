@@ -643,4 +643,3 @@ export function Step2Batches({ formData, setFormData, getCategoriasDisponiveis }
     </div>
   )
 }
-

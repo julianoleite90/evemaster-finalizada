@@ -110,4 +110,3 @@ export function QuickStats({ registration, formatDate, formatCurrency }: QuickSt
     </div>
   )
 }
-

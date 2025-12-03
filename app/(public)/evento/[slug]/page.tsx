@@ -1291,3 +1291,51 @@ export default function EventoLandingPage() {
     </EventErrorBoundary>
   )
 }
+
+// Componente exportado com Error Boundary para capturar erros
+export default function EventoLandingPage() {
+  const params = useParams()
+  const slug = params?.slug as string | undefined
+  
+  return (
+    <EventErrorBoundary eventSlug={slug}>
+      <EventoLandingPageContent />
+    </EventErrorBoundary>
+  )
+}
+
+// Componente exportado com Error Boundary para capturar erros
+export default function EventoLandingPage() {
+  const params = useParams()
+  const slug = params?.slug as string | undefined
+  
+  return (
+    <EventErrorBoundary eventSlug={slug}>
+      <EventoLandingPageContent />
+    </EventErrorBoundary>
+  )
+}
+
+// Componente exportado com Error Boundary para capturar erros
+export default function EventoLandingPage() {
+  const params = useParams()
+  const slug = params?.slug as string | undefined
+  
+  return (
+    <EventErrorBoundary eventSlug={slug}>
+      <EventoLandingPageContent />
+    </EventErrorBoundary>
+  )
+}
+
+// Componente exportado com Error Boundary para capturar erros
+export default function EventoLandingPage() {
+  const params = useParams()
+  const slug = params?.slug as string | undefined
+  
+  return (
+    <EventErrorBoundary eventSlug={slug}>
+      <EventoLandingPageContent />
+    </EventErrorBoundary>
+  )
+}

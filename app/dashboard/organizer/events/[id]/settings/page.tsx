@@ -383,7 +383,7 @@ function EventSettingsPageContent() {
           *,
           affiliate:affiliates(
             id,
-            user:users(
+            user:users!affiliates_user_id_fkey(
               id,
               email,
               full_name
@@ -417,7 +417,7 @@ function EventSettingsPageContent() {
           *,
           affiliate:affiliates(
             id,
-            user:users(
+            user:users!affiliates_user_id_fkey(
               id,
               email,
               full_name
@@ -451,7 +451,7 @@ function EventSettingsPageContent() {
           *,
           affiliate:affiliates(
             id,
-            user:users(
+            user:users!affiliates_user_id_fkey(
               id,
               email,
               full_name

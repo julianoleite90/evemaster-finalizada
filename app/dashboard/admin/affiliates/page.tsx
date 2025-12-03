@@ -39,7 +39,7 @@ export default function AffiliatesPage() {
         .from("affiliates")
         .select(`
           *,
-          user:users(
+          user:users!affiliates_user_id_fkey(
             id,
             email,
             full_name,

@@ -149,4 +149,3 @@ export function ModernStepper({ currentStep, onStepClick }: ModernStepperProps) 
     </div>
   )
 }
-
