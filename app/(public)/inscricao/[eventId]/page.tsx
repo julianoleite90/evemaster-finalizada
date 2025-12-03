@@ -73,6 +73,7 @@ function CheckoutContent() {
   const [paisEvento, setPaisEvento] = useState("brasil")
   const [idioma, setIdioma] = useState<Idioma>("pt")
   const [runningClub, setRunningClub] = useState<any>(null) // Dados do clube de corrida se houver
+  const [affiliateData, setAffiliateData] = useState<{ id: string; commission_type: 'percentage' | 'fixed'; commission_value: number } | null>(null) // Dados do afiliado se houver
   
   // Estados de usuário
   const [usuarioLogado, setUsuarioLogado] = useState<any>(null)
@@ -166,6 +167,42 @@ function CheckoutContent() {
             } else {
             }
           } else {
+          }
+        }
+
+        // Verificar se há parâmetro de afiliado (ref)
+        const refCode = searchParams.get("ref")
+        if (refCode) {
+          const supabase = createClient()
+          // Buscar afiliado pelo referral_code
+          const { data: affiliate, error: affiliateError } = await supabase
+            .from("affiliates")
+            .select("id, referral_code")
+            .eq("referral_code", refCode)
+            .maybeSingle()
+          
+          if (affiliate && !affiliateError) {
+            // Buscar comissão configurada para este evento
+            const { data: commission, error: commissionError } = await supabase
+              .from("event_affiliate_commissions")
+              .select("commission_type, commission_value")
+              .eq("affiliate_id", affiliate.id)
+              .eq("event_id", eventId)
+              .maybeSingle()
+            
+            if (commission && !commissionError) {
+              setAffiliateData({
+                id: affiliate.id,
+                commission_type: commission.commission_type,
+                commission_value: commission.commission_value,
+              })
+              logger.log("🤝 [CHECKOUT] Afiliado identificado:", {
+                affiliate_id: affiliate.id,
+                refCode,
+                commission_type: commission.commission_type,
+                commission_value: commission.commission_value,
+              })
+            }
           }
         }
 
@@ -1291,13 +1328,36 @@ function CheckoutContent() {
           const taxa = 5
           const valorTotal = valorIngresso + taxa
           
-          const paymentData = {
+          // Calcular comissão do afiliado se houver
+          let affiliateCommission = 0
+          if (affiliateData) {
+            if (affiliateData.commission_type === 'percentage') {
+              affiliateCommission = (valorIngresso * affiliateData.commission_value) / 100
+            } else {
+              affiliateCommission = affiliateData.commission_value
+            }
+            logger.log("🤝 [CHECKOUT] Comissão do afiliado calculada:", {
+              tipo: affiliateData.commission_type,
+              valor_comissao_config: affiliateData.commission_value,
+              valor_ingresso: valorIngresso,
+              comissao_calculada: affiliateCommission,
+            })
+          }
+          
+          const paymentData: any = {
             registration_id: registration.id,
             amount: valorTotal,
+            total_amount: valorTotal.toString(),
             discount_amount: descontoAplicado > 0 ? descontoAplicado.toString() : null,
             payment_method: meioPagamento || "pix",
             payment_status: "pending",
             running_club_id: runningClub?.id || null, // Salvar referência ao clube
+          }
+          
+          // Adicionar dados do afiliado se houver
+          if (affiliateData) {
+            paymentData.affiliate_id = affiliateData.id
+            paymentData.affiliate_commission = affiliateCommission.toString()
           }
 
           const { error: payError } = await supabase
