@@ -346,16 +346,35 @@ function EventSettingsPageContent() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Buscar organizador
+      // Buscar organizador (direto ou via organization_users)
+      let currentOrganizerId: string | null = null
+
+      // Primeiro tenta buscar como organizador direto
       const { data: organizer } = await supabase
         .from("organizers")
         .select("id")
         .eq("user_id", user.id)
         .single()
 
-      if (!organizer) return
+      if (organizer) {
+        currentOrganizerId = organizer.id
+      } else {
+        // Se não for organizador direto, busca via organization_users
+        const { data: orgUser } = await supabase
+          .from("organization_users")
+          .select("organizer_id")
+          .eq("user_id", user.id)
+          .eq("is_active", true)
+          .single()
 
-      setOrganizerId(organizer.id)
+        if (orgUser) {
+          currentOrganizerId = orgUser.organizer_id
+        }
+      }
+
+      if (!currentOrganizerId) return
+
+      setOrganizerId(currentOrganizerId)
 
       // Buscar convites de afiliados com dados do afiliado e usuário
       const { data: invites, error } = await supabase
@@ -372,7 +391,7 @@ function EventSettingsPageContent() {
           )
         `)
         .eq("event_id", eventId)
-        .eq("organizer_id", organizer.id)
+        .eq("organizer_id", currentOrganizerId)
         .order("created_at", { ascending: false })
 
       if (error) {
