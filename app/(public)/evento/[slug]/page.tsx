@@ -61,7 +61,7 @@ function EventoLandingPageContent() {
       dataEvento: "Data do Evento",
       horarioInicio: "Horário de Início",
       location: "Localização",
-      available: "disponíveis",
+      available: "restantes",
       unlimited: "Ilimitado",
       free: "Gratuito",
       serviceFee: "Taxa de serviço",
@@ -94,7 +94,7 @@ function EventoLandingPageContent() {
       dataEvento: "Fecha del Evento",
       horarioInicio: "Horario de Inicio",
       location: "Ubicación",
-      available: "disponibles",
+      available: "restantes",
       unlimited: "Ilimitado",
       free: "Gratuito",
       serviceFee: "Costo de servicio",
@@ -127,7 +127,7 @@ function EventoLandingPageContent() {
       dataEvento: "Event Date",
       horarioInicio: "Start Time",
       location: "Location",
-      available: "available",
+      available: "remaining",
       unlimited: "Unlimited",
       free: "Free",
       serviceFee: "Service fee",
@@ -678,7 +678,7 @@ function EventoLandingPageContent() {
                       {selectedBatch.tickets && (
                         <p className="text-xs text-gray-600">
                           <span className="font-medium text-gray-700">
-                            {language === 'pt' ? 'Disponíveis: ' : language === 'en' ? 'Available: ' : 'Disponibles: '}
+                            {language === 'pt' ? 'Restantes: ' : language === 'en' ? 'Remaining: ' : 'Restantes: '}
                           </span>
                           {selectedBatch.total_quantity === null || selectedBatch.total_quantity === undefined
                             ? translations[language].unlimited || "Ilimitado"
