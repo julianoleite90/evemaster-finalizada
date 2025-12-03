@@ -46,7 +46,7 @@ export default function MyProfilePage() {
 
         logger.log("🔍 [Profile] Buscando dados do usuário:", user.id)
 
-        // Buscar dados do usuário - buscar explicitamente todos os campos
+        // Buscar dados do usuário (tabela users)
         const { data: userData, error } = await supabase
           .from("users")
           .select(`
@@ -55,21 +55,29 @@ export default function MyProfilePage() {
             full_name,
             phone,
             cpf,
-            age,
-            gender,
             address,
             address_number,
             address_complement,
             neighborhood,
             city,
             state,
-            zip_code,
+            zip_code
+          `)
+          .eq("id", user.id)
+          .single()
+
+        // Buscar dados adicionais da tabela athletes (se existir)
+        const { data: athleteData } = await supabase
+          .from("athletes")
+          .select(`
+            age,
+            gender,
             country,
             emergency_contact_name,
             emergency_contact_phone
           `)
-          .eq("id", user.id)
-          .single()
+          .eq("user_id", user.id)
+          .maybeSingle()
 
         logger.log("📊 [Profile] Dados retornados do banco:", userData)
         logger.log("📊 [Profile] Erro (se houver):", error)
@@ -87,8 +95,8 @@ export default function MyProfilePage() {
             email: user.email || "",
             phone: userData.phone || "",
             cpf: userData.cpf || "",
-            age: userData.age?.toString() || "",
-            gender: userData.gender || "",
+            age: athleteData?.age?.toString() || "",
+            gender: athleteData?.gender || "",
             address: userData.address || "",
             address_number: userData.address_number || "",
             address_complement: userData.address_complement || "",
@@ -96,9 +104,9 @@ export default function MyProfilePage() {
             city: userData.city || "",
             state: userData.state || "",
             zip_code: userData.zip_code || "",
-            country: userData.country || "",
-            emergency_contact_name: userData.emergency_contact_name || "",
-            emergency_contact_phone: userData.emergency_contact_phone || "",
+            country: athleteData?.country || "",
+            emergency_contact_name: athleteData?.emergency_contact_name || "",
+            emergency_contact_phone: athleteData?.emergency_contact_phone || "",
           })
         } else {
           logger.log("ℹ️ [Profile] Usuário não encontrado na tabela users, usando metadados")
@@ -160,8 +168,8 @@ export default function MyProfilePage() {
         zip_code: userData.zip_code,
       })
 
-      // Atualizar dados na tabela users
-      const { error } = await supabase
+      // Atualizar dados na tabela users (campos básicos)
+      const { error: userError } = await supabase
         .from("users")
         .upsert({
           id: user.id,
@@ -169,8 +177,6 @@ export default function MyProfilePage() {
           full_name: userData.full_name,
           phone: userData.phone?.replace(/\D/g, '') || null,
           cpf: userData.cpf?.replace(/\D/g, '') || null,
-          age: userData.age ? parseInt(userData.age) : null,
-          gender: userData.gender || null,
           address: userData.address || null,
           address_number: userData.address_number || null,
           address_complement: userData.address_complement || null,
@@ -178,20 +184,39 @@ export default function MyProfilePage() {
           city: userData.city || null,
           state: userData.state || null,
           zip_code: userData.zip_code?.replace(/\D/g, '') || null,
-          country: userData.country || null,
-          emergency_contact_name: userData.emergency_contact_name || null,
-          emergency_contact_phone: userData.emergency_contact_phone?.replace(/\D/g, '') || null,
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'id'
         })
 
-      logger.log("💾 [Profile] Resultado do upsert:", error ? { error } : "sucesso")
+      logger.log("💾 [Profile] Resultado do upsert users:", userError ? { error: userError } : "sucesso")
 
-      if (error) {
-        logger.error("Erro ao salvar:", error)
+      if (userError) {
+        logger.error("Erro ao salvar dados do usuário:", userError)
         toast.error("Erro ao salvar dados")
         return
+      }
+
+      // Atualizar dados na tabela athletes (campos adicionais)
+      const { error: athleteError } = await supabase
+        .from("athletes")
+        .upsert({
+          user_id: user.id,
+          email: user.email,
+          full_name: userData.full_name,
+          age: userData.age ? parseInt(userData.age) : null,
+          gender: userData.gender || null,
+          country: userData.country || null,
+          emergency_contact_name: userData.emergency_contact_name || null,
+          emergency_contact_phone: userData.emergency_contact_phone?.replace(/\D/g, '') || null,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id'
+        })
+
+      if (athleteError) {
+        logger.warn("Aviso ao salvar dados do atleta:", athleteError)
+        // Não falhar se não conseguir salvar na tabela athletes
       }
 
       toast.success("Perfil atualizado com sucesso!")
