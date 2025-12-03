@@ -78,7 +78,7 @@ function RegistrationsPageContent() {
   const [clubesList, setClubesList] = useState<Array<{ id: string; name: string }>>([])
   const [couponsList, setCouponsList] = useState<Array<{ code: string }>>([])
   const [affiliatesList, setAffiliatesList] = useState<Array<{ id: string; name: string }>>([])
-  const [showFilters, setShowFilters] = useState(true)
+  const [showFilters, setShowFilters] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [loading, setLoading] = useState(true)
   const [registrations, setRegistrations] = useState<Registration[]>([])

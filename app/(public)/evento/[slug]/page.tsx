@@ -40,6 +40,7 @@ function EventoLandingPageContent() {
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
   const [language, setLanguage] = useState<"pt" | "es" | "en">("pt")
   const [showShareMenu, setShowShareMenu] = useState(false)
+  const [batchSoldCount, setBatchSoldCount] = useState<{ [batchId: string]: number }>({})
   const translations = {
     pt: {
       eventInfo: "Informações do Evento",
@@ -255,6 +256,22 @@ function EventoLandingPageContent() {
         // Selecionar primeiro lote ativo por padrão
         if (event.ticket_batches && Array.isArray(event.ticket_batches) && event.ticket_batches.length > 0) {
           setSelectedBatch(event.ticket_batches[0])
+          
+          // Buscar quantidade vendida por lote (inscrições pagas e pendentes)
+          const batchIds = event.ticket_batches.map((b: any) => b.id)
+          const { data: registrations } = await supabase
+            .from("registrations")
+            .select("batch_id")
+            .in("batch_id", batchIds)
+            .in("status", ["paid", "pending"])
+          
+          if (registrations) {
+            const soldByBatch: { [batchId: string]: number } = {}
+            registrations.forEach((reg: any) => {
+              soldByBatch[reg.batch_id] = (soldByBatch[reg.batch_id] || 0) + 1
+            })
+            setBatchSoldCount(soldByBatch)
+          }
         }
         
         // Carregar dados completos do organizador de forma não-bloqueante (após renderizar)
@@ -682,7 +699,7 @@ function EventoLandingPageContent() {
                           </span>
                           {selectedBatch.total_quantity === null || selectedBatch.total_quantity === undefined
                             ? translations[language].unlimited || "Ilimitado"
-                            : selectedBatch.total_quantity}
+                            : Math.max(0, selectedBatch.total_quantity - (batchSoldCount[selectedBatch.id] || 0))}
                         </p>
                       )}
                 </div>
