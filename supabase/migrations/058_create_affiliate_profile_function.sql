@@ -2,6 +2,9 @@
 -- Date: 2025-12-03
 -- Esta função é necessária para o formulário de registro criar perfis de afiliado
 
+-- Dropar função existente se houver (para permitir mudança de tipo de retorno)
+DROP FUNCTION IF EXISTS create_affiliate_profile(uuid, text);
+
 -- Função para criar perfil de afiliado (com SECURITY DEFINER para bypass RLS)
 CREATE OR REPLACE FUNCTION create_affiliate_profile(
   p_user_id UUID,
