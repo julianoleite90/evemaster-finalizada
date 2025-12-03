@@ -140,13 +140,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verificar se o usuário já existe
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('id, email')
-      .eq('email', email.toLowerCase())
-      .maybeSingle()
-
     // Buscar data do evento se necessário
     let eventDate: string | undefined = undefined
     if (event.event_date) {
@@ -163,7 +156,7 @@ export async function POST(request: NextRequest) {
         : `R$ ${commission_value.toFixed(2)}`,
       tipoComissao: commission_type,
       token,
-      usuarioExiste: !!existingUser,
+      usuarioExiste: false, // Simplificado - sempre trata como novo usuário
     })
 
     if (!emailResult.success) {
@@ -175,7 +168,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Convite criado e email enviado com sucesso',
       invite_id: invite.id,
-      user_exists: !!existingUser,
+      user_exists: false,
       email_sent: emailResult.success,
     })
 
