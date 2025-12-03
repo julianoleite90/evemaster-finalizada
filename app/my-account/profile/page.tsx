@@ -197,26 +197,53 @@ export default function MyProfilePage() {
         return
       }
 
-      // Atualizar dados na tabela athletes (campos adicionais)
-      const { error: athleteError } = await supabase
+      // Atualizar dados na tabela athletes (campos adicionais: idade, gênero, emergência)
+      const athleteData = {
+        user_id: user.id,
+        email: user.email,
+        full_name: userData.full_name,
+        age: userData.age ? parseInt(userData.age) : null,
+        gender: userData.gender || null,
+        country: userData.country || null,
+        emergency_contact_name: userData.emergency_contact_name || null,
+        emergency_contact_phone: userData.emergency_contact_phone?.replace(/\D/g, '') || null,
+        updated_at: new Date().toISOString(),
+      }
+      
+      logger.log("💾 [Profile] Salvando dados do atleta:", athleteData)
+
+      // Verificar se já existe registro em athletes
+      const { data: existingAthlete } = await supabase
         .from("athletes")
-        .upsert({
-          user_id: user.id,
-          email: user.email,
-          full_name: userData.full_name,
-          age: userData.age ? parseInt(userData.age) : null,
-          gender: userData.gender || null,
-          country: userData.country || null,
-          emergency_contact_name: userData.emergency_contact_name || null,
-          emergency_contact_phone: userData.emergency_contact_phone?.replace(/\D/g, '') || null,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id'
-        })
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle()
+
+      let athleteError: any = null
+
+      if (existingAthlete) {
+        // Atualizar registro existente
+        logger.log("💾 [Profile] Atleta existe, atualizando...")
+        const { error } = await supabase
+          .from("athletes")
+          .update(athleteData)
+          .eq("user_id", user.id)
+        athleteError = error
+      } else {
+        // Criar novo registro
+        logger.log("💾 [Profile] Atleta não existe, criando...")
+        const { error } = await supabase
+          .from("athletes")
+          .insert(athleteData)
+        athleteError = error
+      }
+
+      logger.log("💾 [Profile] Resultado athletes:", athleteError ? { error: athleteError } : "sucesso")
 
       if (athleteError) {
-        logger.warn("Aviso ao salvar dados do atleta:", athleteError)
-        // Não falhar se não conseguir salvar na tabela athletes
+        logger.error("Erro ao salvar dados do atleta:", athleteError)
+        // Mostrar aviso mas não falhar completamente
+        toast.warning("Dados básicos salvos, mas alguns campos não foram salvos")
       }
 
       toast.success("Perfil atualizado com sucesso!")
