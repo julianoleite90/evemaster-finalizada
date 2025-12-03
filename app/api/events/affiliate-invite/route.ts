@@ -1,3 +1,4 @@
+// API para convidar afiliados para eventos
 import { apiLogger as logger } from "@/lib/utils/logger"
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
