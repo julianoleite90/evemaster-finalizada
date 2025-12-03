@@ -25,7 +25,8 @@ interface Event {
   commission_type: 'percentage' | 'fixed'
   commission_value: number
   organizer?: {
-    name: string
+    id: string
+    company_name: string
   }
 }
 
