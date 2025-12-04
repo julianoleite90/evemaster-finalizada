@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
           location,
           organizer:organizers(
             id,
-            company_name
+            name
           )
         )
       `)
