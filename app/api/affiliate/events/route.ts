@@ -22,48 +22,72 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Afiliado não encontrado' }, { status: 404 })
     }
 
-    // Buscar eventos onde o afiliado tem comissão configurada
+    // Buscar comissões do afiliado
     const { data: commissions, error: commissionsError } = await supabase
       .from('event_affiliate_commissions')
-      .select(`
-        *,
-        event:events(
-          id,
-          name,
-          slug,
-          event_date,
-          banner_image_url,
-          description,
-          location,
-          organizer:organizers(
-            id,
-            company_name,
-            fantasy_name
-          )
-        )
-      `)
+      .select('event_id, commission_type, commission_value')
       .eq('affiliate_id', affiliate.id)
 
     if (commissionsError) {
-      logger.error('Erro ao buscar eventos:', commissionsError)
+      logger.error('Erro ao buscar comissões:', commissionsError)
       return NextResponse.json({ error: 'Erro ao buscar eventos' }, { status: 500 })
     }
 
-    logger.log(`[Affiliate Events] Encontradas ${commissions?.length || 0} comissões para afiliado ${affiliate.id}`)
+    if (!commissions || commissions.length === 0) {
+      logger.log(`[Affiliate Events] Nenhuma comissão encontrada para afiliado ${affiliate.id}`)
+      return NextResponse.json({ events: [] })
+    }
 
-    // Formatar dados e filtrar eventos nulos (caso o evento tenha sido deletado)
+    logger.log(`[Affiliate Events] Encontradas ${commissions.length} comissões para afiliado ${affiliate.id}`)
+
+    // Buscar eventos separadamente
+    const eventIds = commissions.map(c => c.event_id)
+    const { data: eventsData, error: eventsError } = await supabase
+      .from('events')
+      .select('id, name, slug, event_date, banner_image_url, description, location, organizer_id')
+      .in('id', eventIds)
+
+    if (eventsError) {
+      logger.error('Erro ao buscar eventos:', eventsError)
+      return NextResponse.json({ error: 'Erro ao buscar eventos' }, { status: 500 })
+    }
+
+    // Buscar organizadores dos eventos
+    const organizerIds = [...new Set(eventsData?.map(e => e.organizer_id).filter(Boolean) || [])]
+    let organizersMap: Record<string, any> = {}
+    
+    if (organizerIds.length > 0) {
+      const { data: organizersData, error: organizersError } = await supabase
+        .from('organizers')
+        .select('id, company_name, fantasy_name')
+        .in('id', organizerIds)
+
+      if (!organizersError && organizersData) {
+        organizersMap = organizersData.reduce((acc, org) => {
+          acc[org.id] = org
+          return acc
+        }, {} as Record<string, any>)
+      }
+    }
+
+    // Combinar dados
     const events = commissions
-      ?.filter(comm => comm.event !== null) // Filtrar eventos que não existem mais
-      .map(comm => ({
-        ...comm.event,
-        commission_type: comm.commission_type,
-        commission_value: comm.commission_value,
-        organizer: comm.event?.organizer ? {
-          id: comm.event.organizer.id,
-          company_name: comm.event.organizer.company_name,
-          fantasy_name: comm.event.organizer.fantasy_name,
-        } : null,
-      })) || []
+      .map(comm => {
+        const event = eventsData?.find(e => e.id === comm.event_id)
+        if (!event) return null
+
+        return {
+          ...event,
+          commission_type: comm.commission_type,
+          commission_value: comm.commission_value,
+          organizer: event.organizer_id && organizersMap[event.organizer_id] ? {
+            id: organizersMap[event.organizer_id].id,
+            company_name: organizersMap[event.organizer_id].company_name,
+            fantasy_name: organizersMap[event.organizer_id].fantasy_name,
+          } : null,
+        }
+      })
+      .filter(Boolean) as any[]
 
     logger.log(`[Affiliate Events] Retornando ${events.length} eventos para afiliado ${affiliate.id}`)
 
