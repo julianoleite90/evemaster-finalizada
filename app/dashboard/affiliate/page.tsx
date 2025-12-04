@@ -63,6 +63,12 @@ export default function AffiliateDashboard() {
       if (eventsRes.ok) {
         const eventsData = await eventsRes.json()
         setEvents(eventsData.events || [])
+      } else {
+        const errorData = await eventsRes.json().catch(() => ({}))
+        logger.error('Erro ao buscar eventos:', errorData)
+        if (eventsRes.status !== 404) {
+          toast.error('Erro ao carregar eventos')
+        }
       }
 
       // Buscar estatísticas

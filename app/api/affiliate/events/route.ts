@@ -37,7 +37,8 @@ export async function GET(request: NextRequest) {
           location,
           organizer:organizers(
             id,
-            name
+            company_name,
+            fantasy_name
           )
         )
       `)
@@ -48,12 +49,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Erro ao buscar eventos' }, { status: 500 })
     }
 
-    // Formatar dados
-    const events = commissions?.map(comm => ({
-      ...comm.event,
-      commission_type: comm.commission_type,
-      commission_value: comm.commission_value,
-    })) || []
+    logger.log(`[Affiliate Events] Encontradas ${commissions?.length || 0} comissões para afiliado ${affiliate.id}`)
+
+    // Formatar dados e filtrar eventos nulos (caso o evento tenha sido deletado)
+    const events = commissions
+      ?.filter(comm => comm.event !== null) // Filtrar eventos que não existem mais
+      .map(comm => ({
+        ...comm.event,
+        commission_type: comm.commission_type,
+        commission_value: comm.commission_value,
+        organizer: comm.event?.organizer ? {
+          id: comm.event.organizer.id,
+          company_name: comm.event.organizer.company_name,
+          fantasy_name: comm.event.organizer.fantasy_name,
+        } : null,
+      })) || []
+
+    logger.log(`[Affiliate Events] Retornando ${events.length} eventos para afiliado ${affiliate.id}`)
 
     return NextResponse.json({ events })
   } catch (error: any) {
