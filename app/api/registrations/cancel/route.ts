@@ -231,7 +231,11 @@ export async function POST(request: NextRequest) {
     // Enviar email de notificação (se configurado)
     if (athlete?.email) {
       try {
-        await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/emails/cancellation`, {
+        // Construir URL base a partir do request (funciona em produção e desenvolvimento)
+        const origin = request.nextUrl.origin
+        const emailUrl = `${origin}/api/emails/cancellation`
+        
+        await fetch(emailUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
