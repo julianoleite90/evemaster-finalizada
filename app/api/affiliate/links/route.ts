@@ -33,11 +33,25 @@ export async function GET(request: NextRequest) {
           name,
           slug,
           event_date,
-          banner_image_url
+          banner_url
         )
       `)
       .eq('affiliate_id', affiliate.id)
       .order('created_at', { ascending: false })
+
+    if (linksError) {
+      logger.error('Erro ao buscar links:', linksError)
+      return NextResponse.json({ error: 'Erro ao buscar links' }, { status: 500 })
+    }
+
+    // Normalizar nome do campo banner_url para banner_image_url
+    const normalizedLinks = links?.map(link => ({
+      ...link,
+      event: link.event ? {
+        ...link.event,
+        banner_image_url: link.event.banner_url,
+      } : null,
+    })) || []
 
     if (linksError) {
       logger.error('Erro ao buscar links:', linksError)

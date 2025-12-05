@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
           name,
           slug,
           event_date,
-          banner_image_url
+          banner_url
         )
       `)
       .eq('affiliate_id', affiliate.id)
@@ -43,7 +43,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Erro ao buscar cupons' }, { status: 500 })
     }
 
-    return NextResponse.json({ coupons: coupons || [] })
+    // Normalizar nome do campo banner_url para banner_image_url
+    const normalizedCoupons = coupons?.map(coupon => ({
+      ...coupon,
+      event: coupon.event ? {
+        ...coupon.event,
+        banner_image_url: coupon.event.banner_url,
+      } : null,
+    })) || []
+
+    return NextResponse.json({ coupons: normalizedCoupons })
   } catch (error: any) {
     logger.error('Erro ao buscar cupons:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
