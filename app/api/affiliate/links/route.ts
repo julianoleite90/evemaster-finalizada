@@ -53,12 +53,7 @@ export async function GET(request: NextRequest) {
       } : null,
     })) || []
 
-    if (linksError) {
-      logger.error('Erro ao buscar links:', linksError)
-      return NextResponse.json({ error: 'Erro ao buscar links' }, { status: 500 })
-    }
-
-    return NextResponse.json({ links: links || [] })
+    return NextResponse.json({ links: normalizedLinks })
   } catch (error: any) {
     logger.error('Erro ao buscar links:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
